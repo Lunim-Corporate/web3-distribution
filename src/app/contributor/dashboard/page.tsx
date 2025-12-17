@@ -12,6 +12,7 @@ export default function ContributorDashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [revenue, setRevenue] = useState<Revenue[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!user) {
@@ -38,7 +39,10 @@ export default function ContributorDashboardPage() {
         setRevenue(userRevenue);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err: any) => {
+        setError(err.message || 'Failed to load data');
+        setLoading(false);
+      });
   }, [user, router]);
 
   if (!user || (user.role !== 'contributor' && user.role !== 'admin')) {
@@ -53,14 +57,37 @@ export default function ContributorDashboardPage() {
     <ContributorLayout>
       <div className="space-y-6">
         {/* Welcome Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            Welcome back, {user.name}!
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            Here's an overview of your contributions and earnings.
-          </p>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Welcome back, {user.name}!
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400">
+              Here's an overview of your contributions and earnings.
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={() => router.push('/contributor/revenue')}
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg"
+            >
+              Go to Earnings
+            </button>
+            <button
+              onClick={() => router.push('/contributor/payouts')}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+            >
+              Withdraw
+            </button>
+          </div>
         </div>
+
+        {error && (
+          <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-200 rounded-lg p-4">
+            <p className="font-semibold">Error loading data</p>
+            <p className="text-sm">{error}</p>
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

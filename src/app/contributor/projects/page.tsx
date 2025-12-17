@@ -11,6 +11,7 @@ export default function ContributorProjectsPage() {
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!user) {
@@ -23,7 +24,10 @@ export default function ContributorProjectsPage() {
     }
 
     fetch('/api/projects')
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error('Failed to load projects');
+        return r.json();
+      })
       .then((data: Project[]) => {
         const userProjects = data.filter(p =>
           p.contributors.some(c => c.email === user.email)
@@ -31,7 +35,10 @@ export default function ContributorProjectsPage() {
         setProjects(userProjects);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch((err: any) => {
+        setError(err.message || 'Failed to load projects');
+        setLoading(false);
+      });
   }, [user, router]);
 
   if (!user || (user.role !== 'contributor' && user.role !== 'admin')) {
@@ -53,6 +60,17 @@ export default function ContributorProjectsPage() {
         {loading ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <p className="text-gray-600 dark:text-gray-400">Loading projects...</p>
+          </div>
+        ) : error ? (
+          <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-200 rounded-lg p-4">
+            <p className="font-semibold">Error</p>
+            <p className="text-sm">{error}</p>
+            <button
+              onClick={() => router.refresh()}
+              className="mt-3 px-4 py-2 text-sm font-medium bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-100 rounded-lg"
+            >
+              Refresh
+            </button>
           </div>
         ) : projects.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
@@ -114,6 +132,20 @@ export default function ContributorProjectsPage() {
                         </div>
                       </div>
                     )}
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <button
+                        onClick={() => router.push(`/contributor/revenue?projectId=${project.id}`)}
+                        className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        View Earnings
+                      </button>
+                      <button
+                        onClick={() => router.push(`/contributor/dashboard?projectId=${project.id}`)}
+                        className="text-sm text-gray-700 dark:text-gray-200 hover:underline"
+                      >
+                        View Rights
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
