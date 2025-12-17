@@ -31,6 +31,9 @@ Built for filmmakers, musicians, designers, digital agencies, and NFT creators w
 
 ## 🏗️ Architecture Overview
 
+
+
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    FRONTEND LAYER                            │
