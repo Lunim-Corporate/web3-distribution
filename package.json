@@ -12,7 +12,8 @@
     "test:gas": "REPORT_GAS=true hardhat test",
     "deploy:mumbai": "hardhat run scripts/deploy.js --network mumbai",
     "deploy:local": "hardhat run scripts/deploy.js --network hardhat",
-    "verify:mumbai": "hardhat run scripts/verify.js mumbai"
+    "verify:mumbai": "hardhat run scripts/verify.js mumbai",
+    "dev:clean": "rm -rf .next && next dev"
   },
   "dependencies": {
     "@tailwindcss/forms": "^0.5.4",
