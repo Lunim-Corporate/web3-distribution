@@ -13,18 +13,6 @@ Built for filmmakers, musicians, designers, digital agencies, and NFT creators w
 ---
 
 ## 🌟 What Makes V2.0 Different
-
-### Enterprise-Grade Blockchain Abstraction
-**No more raw Web3 calls in your UI.** V2.0 implements a complete service-layer architecture that abstracts blockchain complexity:
-
-```typescript
-// ❌ Before (V1): Direct blockchain calls in components
-const contract = new ethers.Contract(address, abi, signer);
-await contract.distributeRevenue(projectId, { value: amount });
-
-// ✅ After (V2): Clean business logic
-const contractService = ContractService.getInstance();
-await contractService.distributeRevenue(contractAddress, abi, projectId, amount);
 ```
 
 ### Hybrid Revenue Engine
