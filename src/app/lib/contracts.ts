@@ -11,6 +11,12 @@ export const NETWORK_CONFIG = {
     rpcUrl: process.env.NEXT_PUBLIC_POLYGON_RPC_URL || 'https://polygon-rpc.com/',
     blockExplorer: 'https://polygonscan.com',
   },
+  amoy: {
+    chainId: 80002,
+    name: 'Polygon Amoy',
+    rpcUrl: process.env.NEXT_PUBLIC_AMOY_RPC_URL || 'https://rpc-amoy.polygon.technology/',
+    blockExplorer: 'https://amoy.polygonscan.com',
+  },
   mumbai: {
     chainId: 80001,
     name: 'Polygon Mumbai',
@@ -33,6 +39,10 @@ export const CONTRACT_ADDRESSES = {
   polygon: {
     ProjectRegistry: process.env.NEXT_PUBLIC_POLYGON_PROJECT_REGISTRY || '',
     RevenueDistributor: process.env.NEXT_PUBLIC_POLYGON_REVENUE_DISTRIBUTOR || '',
+  },
+  amoy: {
+    ProjectRegistry: process.env.NEXT_PUBLIC_AMOY_PROJECT_REGISTRY || '',
+    RevenueDistributor: process.env.NEXT_PUBLIC_AMOY_REVENUE_DISTRIBUTOR || '',
   },
   mumbai: {
     ProjectRegistry: process.env.NEXT_PUBLIC_MUMBAI_PROJECT_REGISTRY || '',
@@ -61,7 +71,11 @@ export const getContractAddress = (
 export const getNetworkConfig = (
   network: keyof typeof NETWORK_CONFIG = FEATURE_FLAGS.DEFAULT_NETWORK
 ) => {
-  return NETWORK_CONFIG[network];
+  return (
+    NETWORK_CONFIG[network] ||
+    NETWORK_CONFIG[FEATURE_FLAGS.DEFAULT_NETWORK] ||
+    NETWORK_CONFIG.mumbai
+  );
 };
 
 export const isContractDeployed = (

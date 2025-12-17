@@ -18,31 +18,50 @@ export class WalletService extends BaseService {
   }
 
   async linkAccount(): Promise<WalletInfo> {
+    if (typeof window === 'undefined') {
+      throw new Error('Window is not defined. This function must be called in a browser environment.');
+    }
+
+    if (!window.ethereum) {
+      throw new Error('MetaMask is not available');
+    }
+
     try {
-      if (typeof window === 'undefined') {
-        throw new Error('Window is not defined. This function must be called in a browser environment.');
-      }
-
-      if (!window.ethereum) {
-        throw new Error('MetaMask or Web3 wallet not detected. Please install MetaMask to continue.');
-      }
-
       const accounts = await window.ethereum.request({
         method: 'eth_requestAccounts',
-      }).catch((err: any) => {
-        if (err.code === 4001) {
-          throw new Error('User rejected the connection request.');
-        }
-        throw err;
       });
 
       if (!accounts || accounts.length === 0) {
         throw new Error('No accounts found. Please unlock your wallet and try again.');
       }
 
-      return await this.getWalletInfo();
+      await this.initializeProvider();
+      if (!this.provider) {
+        throw new Error('MetaMask is not available');
+      }
+
+      // Reset signer to ensure we pick up the newly authorized account
+      this.signer = null;
+
+      const [network, balance] = await Promise.all([
+        this.provider.getNetwork(),
+        this.provider.getBalance(accounts[0]),
+      ]);
+
+      return {
+        address: accounts[0],
+        balance: ethers.formatEther(balance),
+        chainId: Number(network.chainId),
+        networkName: this.getNetworkName(Number(network.chainId)),
+        isConnected: true,
+      };
     } catch (error: any) {
       console.error('[WalletService] linkAccount error:', error);
+
+      if (error?.code === 4001 || error?.message?.toLowerCase().includes('user rejected')) {
+        throw error;
+      }
+
       throw this.handleError(error, error.message || 'Failed to link account');
     }
   }
@@ -135,6 +154,7 @@ export class WalletService extends BaseService {
       5: 'Goerli Testnet',
       11155111: 'Sepolia Testnet',
       137: 'Polygon Mainnet',
+      80002: 'Polygon Amoy',
       80001: 'Polygon Mumbai',
       56: 'BSC Mainnet',
       97: 'BSC Testnet',
@@ -159,6 +179,13 @@ export class WalletService extends BaseService {
         chainName: 'Polygon Mainnet',
         rpcUrls: ['https://polygon-rpc.com/'],
         blockExplorerUrls: ['https://polygonscan.com/'],
+        nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
+      },
+      80002: {
+        chainId: '0x13882',
+        chainName: 'Polygon Amoy',
+        rpcUrls: [process.env.NEXT_PUBLIC_AMOY_RPC_URL || 'https://rpc-amoy.polygon.technology/'],
+        blockExplorerUrls: ['https://amoy.polygonscan.com/'],
         nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
       },
       80001: {

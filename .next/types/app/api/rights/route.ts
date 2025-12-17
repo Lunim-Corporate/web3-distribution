@@ -1,4 +1,4 @@
-// File: /workspaces/web3-distribution/src/app/api/rights/route.ts
+// File: /home/emma/Documents/Internship/present/web3-distribution/src/app/api/rights/route.ts
 import * as entry from '../../../../../src/app/api/rights/route.js'
 import type { NextRequest } from 'next/server.js'
 
