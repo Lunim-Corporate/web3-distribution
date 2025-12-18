@@ -1,7 +1,11 @@
 import { ethers } from 'ethers';
+import { toast } from 'react-hot-toast';
 import { BaseService } from './BaseService';
 import { WalletInfo, NetworkConfig } from './types';
 import { ErrorHandler } from './ErrorHandler';
+
+const AMOY_CHAIN_ID = 80002;
+const AMOY_CHAIN_HEX = '0x13882';
 
 export class WalletService extends BaseService {
   private static instance: WalletService;
@@ -19,11 +23,16 @@ export class WalletService extends BaseService {
 
   async linkAccount(): Promise<WalletInfo> {
     if (typeof window === 'undefined') {
-      throw new Error('Window is not defined. This function must be called in a browser environment.');
+      const error = new Error('Window is not defined. This function must be called in a browser environment.');
+      console.error('[WalletService] linkAccount error:', error);
+      throw error;
     }
 
     if (!window.ethereum) {
-      throw new Error('MetaMask is not available');
+      const error = new Error('MetaMask is not available');
+      toast.error('MetaMask is not installed. Please install MetaMask to continue.');
+      console.error('[WalletService] linkAccount error:', error);
+      throw error;
     }
 
     try {
@@ -37,20 +46,31 @@ export class WalletService extends BaseService {
 
       await this.initializeProvider();
       if (!this.provider) {
-        throw new Error('MetaMask is not available');
+        const error = new Error('MetaMask is not available');
+        toast.error('MetaMask is not installed. Please install MetaMask to continue.');
+        console.error('[WalletService] linkAccount error:', error);
+        throw error;
       }
 
       // Reset signer to ensure we pick up the newly authorized account
       this.signer = null;
 
-      const [network, balance] = await Promise.all([
-        this.provider.getNetwork(),
-        this.provider.getBalance(accounts[0]),
-      ]);
+      await this.ensureNetwork(AMOY_CHAIN_ID);
+
+      const network = await this.provider.getNetwork();
+
+      let balance = '0';
+      try {
+        const fetchedBalance = await this.provider.getBalance(accounts[0]);
+        balance = ethers.formatEther(fetchedBalance);
+      } catch (balanceError) {
+        console.warn('[WalletService] balance fetch warning:', balanceError);
+        toast('Wallet connected, balance temporarily unavailable (RPC busy)', { icon: '⚠️' });
+      }
 
       return {
         address: accounts[0],
-        balance: ethers.formatEther(balance),
+        balance,
         chainId: Number(network.chainId),
         networkName: this.getNetworkName(Number(network.chainId)),
         isConnected: true,
@@ -69,20 +89,31 @@ export class WalletService extends BaseService {
   async getWalletInfo(): Promise<WalletInfo> {
     try {
       await this.ensureConnection();
+      await this.ensureNetwork(AMOY_CHAIN_ID);
 
       const signer = await this.getSigner();
       const address = await signer.getAddress();
-      const balance = await this.provider!.getBalance(address);
+
+      let balance = '0';
+      try {
+        const fetchedBalance = await this.provider!.getBalance(address);
+        balance = ethers.formatEther(fetchedBalance);
+      } catch (balanceError) {
+        console.warn('[WalletService] balance fetch warning:', balanceError);
+        toast('Wallet connected, balance temporarily unavailable (RPC busy)', { icon: '⚠️' });
+      }
+
       const network = await this.provider!.getNetwork();
 
       return {
         address,
-        balance: ethers.formatEther(balance),
+        balance,
         chainId: Number(network.chainId),
         networkName: this.getNetworkName(Number(network.chainId)),
         isConnected: true,
       };
     } catch (error) {
+      console.error('[WalletService] getWalletInfo error:', error);
       throw this.handleError(error, 'Failed to get wallet info');
     }
   }
@@ -96,6 +127,7 @@ export class WalletService extends BaseService {
         await this.switchNetwork(requiredChainId);
       }
     } catch (error) {
+      console.error('[WalletService] ensureNetwork error:', error);
       throw this.handleError(error, 'Failed to ensure network');
     }
   }
@@ -103,36 +135,50 @@ export class WalletService extends BaseService {
   async switchNetwork(chainId: number): Promise<void> {
     try {
       if (typeof window === 'undefined' || !window.ethereum) {
+        toast.error('MetaMask is not installed. Please install MetaMask to continue.');
         throw new Error('Wallet not available');
       }
 
-      const hexChainId = `0x${chainId.toString(16)}`;
-      
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: hexChainId }],
-      }).catch(async (error: any) => {
-        // Network not added to wallet
-        if (error.code === 4902) {
+      const hexChainId = chainId === AMOY_CHAIN_ID ? AMOY_CHAIN_HEX : `0x${chainId.toString(16)}`;
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: hexChainId }],
+        });
+        return;
+      } catch (error: any) {
+        if (error?.code === 4902) {
           const networkConfig = this.getNetworkConfig(chainId);
-          if (networkConfig) {
-            await this.addNetwork(networkConfig);
-            // Try switching again after adding
-            await window.ethereum.request({
-              method: 'wallet_switchEthereumChain',
-              params: [{ chainId: hexChainId }],
-            });
-          } else {
-            throw new Error(`Network ${chainId} is not supported`);
+          if (!networkConfig) {
+            const unsupportedError = new Error(`Network ${chainId} is not supported`);
+            throw unsupportedError;
           }
-        } else if (error.code === 4001) {
-          throw new Error('User rejected network switch request');
-        } else {
+
+          await this.addNetwork(networkConfig);
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: hexChainId }],
+          });
+          return;
+        }
+
+        if (error?.code === 4001) {
+          const networkName = this.getNetworkName(chainId);
+          toast.error(`Please switch to ${networkName} to continue.`);
           throw error;
         }
-      });
+
+        throw error;
+      }
     } catch (error: any) {
-      console.error('[WalletService] switchNetwork error:', error);
+      const isServiceError =
+        error?.code && error?.message && Object.prototype.hasOwnProperty.call(error, 'isRetryable');
+      if (!isServiceError) {
+        console.error('[WalletService] switchNetwork error:', error);
+      }
+      if (isServiceError) {
+        throw error;
+      }
       throw this.handleError(error, error.message || 'Failed to switch network');
     }
   }
@@ -144,6 +190,7 @@ export class WalletService extends BaseService {
         params: [config],
       });
     } catch (error) {
+      console.error('[WalletService] addNetwork error:', error);
       throw this.handleError(error, 'Failed to add network');
     }
   }
@@ -230,7 +277,7 @@ export class WalletService extends BaseService {
 
       return accounts || [];
     } catch (error) {
-      console.error('Failed to get accounts:', error);
+      console.error('[WalletService] Failed to get accounts:', error);
       return [];
     }
   }
