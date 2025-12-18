@@ -1,8 +1,10 @@
 import { BaseService } from './BaseService';
+import { FEATURE_FLAGS, getContractAddress, REVENUE_DISTRIBUTOR_ABI } from '@/lib/contracts';
 import { ContractService } from './ContractService';
 import { PaymentService } from './PaymentService';
 import { TransactionService } from './TransactionService';
 import { TransactionReceipt } from './types';
+import { PaymentSplit } from '@/lib/types';
 
 export type DistributionMode = 'mock' | 'testnet' | 'production';
 
@@ -22,6 +24,7 @@ export interface DistributionRequest {
   mode: DistributionMode;
   contractAddress?: string;
   useSmartContract: boolean;
+  revenueSource?: string;
 }
 
 export interface DistributionResult {
@@ -32,6 +35,8 @@ export interface DistributionResult {
   transactions: TransactionReceipt[];
   errors: string[];
   timestamp: number;
+  transactionHash?: string;
+  reference?: string;
 }
 
 export class RevenueDistributionService extends BaseService {
@@ -75,6 +80,143 @@ export class RevenueDistributionService extends BaseService {
   }
 
   async distributeRevenue(request: DistributionRequest): Promise<DistributionResult> {
+    const mode = request.mode || this.currentMode;
+    const configuredAddress = getContractAddress('RevenueDistributor', FEATURE_FLAGS.DEFAULT_NETWORK);
+    const contractAddress = request.contractAddress || configuredAddress;
+    const shouldUseContract = request.useSmartContract && FEATURE_FLAGS.USE_SMART_CONTRACT;
+    const distributedAmount = request.shares.reduce((sum, s) => sum + s.amount, 0);
+    const processingRecord = await this.persistRevenue(request, 'Processing');
+
+    if (shouldUseContract && !contractAddress) {
+      throw new Error('Smart contract mode enabled but RevenueDistributor address is missing');
+    }
+
+    try {
+      if (shouldUseContract && contractAddress) {
+        const receipt = await this.distributeViaContract({
+          ...request,
+          contractAddress,
+        });
+
+        const result: DistributionResult = {
+          success: true,
+          mode,
+          totalAmount: request.totalAmount,
+          distributedAmount,
+          transactions: [receipt],
+          errors: [],
+          timestamp: Date.now(),
+          transactionHash: receipt.hash,
+          reference: receipt.hash,
+        };
+
+        await this.updateRevenueStatus(processingRecord?.id, {
+          status: 'Paid',
+          transactionHash: receipt.hash,
+          splits: request.shares.map((share) => ({
+            contributorId: share.contributorId,
+            contributorName: share.contributorName,
+            amount: share.amount,
+            percentage: share.percentage,
+            status: 'Paid' as PaymentSplit['status'],
+          })),
+        });
+        this.saveDistributionHistory(request, result);
+        return result;
+      }
+
+      const mockRef = `SIM-${Date.now()}`;
+      const result: DistributionResult = {
+        success: true,
+        mode,
+        totalAmount: request.totalAmount,
+        distributedAmount,
+        transactions: [],
+        errors: [],
+        timestamp: Date.now(),
+        transactionHash: mockRef,
+        reference: mockRef,
+      };
+
+      await this.updateRevenueStatus(processingRecord?.id, {
+        status: 'Paid',
+        transactionHash: mockRef,
+        splits: request.shares.map((share) => ({
+          contributorId: share.contributorId,
+          contributorName: share.contributorName,
+          amount: share.amount,
+          percentage: share.percentage,
+          status: 'Paid' as PaymentSplit['status'],
+        })),
+      });
+      this.saveDistributionHistory(request, result);
+      return result;
+    } catch (error) {
+      await this.updateRevenueStatus(processingRecord?.id, { status: 'Pending' });
+      throw this.handleError(error, 'Failed to distribute revenue');
+    }
+  }
+
+  private async persistRevenue(request: DistributionRequest, status: PaymentSplit['status'] | 'Paid' | 'Pending' | 'Processing', txReference?: string): Promise<{ id: string } | null> {
+    const payload = {
+      projectId: request.projectId,
+      projectName: request.projectName,
+      amount: request.totalAmount,
+      status,
+      transactionHash: txReference,
+      source: request.revenueSource || 'Payment Split',
+      splits: request.shares.map(share => ({
+        contributorId: share.contributorId,
+        contributorName: share.contributorName,
+        amount: share.amount,
+        percentage: share.percentage,
+        status,
+      })),
+    };
+
+    const response = await fetch('/api/revenue', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to persist revenue distribution');
+    }
+
+    const created = await response.json();
+    return created?.id ? { id: created.id } : null;
+  }
+
+  private async updateRevenueStatus(id: string | undefined, updates: Record<string, any>): Promise<void> {
+    if (!id) return;
+
+    const response = await fetch('/api/revenue', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...updates }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update revenue distribution status');
+    }
+  }
+
+  private async distributeViaContract(request: DistributionRequest): Promise<TransactionReceipt> {
+    if (!request.contractAddress) {
+      throw new Error('Smart contract mode enabled but RevenueDistributor address is missing');
+    }
+
+    return await this.contractService.distributeRevenue(
+      request.contractAddress,
+      REVENUE_DISTRIBUTOR_ABI,
+      request.projectId,
+      request.totalAmount.toString()
+    );
+  }
+
+  // Legacy paths retained for compatibility
+  async distributeRevenueDeprecated(request: DistributionRequest): Promise<DistributionResult> {
     const mode = request.mode || this.currentMode;
 
     try {
@@ -219,32 +361,6 @@ export class RevenueDistributionService extends BaseService {
 
     this.saveDistributionHistory(request, result);
     return result;
-  }
-
-  private async distributeViaContract(request: DistributionRequest): Promise<TransactionReceipt> {
-    if (!request.contractAddress) {
-      throw new Error('Contract address is required for smart contract distribution');
-    }
-
-    // This would use the actual RevenueDistributor.sol contract
-    // For now, we simulate the contract call
-    const addresses = request.shares.map(s => s.walletAddress);
-    const amounts = request.shares.map(s => s.amount);
-
-    // Simulate contract interaction
-    const mockReceipt: TransactionReceipt = {
-      hash: `0x${Math.random().toString(16).slice(2, 66)}`,
-      from: '0x0000000000000000000000000000000000000000',
-      to: request.contractAddress,
-      value: request.totalAmount.toString(),
-      blockNumber: Math.floor(Math.random() * 1000000),
-      status: 'confirmed' as any,
-      timestamp: Date.now(),
-      gasUsed: '150000',
-      effectiveGasPrice: '20000000000',
-    };
-
-    return mockReceipt;
   }
 
   async distributeFiatRevenue(request: DistributionRequest): Promise<DistributionResult> {

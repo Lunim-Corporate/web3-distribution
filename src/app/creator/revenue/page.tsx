@@ -87,7 +87,9 @@ export default function CreatorRevenuePage() {
 
   const totalEarnings = revenue.reduce((sum, r) => sum + r.amount, 0);
   const paidAmount = revenue.filter(r => r.status === 'Paid').reduce((sum, r) => sum + r.amount, 0);
-  const pendingAmount = revenue.filter(r => r.status === 'Pending').reduce((sum, r) => sum + r.amount, 0);
+  const pendingAmount = revenue
+    .filter(r => r.status === 'Pending' || r.status === 'Processing')
+    .reduce((sum, r) => sum + r.amount, 0);
 
   const handleAddRevenue = async () => {
     if (!addForm.projectId || !addForm.amount) {

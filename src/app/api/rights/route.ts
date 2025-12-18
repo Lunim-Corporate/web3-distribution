@@ -3,7 +3,29 @@ import { mockRights } from '@/data/mockData';
 
 let rightsStore = [...mockRights];
 
+const EXPIRING_SOON_DAYS = 30;
+
+function withDynamicStatus() {
+  const now = new Date();
+  rightsStore = rightsStore.map((right) => {
+    const expires = new Date(right.expirationDate);
+    const diffDays = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    let status = right.status;
+    if (diffDays < 0) {
+      status = 'Expired';
+    } else if (diffDays <= EXPIRING_SOON_DAYS && right.status !== 'Expired') {
+      status = 'Expiring Soon';
+    } else if (right.status !== 'Transferred') {
+      status = 'Active';
+    }
+
+    return { ...right, status };
+  });
+}
+
 export async function GET(request: Request) {
+  withDynamicStatus();
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('userId');
   const status = searchParams.get('status');
@@ -58,4 +80,3 @@ export async function PUT(request: Request) {
   const updated = rightsStore.find(r => r.id === id);
   return NextResponse.json(updated);
 }
-

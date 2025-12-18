@@ -8,10 +8,10 @@ import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { formatCurrency, formatPercentage, calculatePaymentSplit } from '@/lib/utils';
-import { mockProjects, mockRevenue, getProjectContributors } from '@/data/mockData';
+import { mockProjects, getProjectContributors, getUserById } from '@/data/mockData';
 import { useAuth } from '@/lib/auth';
 import { useWallet } from '@/lib/wallet';
-import { PaymentService } from '@/lib/services/PaymentService';
+import { RevenueDistributionService } from '@/lib/services/RevenueDistributionService';
 import { toast } from 'react-hot-toast';
 
 export const PaymentSplitter: React.FC = () => {
@@ -24,7 +24,8 @@ export const PaymentSplitter: React.FC = () => {
   const [calculatedSplits, setCalculatedSplits] = useState<any[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [useSmartContract, setUseSmartContract] = useState(false);
-  const paymentService = PaymentService.getInstance();
+  const [recentDistributions, setRecentDistributions] = useState<any[]>([]);
+  const revenueDistributionService = RevenueDistributionService.getInstance();
 
   const projectOptions = mockProjects.map(project => ({
     value: project.id,
@@ -49,6 +50,26 @@ export const PaymentSplitter: React.FC = () => {
     setCalculatedSplits(splits);
   };
 
+  const loadRecentDistributions = async () => {
+    try {
+      const res = await fetch('/api/revenue');
+      if (!res.ok) return;
+      const data = await res.json();
+      setRecentDistributions(
+        data
+          .filter((r: any) => r.splits && r.splits.length > 0)
+          .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .slice(0, 5)
+      );
+    } catch {
+      setRecentDistributions([]);
+    }
+  };
+
+  React.useEffect(() => {
+    loadRecentDistributions();
+  }, []);
+
   const handleProcessPayment = async () => {
     if (user?.role !== 'admin') {
       toast.error('You do not have permission to process payments');
@@ -56,7 +77,12 @@ export const PaymentSplitter: React.FC = () => {
     }
 
     if (!isConnected) {
-      toast.error('Please connect your wallet first');
+      toast.error('Connect wallet before distributing revenue');
+      return;
+    }
+
+    if (!selectedProject || !paymentAmount) {
+      toast.error('Select a project and amount before sending');
       return;
     }
 
@@ -64,49 +90,49 @@ export const PaymentSplitter: React.FC = () => {
     const toastId = toast.loading('Processing payment splits...');
 
     try {
-      if (useSmartContract) {
-        // Smart contract integration - requires deployed contract address
-        // Set NEXT_PUBLIC_USE_SMART_CONTRACT=true in .env.local when ready
-        toast.loading('Using smart contract for payment distribution...', { id: toastId });
-        // TODO: Replace with actual ContractService.distributeRevenue() call
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        toast.success('Smart contract payment distribution initiated!', { id: toastId });
+      if (calculatedSplits.length === 0) {
+        handleCalculateSplits();
+      }
+      if (calculatedSplits.length === 0) {
+        toast.error('No splits calculated', { id: toastId });
+        setIsProcessing(false);
+        return;
+      }
+
+      const project = mockProjects.find(p => p.id === selectedProject);
+      const amount = parseFloat(paymentAmount);
+      const shares = calculatedSplits.map(split => ({
+        contributorId: split.contributorId,
+        contributorName: split.contributorName,
+        walletAddress: getUserById(split.contributorId)?.walletAddress || split.walletAddress || '0x0000000000000000000000000000000000000000',
+        percentage: split.percentage,
+        amount: Number(split.amount),
+      }));
+
+      const result = await revenueDistributionService.distributeRevenue({
+        projectId: selectedProject,
+        projectName: project?.name || 'Project',
+        totalAmount: amount,
+        shares,
+        mode: revenueDistributionService.getMode(),
+        contractAddress: project?.contractAddress,
+        useSmartContract,
+        revenueSource,
+      });
+
+      if (!result.success) {
+        toast.error(result.errors.join(', ') || 'Failed to distribute revenue', { id: toastId });
+        setIsProcessing(false);
+        return;
+      }
+
+      await loadRecentDistributions();
+
+      if (result.transactions.length > 0 && result.transactionHash) {
+        toast.success(`Payment split completed! Tx: ${result.transactionHash}`, { id: toastId });
       } else {
-        const payments = calculatedSplits.map(split => ({
-          to: split.walletAddress || '0x0000000000000000000000000000000000000000',
-          amount: split.amount.toString(),
-          memo: `Payment for ${selectedProject} - ${split.contributorName}`,
-        }));
-
-        const validation = await paymentService.validateBatchPayment({ payments });
-        
-        if (!validation.valid) {
-          toast.error(validation.error || 'Payment validation failed', { id: toastId });
-          setIsProcessing(false);
-          return;
-        }
-
-        const gasEstimate = await paymentService.estimateBatchGas({ payments });
-        toast.loading(`Estimated gas: ${gasEstimate.estimatedCost} ETH`, { id: toastId });
-
-        const receipts = await paymentService.sendBatchPayments({ payments });
-        
-        const existing = JSON.parse(localStorage.getItem('crt_recent_splits') || '[]');
-        const entry = {
-          id: Date.now().toString(),
-          projectId: selectedProject,
-          amount: parseFloat(paymentAmount),
-          splits: calculatedSplits.map((split, idx) => ({
-            ...split,
-            status: 'Paid',
-            transactionId: receipts[idx]?.hash || 'pending',
-          })),
-          date: new Date().toISOString(),
-          status: 'Completed',
-        };
-        localStorage.setItem('crt_recent_splits', JSON.stringify([entry, ...existing].slice(0, 10)));
-
-        toast.success(`Payment split completed! ${receipts.length} transactions sent`, { id: toastId });
+        const reference = result.transactionHash || result.reference || 'pending';
+        toast.success(`Simulated distribution (missing contract). Ref: ${reference}`, { id: toastId });
       }
 
       setIsModalOpen(false);
@@ -114,7 +140,6 @@ export const PaymentSplitter: React.FC = () => {
       setPaymentAmount('');
       setRevenueSource('');
       setCalculatedSplits([]);
-      window.location.reload();
     } catch (error: any) {
       console.error('Payment processing error:', error);
       toast.error(error.message || 'Failed to process payment splits', { id: toastId });
@@ -165,15 +190,7 @@ export const PaymentSplitter: React.FC = () => {
         <CardContent>
           <div className="space-y-4">
             <h4 className="font-medium text-gray-900 dark:text-white">Recent Payment Splits</h4>
-            {(() => {
-              let recent: any[] = [];
-              try { recent = JSON.parse(localStorage.getItem('crt_recent_splits') || '[]'); } catch {}
-              const combined = [
-                ...recent.map((r:any)=>({ id: r.id, projectName: (mockProjects.find(p=>p.id===r.projectId)?.name)||'Project', amount: r.amount, date: r.date, source: 'Split', status: 'Paid', splits: r.splits })),
-                ...mockRevenue.filter(rev => rev.splits && rev.splits.length > 0),
-              ].slice(0,5);
-              return combined;
-            })().map((revenue:any) => (
+            {recentDistributions.map((revenue:any) => (
               <div key={revenue.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
                   <div>
@@ -188,7 +205,7 @@ export const PaymentSplitter: React.FC = () => {
                     <p className="font-semibold text-gray-900 dark:text-white">
                       {formatCurrency(revenue.amount)}
                     </p>
-                    <Badge variant={revenue.status === 'Paid' ? 'success' : 'warning'}>
+                    <Badge variant={revenue.status === 'Paid' ? 'success' : revenue.status === 'Processing' ? 'info' : 'warning'}>
                       {revenue.status}
                     </Badge>
                   </div>
@@ -205,7 +222,7 @@ export const PaymentSplitter: React.FC = () => {
                         <span className="font-medium text-gray-900 dark:text-white">
                           {formatCurrency(split.amount)}
                         </span>
-                        <Badge variant={split.status === 'Paid' ? 'success' : 'warning'} className="text-xs">
+                        <Badge variant={split.status === 'Paid' ? 'success' : split.status === 'Processing' ? 'info' : 'warning'} className="text-xs">
                           {split.status}
                         </Badge>
                       </div>

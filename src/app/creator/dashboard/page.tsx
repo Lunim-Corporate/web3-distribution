@@ -57,7 +57,9 @@ export default function CreatorDashboardPage() {
   }
 
   const totalEarnings = revenue.reduce((sum, r) => sum + r.amount, 0);
-  const pendingPayments = revenue.filter(r => r.status === 'Pending').reduce((sum, r) => sum + r.amount, 0);
+  const pendingPayments = revenue
+    .filter(r => r.status === 'Pending' || r.status === 'Processing')
+    .reduce((sum, r) => sum + r.amount, 0);
   const activeProjects = projects.filter(p => p.status === 'Active').length;
   const activeRights = rights.filter(r => r.status === 'Active').length;
 

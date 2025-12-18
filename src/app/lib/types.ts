@@ -71,7 +71,7 @@ export interface PaymentSplit {
   contributorName: string;
   amount: number;
   percentage: number;
-  status: 'Paid' | 'Pending';
+  status: 'Paid' | 'Pending' | 'Processing';
 }
 
 export interface SmartContract {
