@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/lib/auth';
-import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { DistributionMode, RevenueDistributionService } from '@/lib/services/RevenueDistributionService';
 
 export default function AdminSettingsPage() {
@@ -57,8 +56,7 @@ export default function AdminSettingsPage() {
   };
 
   return (
-    <AdminLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Admin Settings</h2>
           <p className="text-gray-600 dark:text-gray-400">
@@ -128,7 +126,6 @@ export default function AdminSettingsPage() {
             </div>
           </div>
         )}
-      </div>
-    </AdminLayout>
+    </div>
   );
 }

@@ -4,7 +4,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/lib/auth';
-import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Modal } from '@/components/ui/Modal';
 import { Project } from '@/lib/types';
 
@@ -179,7 +178,7 @@ export function AdminProjectsClient() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6">
         <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div>
@@ -237,7 +236,6 @@ export function AdminProjectsClient() {
           </div>
         )}
       </div>
-
       <Modal isOpen={createModalOpen} onClose={() => setCreateModalOpen(false)} title="Create Project">
         <div className="space-y-4">
           <div>
@@ -298,6 +296,6 @@ export function AdminProjectsClient() {
           </div>
         </div>
       </Modal>
-    </AdminLayout>
+    </>
   );
 }

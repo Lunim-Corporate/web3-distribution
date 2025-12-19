@@ -4,7 +4,6 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/lib/auth';
-import { AdminLayout } from '@/components/layouts/AdminLayout';
 import { Modal } from '@/components/ui/Modal';
 import { Project, Revenue } from '@/lib/types';
 
@@ -103,7 +102,7 @@ export default function AdminRevenuePage() {
   };
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-6">
         <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div>
@@ -208,7 +207,6 @@ export default function AdminRevenuePage() {
           </div>
         )}
       </div>
-
       <Modal isOpen={showAdd} onClose={() => setShowAdd(false)} title="Add Revenue">
         <div className="space-y-4">
           <div>
@@ -282,6 +280,6 @@ export default function AdminRevenuePage() {
           </div>
         </div>
       </Modal>
-    </AdminLayout>
+    </>
   );
 }
