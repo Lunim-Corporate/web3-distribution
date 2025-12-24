@@ -25,6 +25,7 @@ export interface Project {
   contractAddress?: string;
   coverImage: string;
   progress: number;
+  creatorId?: string; // ID of the user who created/owns this project
 }
 
 export interface Contributor {
@@ -70,7 +71,7 @@ export interface PaymentSplit {
   contributorName: string;
   amount: number;
   percentage: number;
-  status: 'Paid' | 'Pending';
+  status: 'Paid' | 'Pending' | 'Processing';
 }
 
 export interface SmartContract {

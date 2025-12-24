@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
+import { WalletService } from './services/WalletService';
+import { WalletInfo } from './services/types';
 
 declare global {
   interface Window {
@@ -19,6 +21,7 @@ interface WalletContextValue {
   disconnectWallet: () => void;
   switchNetwork: (chainId: string) => Promise<void>;
   sendTransaction: (to: string, value: string) => Promise<string>;
+  getNetworkName: (chainId: number | null) => string;
 }
 
 const WalletContext = createContext<WalletContextValue | undefined>(undefined);
@@ -29,8 +32,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isConnecting, setIsConnecting] = useState(false);
   const [chainId, setChainId] = useState<number | null>(null);
   const [balance, setBalance] = useState<string | null>(null);
+  const walletService = WalletService.getInstance();
 
-  // Check if wallet is already connected on load
   useEffect(() => {
     checkConnection();
     setupEventListeners();
@@ -39,17 +42,22 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const checkConnection = async () => {
     if (typeof window !== 'undefined' && window.ethereum) {
       try {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        const accounts = await walletService.getAccounts();
         if (accounts.length > 0) {
-          setAccount(accounts[0]);
-          setIsConnected(true);
-          await getChainId();
-          await getBalance(accounts[0]);
+          const walletInfo = await walletService.getWalletInfo();
+          updateWalletState(walletInfo);
         }
       } catch (error) {
         console.error('Error checking connection:', error);
       }
     }
+  };
+
+  const updateWalletState = (walletInfo: WalletInfo) => {
+    setAccount(walletInfo.address);
+    setIsConnected(walletInfo.isConnected);
+    setChainId(walletInfo.chainId);
+    setBalance(walletInfo.balance);
   };
 
   const setupEventListeners = () => {
@@ -60,18 +68,22 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const handleAccountsChanged = (accounts: string[]) => {
+  const handleAccountsChanged = async (accounts: string[]) => {
     if (accounts.length === 0) {
       disconnectWallet();
     } else {
-      setAccount(accounts[0]);
-      getBalance(accounts[0]);
+      try {
+        const walletInfo = await walletService.getWalletInfo();
+        updateWalletState(walletInfo);
+      } catch (error) {
+        console.error('Error updating wallet info:', error);
+      }
     }
   };
 
   const handleChainChanged = (chainId: string) => {
     setChainId(parseInt(chainId, 16));
-    window.location.reload(); // Recommended by MetaMask
+    window.location.reload();
   };
 
   const handleDisconnect = () => {
@@ -79,7 +91,9 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const connectWallet = async () => {
-    if (typeof window === 'undefined' || !window.ethereum) {
+    const isInstalled = await walletService.isWalletInstalled();
+    
+    if (!isInstalled) {
       toast.error('MetaMask is not installed. Please install MetaMask to continue.');
       window.open('https://metamask.io/download/', '_blank');
       return;
@@ -87,24 +101,12 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setIsConnecting(true);
     try {
-      const accounts = await window.ethereum.request({
-        method: 'eth_requestAccounts',
-      });
-
-      if (accounts.length > 0) {
-        setAccount(accounts[0]);
-        setIsConnected(true);
-        await getChainId();
-        await getBalance(accounts[0]);
-        toast.success('Wallet connected successfully!');
-      }
+      const walletInfo = await walletService.linkAccount();
+      updateWalletState(walletInfo);
+      toast.success('Account linked successfully!');
     } catch (error: any) {
-      console.error('Error connecting wallet:', error);
-      if (error.code === 4001) {
-        toast.error('Connection rejected by user');
-      } else {
-        toast.error('Failed to connect wallet');
-      }
+      console.error('Error linking account:', error);
+      toast.error(error.message || 'Failed to link account');
     } finally {
       setIsConnecting(false);
     }
@@ -115,45 +117,17 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsConnected(false);
     setChainId(null);
     setBalance(null);
-    toast.success('Wallet disconnected');
-  };
-
-  const getChainId = async () => {
-    try {
-      const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-      setChainId(parseInt(chainId, 16));
-    } catch (error) {
-      console.error('Error getting chain ID:', error);
-    }
-  };
-
-  const getBalance = async (address: string) => {
-    try {
-      const balance = await window.ethereum.request({
-        method: 'eth_getBalance',
-        params: [address, 'latest'],
-      });
-      // Convert from wei to ETH
-      const ethBalance = (parseInt(balance, 16) / Math.pow(10, 18)).toFixed(4);
-      setBalance(ethBalance);
-    } catch (error) {
-      console.error('Error getting balance:', error);
-    }
+    toast.success('Account disconnected');
   };
 
   const switchNetwork = async (targetChainId: string) => {
     try {
-      await window.ethereum.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: targetChainId }],
-      });
+      const chainIdNum = parseInt(targetChainId, 16);
+      await walletService.switchNetwork(chainIdNum);
+      toast.success('Network switched successfully');
     } catch (error: any) {
-      if (error.code === 4902) {
-        // Network not added to MetaMask
-        toast.error('Please add this network to MetaMask first');
-      } else {
-        toast.error('Failed to switch network');
-      }
+      console.error('Error switching network:', error);
+      toast.error(error.message || 'Failed to switch network');
       throw error;
     }
   };
@@ -167,7 +141,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         params: [{
           from: account,
           to,
-          value: `0x${(parseFloat(value) * Math.pow(10, 18)).toString(16)}`, // Convert ETH to wei
+          value: `0x${(parseFloat(value) * Math.pow(10, 18)).toString(16)}`,
         }],
       });
       return txHash;
@@ -178,15 +152,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   const getNetworkName = (chainId: number | null): string => {
-    switch (chainId) {
-      case 1: return 'Ethereum Mainnet';
-      case 5: return 'Goerli Testnet';
-      case 137: return 'Polygon Mainnet';
-      case 80001: return 'Polygon Mumbai';
-      case 56: return 'BSC Mainnet';
-      case 97: return 'BSC Testnet';
-      default: return 'Unknown Network';
-    }
+    if (!chainId) return 'Unknown Network';
+    return walletService.getNetworkName(chainId);
   };
 
   const value = {

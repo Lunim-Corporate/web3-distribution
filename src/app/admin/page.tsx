@@ -1,98 +1,15 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Role, useAuth } from '@/lib/auth';
-import { toast } from 'react-hot-toast';
 
 export default function AdminPage() {
-  const { user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!user) router.replace('/login');
-    else if (user.role !== 'admin') router.replace('/dashboard');
-  }, [user, router]);
+    router.replace('/admin/dashboard');
+  }, [router]);
 
-  const { listUsers, setUserRole, inviteUser } = useAuth();
-  const [users, setUsers] = useState(listUsers());
-  const [invite, setInvite] = useState({ name: '', email: '', role: 'creator' as Role });
-
-  const refresh = () => setUsers(listUsers());
-
-  if (!user || user.role !== 'admin') return null;
-
-  return (
-    <main className="p-8 max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">Manage Users</h1>
-      <p className="text-gray-600">Invite users and manage roles.</p>
-
-      <div className="rounded border border-gray-200 dark:border-gray-700 p-4 space-y-3">
-        <h2 className="font-semibold">Invite User</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <input className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700" placeholder="Name" value={invite.name} onChange={(e)=>setInvite({...invite, name: e.target.value})} />
-          <input className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700" placeholder="Email" value={invite.email} onChange={(e)=>setInvite({...invite, email: e.target.value})} />
-          <select className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700" value={invite.role} onChange={(e)=>setInvite({...invite, role: e.target.value as Role})}>
-            <option value="admin">admin</option>
-            <option value="creator">creator</option>
-            <option value="contributor">contributor</option>
-          </select>
-          <button
-            className="px-3 py-2 rounded bg-blue-600 text-white"
-            onClick={()=>{
-              const email = invite.email.trim();
-              const name = (invite.name || email.split('@')[0]).trim();
-              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-              if(!emailRegex.test(email)) {
-                toast.error('Please enter a valid email address.');
-                return;
-              }
-              inviteUser(name, email, invite.role);
-              toast.success(`Invite sent to ${email} as ${invite.role}.`);
-              setInvite({ name:'', email:'', role:'creator' });
-              refresh();
-            }}
-          >
-            Send Invite
-          </button>
-        </div>
-      </div>
-      <div className="rounded border border-gray-200 dark:border-gray-700">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-200 dark:border-gray-700">
-              <th className="text-left p-3">Name</th>
-              <th className="text-left p-3">Email</th>
-              <th className="text-left p-3">Role</th>
-              <th className="text-left p-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(u => (
-              <tr key={u.id} className="border-b border-gray-100 dark:border-gray-800">
-                <td className="p-3">{u.name}</td>
-                <td className="p-3 text-gray-600">{u.email}</td>
-                <td className="p-3">
-                  <span className="px-2 py-1 rounded text-xs bg-gray-100 dark:bg-gray-800">{u.role}</span>
-                </td>
-                <td className="p-3">
-                  <select
-                    defaultValue={u.role}
-                    onChange={(e) => { setUserRole(u.id, e.target.value as Role); refresh(); }}
-                    className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900"
-                  >
-                    <option value="admin">admin</option>
-                    <option value="creator">creator</option>
-                    <option value="contributor">contributor</option>
-                  </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </main>
-  );
+  return null;
 }
-
 

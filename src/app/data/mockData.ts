@@ -74,6 +74,7 @@ export const mockProjects: Project[] = [
     description: 'A futuristic synthwave music video featuring stunning neon-lit cityscapes and cutting-edge visual effects.',
     totalRevenue: 85400,
     pendingPayments: 18200,
+    creatorId: 'user_1', // Alex Rodriguez is the creator
     contributors: [
       {
         id: 'user_1',
@@ -117,6 +118,7 @@ export const mockProjects: Project[] = [
     description: 'Complete eco-friendly brand identity package for a sustainable fashion startup, including logo, packaging, and digital assets.',
     totalRevenue: 64200,
     pendingPayments: 0,
+    creatorId: 'user_3', // Sarah Kim is the creator
     contributors: [
       {
         id: 'user_3',
@@ -151,6 +153,7 @@ export const mockProjects: Project[] = [
     description: 'Feature-length documentary exploring marine conservation efforts and the impact of climate change on ocean ecosystems.',
     totalRevenue: 142800,
     pendingPayments: 47600,
+    creatorId: 'user_5', // Emma Wilson is the creator
     contributors: [
       {
         id: 'user_5',

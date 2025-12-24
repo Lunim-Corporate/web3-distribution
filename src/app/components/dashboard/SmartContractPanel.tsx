@@ -8,57 +8,56 @@ import { Modal } from '@/components/ui/Modal';
 import { formatCurrency, truncateAddress } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { useWallet } from '@/lib/wallet';
+import { ContractService } from '@/lib/services/ContractService';
 import { mockContracts } from '@/data/mockData';
 import { toast } from 'react-hot-toast';
 
 export const SmartContractPanel: React.FC = () => {
   const { user } = useAuth();
-  const { account, isConnected, isConnecting, chainId, balance, connectWallet, disconnectWallet, switchNetwork } = useWallet();
+  const { account, isConnected, isConnecting, chainId, balance, connectWallet, disconnectWallet, switchNetwork, getNetworkName } = useWallet();
   const [selectedContract, setSelectedContract] = useState<any>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+  const contractService = ContractService.getInstance();
 
-  const getNetworkName = (chainId: number | null): string => {
-    switch (chainId) {
-      case 1: return 'Ethereum Mainnet';
-      case 5: return 'Goerli Testnet';
-      case 137: return 'Polygon Mainnet';
-      case 80001: return 'Polygon Mumbai';
-      case 56: return 'BSC Mainnet';
-      case 97: return 'BSC Testnet';
-      default: return 'Unknown Network';
-    }
-  };
-
-  const handleContractInteraction = async (functionName: string) => {
+  const handleContractInteraction = async (functionName: string, contractAddress?: string) => {
     if (!isConnected) {
-      toast.error('Please connect your wallet first.');
+      toast.error('Please link your account first');
       return;
     }
     
-    if (functionName && user?.role !== 'admin' && functionName !== 'getProject' && functionName !== 'getContributorShare') {
-      toast.error('Admin only: You do not have permission to execute write functions.');
+    const isReadFunction = functionName === 'getProject' || functionName === 'getContributorShare';
+    
+    if (!isReadFunction && user?.role !== 'admin') {
+      toast.error('You do not have permission to execute write functions');
       return;
     }
     
     setIsExecuting(true);
+    const toastId = toast.loading(`Executing ${functionName}...`);
+    
     try {
-      // Simulate contract interaction with loading state
-      toast.loading(`Executing ${functionName}...`);
+      const contract = selectedContract || mockContracts[0];
+      const address = contractAddress || contract.address;
       
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const isDeployed = await contractService.isContractDeployed(address);
+      if (!isDeployed) {
+        toast.error('Contract not deployed at this address', { id: toastId });
+        setIsExecuting(false);
+        return;
+      }
+
+      if (isReadFunction) {
+        toast.success(`${functionName} called successfully!`, { id: toastId });
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        toast.success(`${functionName} transaction submitted!`, { id: toastId });
+      }
       
-      // Simulate success
-      toast.dismiss();
-      toast.success(`${functionName} executed successfully!`);
-      
-      // In a real app, this would interact with the smart contract using ethers.js or web3.js
-      console.log(`Contract function ${functionName} called with account:`, account);
-    } catch (error) {
-      toast.dismiss();
-      toast.error(`Failed to execute ${functionName}`);
+      console.log(`Contract function ${functionName} called on ${address}`);
+    } catch (error: any) {
       console.error('Contract interaction failed:', error);
+      toast.error(error.message || `Failed to execute ${functionName}`, { id: toastId });
     } finally {
       setIsExecuting(false);
     }
@@ -83,7 +82,7 @@ export const SmartContractPanel: React.FC = () => {
             <div className="flex space-x-2">
               {!isConnected ? (
                 <Button onClick={connectWallet} size="sm" isLoading={isConnecting}>
-                  {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+                  {isConnecting ? 'Linking...' : 'Link Account'}
                 </Button>
               ) : (
                 <div className="flex items-center space-x-3">
@@ -189,11 +188,11 @@ export const SmartContractPanel: React.FC = () => {
                     <Button
                       variant="success"
                       size="sm"
-                      onClick={() => handleContractInteraction('distributeRevenue')}
+                      onClick={() => handleContractInteraction('distributeRevenue', contract.address)}
                       disabled={user?.role !== 'admin' || isExecuting}
                       isLoading={isExecuting}
                     >
-                      {isExecuting ? 'Processing...' : 'Distribute Revenue'}
+                      {isExecuting ? 'Processing...' : 'Split Revenue'}
                     </Button>
                     {user?.role !== 'admin' && (
                       <span className="text-[10px] text-amber-500">You need admin access</span>

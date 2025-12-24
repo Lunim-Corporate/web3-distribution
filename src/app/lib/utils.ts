@@ -53,12 +53,39 @@ export function calculateGrowth(current: number, previous: number): number {
 }
 
 export function calculatePaymentSplit(totalAmount: number, contributors: any[]): any[] {
-  return contributors.map(contributor => ({
-    contributorId: contributor.id,
-    contributorName: contributor.name,
-    percentage: contributor.revenueShare,
-    amount: (totalAmount * contributor.revenueShare) / 100,
-    status: 'Pending' as const
+  const totalShare = contributors.reduce((sum: number, c: any) => sum + (c.revenueShare || 0), 0) || 1;
+  const normalized = contributors.map((contributor: any) => {
+    const normalizedPercentage = (contributor.revenueShare || 0) / totalShare * 100;
+    const rawAmount = (totalAmount * normalizedPercentage) / 100;
+    return {
+      contributorId: contributor.id,
+      contributorName: contributor.name,
+      percentage: Number(normalizedPercentage.toFixed(4)),
+      rawAmount,
+    };
+  });
+
+  const percentageSum = normalized.reduce((sum, n) => sum + n.percentage, 0);
+  const pctDiff = Number((100 - percentageSum).toFixed(4));
+  if (normalized.length > 0) {
+    normalized[normalized.length - 1].percentage = Number(
+      (normalized[normalized.length - 1].percentage + pctDiff).toFixed(4)
+    );
+    normalized[normalized.length - 1].rawAmount = (totalAmount * normalized[normalized.length - 1].percentage) / 100;
+  }
+
+  const roundedAmounts = normalized.map((n) => Math.floor(n.rawAmount * 100) / 100);
+  const diffCents = Math.round(totalAmount * 100 - roundedAmounts.reduce((s, v) => s + Math.round(v * 100), 0));
+  if (roundedAmounts.length > 0) {
+    roundedAmounts[0] = Math.round((roundedAmounts[0] * 100 + diffCents)) / 100;
+  }
+
+  return normalized.map((n, idx) => ({
+    contributorId: n.contributorId,
+    contributorName: n.contributorName,
+    percentage: n.percentage,
+    amount: roundedAmounts[idx] ?? 0,
+    status: 'Pending' as const,
   }));
 }
 

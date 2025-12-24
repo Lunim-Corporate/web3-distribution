@@ -46,11 +46,15 @@ export default function LoginPage() {
                   login(email);
                   const role = JSON.parse(localStorage.getItem('crt_user')||'{}').role;
                   if (role === 'admin') {
-                    toast.success('Welcome back, Admin! You have full access.');
+                    toast.success('Welcome back, Admin!');
+                    router.push('/admin/dashboard');
+                  } else if (role === 'creator') {
+                    toast.success('Welcome back, Creator!');
+                    router.push('/creator/dashboard');
                   } else {
-                    toast.success('Welcome back! Limited access based on your role.');
+                    toast.success('Welcome back!');
+                    router.push('/dashboard');
                   }
-                  router.push('/dashboard');
                 }}
               >
                 Continue to Dashboard

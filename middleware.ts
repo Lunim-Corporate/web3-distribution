@@ -1,10 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-// Lightweight client-side localStorage auth can't be read here,
-// so we simulate with a cookie when logged in client-side later.
-// This middleware reads cookies to protect routes.
-
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const userCookie = request.cookies.get('crt_user');
@@ -29,7 +25,41 @@ export function middleware(request: NextRequest) {
       const user = JSON.parse(decodeURIComponent(userCookie.value));
       if (user.role !== 'admin') {
         const url = request.nextUrl.clone();
-        url.pathname = '/dashboard';
+        url.pathname = '/unauthorized';
+        return NextResponse.redirect(url);
+      }
+    } catch {}
+  }
+
+  // Protect /creator for creator and admin roles
+  if (pathname.startsWith('/creator')) {
+    if (!userCookie) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      return NextResponse.redirect(url);
+    }
+    try {
+      const user = JSON.parse(decodeURIComponent(userCookie.value));
+      if (user.role !== 'creator' && user.role !== 'admin') {
+        const url = request.nextUrl.clone();
+        url.pathname = '/unauthorized';
+        return NextResponse.redirect(url);
+      }
+    } catch {}
+  }
+
+  // Protect /contributor for contributor and admin roles
+  if (pathname.startsWith('/contributor')) {
+    if (!userCookie) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      return NextResponse.redirect(url);
+    }
+    try {
+      const user = JSON.parse(decodeURIComponent(userCookie.value));
+      if (user.role !== 'contributor' && user.role !== 'admin') {
+        const url = request.nextUrl.clone();
+        url.pathname = '/unauthorized';
         return NextResponse.redirect(url);
       }
     } catch {}
@@ -39,7 +69,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/admin/:path*'],
+  matcher: ['/dashboard/:path*', '/admin/:path*', '/creator/:path*', '/contributor/:path*'],
 };
 
 
