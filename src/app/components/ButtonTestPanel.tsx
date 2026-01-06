@@ -95,7 +95,7 @@ export const ButtonTestPanel: React.FC = () => {
       description: 'Test role-based access control',
       test: () => {
         if (!user) throw new Error('No user logged in');
-        if (!['admin', 'creator', 'contributor'].includes(user.role)) {
+        if (!user.role || !['admin', 'creator', 'contributor'].includes(user.role)) {
           throw new Error('Invalid user role');
         }
       }

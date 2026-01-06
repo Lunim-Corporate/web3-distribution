@@ -1,8 +1,19 @@
 import { NextResponse } from 'next/server';
-import { mockRights } from '@/data/mockData';
+import { supabaseAdmin } from '@/lib/supabaseServer';
 
 export async function GET() {
-  return NextResponse.json(mockRights);
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('creative_rights')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return NextResponse.json(data || []);
+  } catch (error) {
+    console.error('Error fetching rights:', error);
+    return NextResponse.json([], { status: 200 });
+  }
 }
 
 

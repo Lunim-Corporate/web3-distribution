@@ -8,19 +8,24 @@ import { toast } from 'react-hot-toast';
 export default function AdminPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const { listUsers, setUserRole, inviteUser } = useAuth();
+  
+  const [users, setUsers] = useState<any[]>([]);
+  const [invite, setInvite] = useState({ name: '', email: '', role: 'creator' as Role });
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!user) router.replace('/login');
     else if (user.role !== 'admin') router.replace('/dashboard');
-  }, [user, router]);
-
-  const { listUsers, setUserRole, inviteUser } = useAuth();
-  const [users, setUsers] = useState(listUsers());
-  const [invite, setInvite] = useState({ name: '', email: '', role: 'creator' as Role });
+    else {
+      setUsers(listUsers());
+      setIsLoading(false);
+    }
+  }, [user, router, listUsers]);
 
   const refresh = () => setUsers(listUsers());
 
-  if (!user || user.role !== 'admin') return null;
+  if (isLoading || !user || user.role !== 'admin') return null;
 
   return (
     <main className="p-8 max-w-4xl mx-auto space-y-6">
@@ -47,7 +52,7 @@ export default function AdminPage() {
                 toast.error('Please enter a valid email address.');
                 return;
               }
-              inviteUser(name, email, invite.role);
+              inviteUser(email, name, invite.role);
               toast.success(`Invite sent to ${email} as ${invite.role}.`);
               setInvite({ name:'', email:'', role:'creator' });
               refresh();

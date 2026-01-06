@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 export const RecentActivity: React.FC = () => {
   const [items, setItems] = React.useState<any[]>([]);
@@ -13,10 +14,13 @@ export const RecentActivity: React.FC = () => {
     ]).then(([revenue, rights, milestones]) => {
       let splits: any[] = [];
       try { splits = JSON.parse(localStorage.getItem('crt_recent_splits')||'[]'); } catch {}
-      const revItems = revenue.slice(0,5).map((r:any)=>({ id: r.id, title: `Payment of $${r.amount.toLocaleString()} received for ${r.projectName}`, time: new Date(r.date).toDateString(), icon: '💰' }));
-      const splitItems = splits.slice(0,3).map((s:any)=>({ id: `split_${s.id}`, title: `Split $${s.amount.toLocaleString()} for ${(s.projectId)}`, time: new Date(s.date).toDateString(), icon: '🧮' }));
-      const rightsItems = rights.slice(0,3).map((x:any)=>({ id: `right_${x.id}`, title: `Rights ${x.status.toLowerCase()} for ${x.projectName}`, time: new Date(x.createdDate||x.expirationDate).toDateString(), icon: '⚖️' }));
-      const mileItems = milestones.slice(0,3).map((m:any)=>({ id: m.id, title: m.title, time: new Date(m.date).toDateString(), icon: '📅' }));
+      const revItems = revenue.slice(0,5).map((r:any)=>({ id: r.id, title: `Payment of ${formatCurrency(r.amount)} received for ${r.projectName}`, time: formatDate(r.date), icon: '💰' }));
+      const splitItems = splits.slice(0,3).map((s:any)=>({ id: `split_${s.id}`, title: `Split ${formatCurrency(s.amount)} for ${(() => {
+        const match = revenue.find((rr:any) => rr.projectId === s.projectId || rr.projectName === s.projectId);
+        return match ? match.projectName : (s.projectName || s.projectId || 'Unknown Project');
+      })()}`, time: formatDate(s.date || new Date()), icon: '🧮' }));
+      const rightsItems = rights.slice(0,3).map((x:any)=>({ id: `right_${x.id}`, title: `Rights ${x.status?.toLowerCase()} for ${x.projectName}`, time: formatDate(x.createdDate||x.expirationDate||new Date()), icon: '⚖️' }));
+      const mileItems = milestones.slice(0,3).map((m:any)=>({ id: m.id, title: m.title, time: formatDate(m.date||m.target_date||new Date()), icon: '📅' }));
       setItems([...revItems, ...splitItems, ...rightsItems, ...mileItems].slice(0,8));
     }).catch(()=>setItems([]));
   }, []);

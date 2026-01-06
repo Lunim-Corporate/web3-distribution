@@ -5,8 +5,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number, currency = 'USD'): string {
-  return new Intl.NumberFormat('en-US', {
+export function formatCurrency(amount: number, currency = 'GBP'): string {
+  return new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency,
     minimumFractionDigits: 0,
@@ -26,7 +26,7 @@ export function formatDate(date: string | Date, format: 'short' | 'long' | 'rela
       ? { year: 'numeric', month: 'long', day: 'numeric' }
       : { year: 'numeric', month: 'short', day: 'numeric' };
   
-  return new Intl.DateTimeFormat('en-US', options).format(dateObj);
+  return new Intl.DateTimeFormat('en-GB', options).format(dateObj);
 }
 
 export function getStatusColor(status: string): 'default' | 'success' | 'warning' | 'error' | 'info' {

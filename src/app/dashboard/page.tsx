@@ -17,7 +17,7 @@ import { ChartsPanel } from '@/components/dashboard/ChartsPanel';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { AddProjectModal } from '@/components/dashboard/AddProjectModal';
 import { TraditionalContractsPanel } from '@/components/dashboard/TraditionalContractsPanel';
-import { formatCurrency, formatPercentage, formatDate, getStatusColor, calculateGrowth } from '@/lib/utils';
+import { formatCurrency, formatPercentage, formatDate, getStatusColor } from '@/lib/utils';
 import { 
   getTotalRevenue, 
   getPendingPayments, 
@@ -25,24 +25,28 @@ import {
   getTotalContributors,
   mockProjects,
   mockRights,
-  mockRevenue,
-  mockMilestones,
-  mockUsers
 } from '@/data/mockData';
+import { toast } from 'react-hot-toast';
 
 // Simple Dashboard Layout
 const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isDark, setIsDark] = useState(false);
   const { user, logout, settings, setNotifyResurfacingHours } = useAuth();
 
-  const toggleTheme = () => {
-    setIsDark(!isDark);
-    const html = document.documentElement;
-    if (html.classList.contains('dark')) {
-      html.classList.remove('dark');
-    } else {
-      html.classList.add('dark');
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('crt_theme');
+    if (savedTheme === 'dark') {
+      setIsDark(true);
+      document.documentElement.classList.add('dark');
     }
+  }, []);
+
+  const toggleTheme = () => {
+    const newIsDark = !isDark;
+    setIsDark(newIsDark);
+    const theme = newIsDark ? 'dark' : 'light';
+    localStorage.setItem('crt_theme', theme);
+    document.documentElement.classList.toggle('dark');
   };
 
   return (
@@ -67,7 +71,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
             {/* Resurfacing Interval */}
             <select
-              value={settings.notifyResurfacingHours}
+              value={settings?.notifyResurfacingHours || 24}
               onChange={(e) => setNotifyResurfacingHours(Number(e.target.value))}
               className="px-2 py-1 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100"
               title="Notification resurface interval"
@@ -159,7 +163,7 @@ const RevenueMetrics: React.FC = () => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
       {metrics.map((metric, index) => (
-        <Card key={index} className="relative overflow-hidden animate-fade-in" style={{ animationDelay: `${index * 0.1}s` }}>
+        <Card key={index} className="relative overflow-hidden">
           <div className={`absolute top-0 left-0 w-full h-1 ${metric.color}`} />
           <CardContent>
             <div className="flex items-center justify-between">
@@ -262,7 +266,7 @@ const ProjectsOverview: React.FC = () => {
                   Revenue Sharing Breakdown:
                 </h5>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {project.contributors.map((contributor, index) => (
+                  {project.contributors.map((contributor) => (
                     <div
                       key={contributor.id}
                       className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
@@ -386,19 +390,21 @@ export default function DashboardPage() {
       router.replace('/login');
     }
   }, [user, router]);
+
   return (
     <DashboardLayout>
-      <NotifyWidget resurfacingHours={settings.notifyResurfacingHours} />
+      <NotifyWidget resurfacingHours={settings?.notifyResurfacingHours || 24} />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <SidebarNav />
         {/* Welcome Section */}
-        <div className="animate-fade-in lg:col-span-7 space-y-8">
+        <div className="lg:col-span-7 space-y-8">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
             Welcome back! 👋
           </h2>
           <p className="text-gray-600 dark:text-gray-400">
             Here's your creative rights and revenue overview. Manage payments, track rights, and interact with smart contracts.
           </p>
+          
           {/* Revenue Metrics */}
           <RevenueMetrics />
 
@@ -414,7 +420,7 @@ export default function DashboardPage() {
           {/* Payment Splitter */}
           <PaymentSplitter />
 
-          {/* Smart Contract Panel (kept as functional; shows wallet connect + contracts) */}
+          {/* Smart Contract Panel */}
           <SmartContractPanel />
 
           {/* Traditional Contracts for non-web3 flows */}
@@ -426,26 +432,55 @@ export default function DashboardPage() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap gap-4 animate-fade-in">
-            <Button variant="primary" onClick={()=>setIsAddProjectOpen(true)}>Add Project</Button>
-            <Button variant="secondary" onClick={()=>{ document.getElementById('payment-splitter')?.scrollIntoView({ behavior: 'smooth' }); }}>Record Payment</Button>
-            <Button variant="ghost" onClick={async()=>{
-              const jsPdfModule: any = await import('jspdf');
-              const jsPDF = jsPdfModule.default || jsPdfModule.jsPDF || jsPdfModule;
-              const res = await fetch('/api/revenue');
-              const data = await res.json();
-              const doc = new jsPDF();
-              doc.setFontSize(16); doc.text('Revenue Report', 14, 16);
-              doc.setFontSize(11);
-              let y = 26;
-              data.forEach((r:any, idx:number) => {
-                const line = `${idx+1}. ${r.date}  ${r.projectName}  $${r.amount.toLocaleString()}  (${r.source})`;
-                doc.text(line, 14, y); y += 8; if (y > 280) { doc.addPage(); y = 20; }
-              });
-              doc.save('revenue_report.pdf');
-            }}>Generate Report (PDF)</Button>
+          <div className="flex flex-wrap gap-4">
+            <Button 
+              variant="primary" 
+              onClick={() => setIsAddProjectOpen(true)}
+              className="px-6 py-3"
+            >
+              Add Project
+            </Button>
+            <Button 
+              variant="secondary" 
+              onClick={() => { document.getElementById('payment-splitter')?.scrollIntoView({ behavior: 'smooth' }); }}
+              className="px-6 py-3"
+            >
+              Record Payment
+            </Button>
+            <Button 
+              variant="ghost" 
+              onClick={async () => {
+                try {
+                  const jsPdfModule: any = await import('jspdf');
+                  const jsPDF = jsPdfModule.default || jsPdfModule.jsPDF || jsPdfModule;
+                  const res = await fetch('/api/revenue');
+                  const data = await res.json();
+                  const doc = new jsPDF();
+                  doc.setFontSize(16);
+                  doc.text('Revenue Report', 14, 16);
+                  doc.setFontSize(11);
+                  let y = 26;
+                  data.forEach((r: any, idx: number) => {
+                    const line = `${idx + 1}. ${new Date(r.date).toLocaleDateString()}  ${r.projectName}  ${formatCurrency(r.amount)}  (${r.source})`;
+                    doc.text(line, 14, y);
+                    y += 8;
+                    if (y > 280) {
+                      doc.addPage();
+                      y = 20;
+                    }
+                  });
+                  doc.save('revenue_report.pdf');
+                  toast.success('Report generated successfully!');
+                } catch (error) {
+                  console.error('Error generating PDF:', error);
+                  toast.error('Failed to generate report');
+                }
+              }}
+              className="px-6 py-3"
+            >
+              Generate Report (PDF)
+            </Button>
           </div>
-
         </div>
 
         {/* Right Sidebar */}
@@ -456,7 +491,7 @@ export default function DashboardPage() {
           <RecentActivity />
         </div>
       </div>
-      <AddProjectModal isOpen={isAddProjectOpen} onClose={()=>setIsAddProjectOpen(false)} />
+      <AddProjectModal isOpen={isAddProjectOpen} onClose={() => setIsAddProjectOpen(false)} />
     </DashboardLayout>
   );
 }

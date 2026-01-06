@@ -1,8 +1,19 @@
 import { NextResponse } from 'next/server';
-import { mockMilestones } from '@/data/mockData';
+import { supabaseAdmin } from '@/lib/supabaseServer';
 
 export async function GET() {
-  return NextResponse.json(mockMilestones);
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('milestones')
+      .select('*')
+      .order('date', { ascending: true });
+
+    if (error) throw error;
+    return NextResponse.json(data || []);
+  } catch (error) {
+    console.error('Error fetching milestones:', error);
+    return NextResponse.json([], { status: 200 });
+  }
 }
 
 
