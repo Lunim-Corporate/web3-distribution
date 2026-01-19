@@ -74,12 +74,14 @@ export const mockProjects: Project[] = [
     description: 'A futuristic synthwave music video featuring stunning neon-lit cityscapes and cutting-edge visual effects.',
     totalRevenue: 85400,
     pendingPayments: 18200,
+    creatorId: 'user_1', // Alex Rodriguez is the creator
     contributors: [
       {
         id: 'user_1',
         name: 'Alex Rodriguez',
         email: 'alex.rodriguez@email.com',
         avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+        walletAddress: '0x1234567890123456789012345678901234567890',
         revenueShare: 45,
         totalEarned: 38430,
         role: 'Producer/Director'
@@ -89,6 +91,7 @@ export const mockProjects: Project[] = [
         name: 'Maya Chen',
         email: 'maya.chen@email.com',
         avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612ff84?w=150&h=150&fit=crop&crop=face',
+        walletAddress: '0x2345678901234567890123456789012345678901',
         revenueShare: 30,
         totalEarned: 25620,
         role: 'Composer'
@@ -98,6 +101,7 @@ export const mockProjects: Project[] = [
         name: 'David Park',
         email: 'david.park@email.com',
         avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
+        walletAddress: '0x4567890123456789012345678901234567890123',
         revenueShare: 25,
         totalEarned: 21350,
         role: 'Visual Effects Artist'
@@ -117,12 +121,14 @@ export const mockProjects: Project[] = [
     description: 'Complete eco-friendly brand identity package for a sustainable fashion startup, including logo, packaging, and digital assets.',
     totalRevenue: 64200,
     pendingPayments: 0,
+    creatorId: 'user_3', // Sarah Kim is the creator
     contributors: [
       {
         id: 'user_3',
         name: 'Sarah Kim',
         email: 'sarah.kim@email.com',
         avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
+        walletAddress: '0x3456789012345678901234567890123456789012',
         revenueShare: 70,
         totalEarned: 44940,
         role: 'Lead Designer'
@@ -132,6 +138,7 @@ export const mockProjects: Project[] = [
         name: 'Emma Wilson',
         email: 'emma.wilson@email.com',
         avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face',
+        walletAddress: '0x5678901234567890123456789012345678901234',
         revenueShare: 30,
         totalEarned: 19260,
         role: 'Brand Strategist'
@@ -151,12 +158,14 @@ export const mockProjects: Project[] = [
     description: 'Feature-length documentary exploring marine conservation efforts and the impact of climate change on ocean ecosystems.',
     totalRevenue: 142800,
     pendingPayments: 47600,
+    creatorId: 'user_5', // Emma Wilson is the creator
     contributors: [
       {
         id: 'user_5',
         name: 'Emma Wilson',
         email: 'emma.wilson@email.com',
         avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&h=150&fit=crop&crop=face',
+        walletAddress: '0x5678901234567890123456789012345678901234',
         revenueShare: 40,
         totalEarned: 57120,
         role: 'Director/Producer'
@@ -166,6 +175,7 @@ export const mockProjects: Project[] = [
         name: 'Alex Rodriguez',
         email: 'alex.rodriguez@email.com',
         avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+        walletAddress: '0x1234567890123456789012345678901234567890',
         revenueShare: 25,
         totalEarned: 35700,
         role: 'Cinematographer'
@@ -175,6 +185,7 @@ export const mockProjects: Project[] = [
         name: 'Sarah Kim',
         email: 'sarah.kim@email.com',
         avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face',
+        walletAddress: '0x3456789012345678901234567890123456789012',
         revenueShare: 20,
         totalEarned: 28560,
         role: 'Editor'
@@ -184,6 +195,7 @@ export const mockProjects: Project[] = [
         name: 'David Park',
         email: 'david.park@email.com',
         avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face',
+        walletAddress: '0x4567890123456789012345678901234567890123',
         revenueShare: 15,
         totalEarned: 21420,
         role: 'Sound Designer'

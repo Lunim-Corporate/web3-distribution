@@ -27,12 +27,21 @@ export default function SignupPage() {
     }
 
     signup(name, email, role);
+    
+    // Redirect based on role
     if (role === 'admin') {
       toast.success('Admin account created. You now have full control.');
+      router.push('/admin/dashboard');
+    } else if (role === 'creator') {
+      toast.success('Creator account created. You can now access your dashboard.');
+      router.push('/creator/dashboard');
+    } else if (role === 'contributor') {
+      toast.success('Contributor account created. You can now access your dashboard.');
+      router.push('/contributor/dashboard');
     } else {
-      toast.success('Account created. You can now access your dashboard.');
+      toast.success('Account created.');
+      router.push('/dashboard');
     }
-    router.push('/dashboard');
   };
 
   return (
