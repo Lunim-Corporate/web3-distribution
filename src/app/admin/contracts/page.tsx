@@ -16,7 +16,7 @@ type ContractRow = {
 };
 
 export default function AdminContractsPage() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,16 +39,13 @@ export default function AdminContractsPage() {
   };
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
     loadContracts();
-  }, [user, router]);
+  }, [user, isReady, router]);
 
   const rpcUrl = getNetworkConfig(FEATURE_FLAGS.DEFAULT_NETWORK).rpcUrl;
   const hasRpc = !!rpcUrl && !rpcUrl.endsWith('/v3/');
@@ -81,7 +78,7 @@ export default function AdminContractsPage() {
     });
   }, [projects]);
 
-  if (!user || user.role !== 'admin') return null;
+  if (!isReady || !user || user.role !== 'admin') return null;
 
   const copyAddress = async (address: string) => {
     try {

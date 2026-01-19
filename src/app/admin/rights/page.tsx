@@ -8,7 +8,7 @@ import { Modal } from '@/components/ui/Modal';
 import { CreativeRight, Project, User } from '@/lib/types';
 
 export default function AdminRightsPage() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
   const [rights, setRights] = useState<CreativeRight[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -52,18 +52,15 @@ export default function AdminRightsPage() {
   };
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
     loadData();
-  }, [user, router]);
+  }, [user, isReady, router]);
 
-  if (!user || user.role !== 'admin') return null;
+  if (!isReady || !user || user.role !== 'admin') return null;
 
   const resetForm = () => {
     setForm({

@@ -1,6 +1,4 @@
 import Link from 'next/link';
-import './landing.css';
-
 export const metadata = {
   title: 'RISIDIO Creative Rights & Revenue Tracker | Protect Your Work, Track Your Revenue',
   description: 'The complete platform for managing creative rights, tracking revenue, and automating payments with blockchain technology. Built for creators, by creators.',

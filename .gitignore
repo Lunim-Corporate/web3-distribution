@@ -52,3 +52,13 @@ typechain-types/
 # OS
 .DS_Store
 Thumbs.db.next
+
+# Logs
+*.log
+build.debug.log
+build.webpack.log
+dev.log
+
+# Local data
+data/
+

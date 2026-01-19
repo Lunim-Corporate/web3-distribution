@@ -18,6 +18,9 @@ export default function UnauthorizedPage() {
         <p className="text-gray-600 dark:text-gray-400 mb-6">
           You don't have permission to access this page.
         </p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          {user ? 'Logged in but not authorized.' : 'Not logged in.'}
+        </p>
         
         {user && (
           <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">

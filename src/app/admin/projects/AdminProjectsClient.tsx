@@ -8,7 +8,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Project } from '@/lib/types';
 
 export function AdminProjectsClient() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -38,23 +38,20 @@ export function AdminProjectsClient() {
   };
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
     loadProjects();
-  }, [user, router]);
+  }, [user, isReady, router]);
 
   const selectedProject = useMemo(() => {
     const projectId = searchParams.get('projectId');
     return projects.find(p => p.id === projectId);
   }, [projects, searchParams]);
 
-  if (!user || user.role !== 'admin') return null;
+  if (!isReady || !user || user.role !== 'admin') return null;
 
   const handleCreate = async () => {
     if (!createForm.name.trim()) {

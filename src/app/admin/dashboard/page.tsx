@@ -15,7 +15,7 @@ import TraditionalContractsPanel from '@/components/dashboard/TraditionalContrac
 import RightsOverview from '@/components/dashboard/RightsOverview';
 
 export default function AdminDashboardPage() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
   const [distributionMode, setDistributionMode] = useState<DistributionMode>('mock');
   const [kpis, setKpis] = useState<DashboardKPIs>({
@@ -27,15 +27,11 @@ export default function AdminDashboardPage() {
   });
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
-
     const distributionService = RevenueDistributionService.getInstance();
     setDistributionMode(distributionService.getMode());
 
@@ -54,9 +50,9 @@ export default function AdminDashboardPage() {
         setKpis(computed);
       })
       .catch(console.error);
-  }, [user, router]);
+  }, [user, isReady, router]);
 
-  if (!user || user.role !== 'admin') {
+  if (!isReady || !user || user.role !== 'admin') {
     return null;
   }
 

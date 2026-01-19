@@ -60,6 +60,7 @@ export function calculatePaymentSplit(totalAmount: number, contributors: any[]):
     return {
       contributorId: contributor.id,
       contributorName: contributor.name,
+      walletAddress: contributor.walletAddress,
       percentage: Number(normalizedPercentage.toFixed(4)),
       rawAmount,
     };
@@ -83,6 +84,7 @@ export function calculatePaymentSplit(totalAmount: number, contributors: any[]):
   return normalized.map((n, idx) => ({
     contributorId: n.contributorId,
     contributorName: n.contributorName,
+    walletAddress: n.walletAddress,
     percentage: n.percentage,
     amount: roundedAmounts[idx] ?? 0,
     status: 'Pending' as const,

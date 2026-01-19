@@ -1,17 +1,21 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { ethers } from 'ethers';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/lib/auth';
 import { CreatorLayout } from '@/components/layouts/CreatorLayout';
 import { Revenue, Project } from '@/lib/types';
 import { Modal } from '@/components/ui/Modal';
-import { RevenueDistributionService } from '@/lib/services/RevenueDistributionService';
+import { useWallet } from '@/lib/wallet';
+import { getTxExplorerUrl } from '@/lib/tx';
+import { getContractAddress, REVENUE_DISTRIBUTOR_ABI } from '@/lib/contracts';
 
 export default function CreatorRevenuePage() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
+  const { account, isConnected } = useWallet();
   const [revenue, setRevenue] = useState<Revenue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -65,25 +69,21 @@ export default function CreatorRevenuePage() {
   };
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'creator' && user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
-
     loadData();
-  }, [user, router]);
-
-  if (!user || (user.role !== 'creator' && user.role !== 'admin')) {
-    return null;
-  }
+  }, [user, isReady, router]);
 
   const filteredRevenue = useMemo(() => (
     filter === 'all' ? revenue : revenue.filter(r => r.status === filter)
   ), [filter, revenue]);
+
+  if (!isReady || !user || (user.role !== 'creator' && user.role !== 'admin')) {
+    return null;
+  }
 
   const totalEarnings = revenue.reduce((sum, r) => sum + r.amount, 0);
   const paidAmount = revenue.filter(r => r.status === 'Paid').reduce((sum, r) => sum + r.amount, 0);
@@ -126,30 +126,110 @@ export default function CreatorRevenuePage() {
   };
 
   const handleDistribute = async () => {
+    if (user?.role !== 'creator') {
+      toast.error('Only creators can distribute revenue');
+      return;
+    }
+    if (!isConnected || !account) {
+      toast.error('Connect your wallet to distribute');
+      return;
+    }
     if (!distribution.projectId) {
       toast.error('Select a project');
       return;
     }
     const project = projects.find(p => p.id === distribution.projectId);
     if (!project) return;
+    const paidContributors = (project.contributors || []).filter(c => c.id !== user.id);
+    if (paidContributors.length === 0) {
+      toast.error('Add contributors first');
+      return;
+    }
     const amount = Number(distribution.amount) || pendingAmount;
-    const service = RevenueDistributionService.getInstance();
+    if (!amount || amount <= 0) {
+      toast.error('Enter a valid amount to distribute');
+      return;
+    }
+    const invalidWallet = paidContributors.find((c) => !ethers.isAddress(c.walletAddress || ''));
+    if (invalidWallet) {
+      toast.error('Every contributor needs a valid wallet address');
+      return;
+    }
+    const totalShare = paidContributors.reduce((sum, c) => sum + (c.revenueShare || 0), 0);
+    if (totalShare !== 100) {
+      toast.error('Split percentages must total 100%');
+      return;
+    }
     try {
-      await service.distributeRevenue({
-        projectId: project.id,
-        projectName: project.name,
-        totalAmount: amount,
-        shares: project.contributors.map(c => ({
-          contributorId: c.id,
-          contributorName: c.name,
-          walletAddress: c.id ? `0x${c.id.slice(-8).padStart(8, '0')}` : '0x0',
-          percentage: c.revenueShare,
-          amount: (amount * c.revenueShare) / 100,
-        })),
-        mode: service.getMode(),
-        useSmartContract: false,
+      if (!window.ethereum) {
+        toast.error('MetaMask is not available');
+        return;
+      }
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const from = await signer.getAddress();
+      const chain = await provider.getNetwork();
+      const balance = await provider.getBalance(from);
+      const valueWei = ethers.parseEther(amount.toString());
+      if (balance < valueWei) {
+        toast.error('Insufficient balance for distribution');
+        return;
+      }
+      const distributorAddress = getContractAddress('RevenueDistributor');
+      const useDistributor = distributorAddress && ethers.isAddress(distributorAddress);
+      const allocation: { contributorUserId: string; contributorWallet: string; amount: number }[] = [];
+      let allocatedWei = 0n;
+      const amountsWei = paidContributors.map((c, index) => {
+        const shareWei = index === paidContributors.length - 1
+          ? valueWei - allocatedWei
+          : (valueWei * BigInt(c.revenueShare)) / 100n;
+        allocatedWei += shareWei;
+        allocation.push({
+          contributorUserId: c.id,
+          contributorWallet: c.walletAddress,
+          amount: Number(ethers.formatEther(shareWei)),
+        });
+        return shareWei;
       });
-      toast.success('Distribution triggered');
+
+      let txHash = '';
+      if (useDistributor) {
+        const contract = new ethers.Contract(distributorAddress, REVENUE_DISTRIBUTOR_ABI, signer);
+        const tx = await contract.distributeRevenue(project.id, { value: valueWei });
+        const receipt = await tx.wait();
+        txHash = receipt?.hash || tx.hash;
+      } else {
+        const receipts: Array<{ hash?: string }> = [];
+        for (let i = 0; i < paidContributors.length; i += 1) {
+          const contributor = paidContributors[i];
+          const tx = await signer.sendTransaction({
+            to: contributor.walletAddress,
+            value: amountsWei[i],
+          });
+          const receipt = await tx.wait();
+          receipts.push(receipt || { hash: tx.hash });
+        }
+        txHash = receipts[0]?.hash || '';
+      }
+
+      await fetch('/api/distributions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          distribution: {
+            projectId: project.id,
+            projectName: project.name,
+            creatorUserId: user.id,
+            totalAmount: amount,
+            chainId: Number(chain.chainId),
+            txHash,
+            createdAt: new Date().toISOString(),
+          },
+          items: allocation,
+        }),
+      });
+
+      toast.success(`Distribution sent! Tx: ${txHash || 'confirmed'}`);
 
       // Mark project revenue as paid in UI
       const relevant = revenue.filter(r => r.projectId === project.id);
@@ -336,18 +416,26 @@ export default function CreatorRevenuePage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        {rev.transactionHash ? (
-                          <a
-                            href={`https://etherscan.io/tx/${rev.transactionHash}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 dark:text-blue-400 hover:underline"
-                          >
-                            View
-                          </a>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
+                        {(() => {
+                          const txUrl = getTxExplorerUrl((rev as any).chainId, rev.transactionHash);
+                          if (txUrl) {
+                            return (
+                              <a
+                                href={txUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 dark:text-blue-400 hover:underline"
+                              >
+                                View
+                              </a>
+                            );
+                          }
+                          return rev.transactionHash ? (
+                            <span className="font-mono">{rev.transactionHash.slice(0, 10)}...</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))}
@@ -447,6 +535,25 @@ export default function CreatorRevenuePage() {
               ))}
             </select>
           </div>
+          {(() => {
+            const selected = projects.find(p => p.id === distribution.projectId);
+            const hasContributors = selected?.contributors?.some(c => c.id !== user.id);
+            if (!selected || hasContributors) return null;
+            return (
+              <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+                Add contributors first to split payments.
+                <button
+                  onClick={() => {
+                    setShowDistribute(false);
+                    router.push('/creator/projects');
+                  }}
+                  className="ml-2 font-medium text-yellow-900 underline"
+                >
+                  Go to Contributors
+                </button>
+              </div>
+            );
+          })()}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount to Distribute</label>
             <input
@@ -467,6 +574,10 @@ export default function CreatorRevenuePage() {
             <button
               onClick={handleDistribute}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium"
+              disabled={(() => {
+                const selected = projects.find(p => p.id === distribution.projectId);
+                return !!selected && !selected.contributors?.some(c => c.id !== user.id);
+              })()}
             >
               Distribute
             </button>

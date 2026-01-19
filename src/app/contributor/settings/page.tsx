@@ -1,60 +1,42 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { ContributorLayout } from '@/components/layouts/ContributorLayout';
-import { WalletService } from '@/lib/services/WalletService';
-import { toast } from 'react-hot-toast';
+import { useWallet } from '@/lib/wallet';
 
 export default function ContributorSettingsPage() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
-  const [walletConnected, setWalletConnected] = useState(false);
-  const [walletAddress, setWalletAddress] = useState('');
-  const [loading, setLoading] = useState(false);
+  const { account, isConnected, isConnecting, connectWallet } = useWallet();
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'contributor' && user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
+  }, [user, isReady, router]);
 
-    // Load saved settings from localStorage
-    const savedSettings = localStorage.getItem(`contributor_settings_${user.id}`);
-    if (savedSettings) {
-      const settings = JSON.parse(savedSettings);
-      setWalletAddress(settings.walletAddress || '');
-      setWalletConnected(!!settings.walletAddress);
+  useEffect(() => {
+    if (user && account) {
+      localStorage.setItem(
+        `contributor_settings_${user.id}`,
+        JSON.stringify({ walletAddress: account })
+      );
     }
-  }, [user, router]);
+  }, [account, user]);
 
-  if (!user || (user.role !== 'contributor' && user.role !== 'admin')) {
+  if (!isReady || !user || (user.role !== 'contributor' && user.role !== 'admin')) {
     return null;
   }
 
   const handleConnectWallet = async () => {
-    setLoading(true);
     try {
-      const walletService = WalletService.getInstance();
-      const walletInfo = await walletService.linkAccount();
-      setWalletAddress(walletInfo.address);
-      setWalletConnected(true);
-      
-      // Save to localStorage
-      const settings = { walletAddress: walletInfo.address };
-      localStorage.setItem(`contributor_settings_${user.id}`, JSON.stringify(settings));
-      
-      toast.success('Wallet connected successfully!');
+      await connectWallet();
     } catch (error) {
-      toast.error('Failed to connect wallet');
       console.error(error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -75,7 +57,7 @@ export default function ContributorSettingsPage() {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Wallet Connection
           </h3>
-          {walletConnected ? (
+          {isConnected && account ? (
             <div className="space-y-3">
               <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                 <span className="text-2xl">✅</span>
@@ -84,7 +66,7 @@ export default function ContributorSettingsPage() {
                     Wallet Connected
                   </p>
                   <p className="text-sm text-green-700 dark:text-green-300 font-mono">
-                    {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                    {account.slice(0, 6)}...{account.slice(-4)}
                   </p>
                 </div>
               </div>
@@ -102,10 +84,10 @@ export default function ContributorSettingsPage() {
               </p>
               <button
                 onClick={handleConnectWallet}
-                disabled={loading}
+                disabled={isConnecting}
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
               >
-                {loading ? 'Connecting...' : 'Connect Wallet'}
+                {isConnecting ? 'Connecting...' : 'Connect Wallet'}
               </button>
             </div>
           )}

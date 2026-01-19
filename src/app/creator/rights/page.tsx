@@ -9,7 +9,7 @@ import { CreativeRight, Project } from '@/lib/types';
 import { Modal } from '@/components/ui/Modal';
 
 export default function CreatorRightsPage() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
   const [rights, setRights] = useState<CreativeRight[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,25 +48,21 @@ export default function CreatorRightsPage() {
   };
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'creator' && user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
-
     loadData();
-  }, [user, router]);
-
-  if (!user || (user.role !== 'creator' && user.role !== 'admin')) {
-    return null;
-  }
+  }, [user, isReady, router]);
 
   const filteredRights = useMemo(() => (
     filter === 'all' ? rights : rights.filter(r => r.status === filter)
   ), [filter, rights]);
+
+  if (!isReady || !user || (user.role !== 'creator' && user.role !== 'admin')) {
+    return null;
+  }
 
   const resetForm = () => {
     setForm({

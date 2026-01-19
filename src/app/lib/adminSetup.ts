@@ -1,5 +1,7 @@
 // Admin setup utilities for the Creative Rights Tracker
 
+import { setAuthCookie } from '@/lib/authCookieClient';
+
 export const createAdminUser = () => {
   const adminUser = {
     id: 'admin_001',
@@ -21,7 +23,7 @@ export const createAdminUser = () => {
     localStorage.setItem('crt_user', JSON.stringify(adminUser));
     
     // Set cookie for middleware
-    document.cookie = `crt_user=${encodeURIComponent(JSON.stringify(adminUser))}; path=/`;
+    setAuthCookie(adminUser);
     
     return adminUser;
   } catch (error) {
@@ -111,7 +113,7 @@ export const quickLoginAsCreator = () => {
 
   try {
     localStorage.setItem('crt_user', JSON.stringify(creatorUser));
-    document.cookie = `crt_user=${encodeURIComponent(JSON.stringify(creatorUser))}; path=/`;
+    setAuthCookie(creatorUser);
     window.location.reload();
     return creatorUser;
   } catch (error) {
@@ -130,7 +132,7 @@ export const quickLoginAsContributor = () => {
 
   try {
     localStorage.setItem('crt_user', JSON.stringify(contributorUser));
-    document.cookie = `crt_user=${encodeURIComponent(JSON.stringify(contributorUser))}; path=/`;
+    setAuthCookie(contributorUser);
     window.location.reload();
     return contributorUser;
   } catch (error) {

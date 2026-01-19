@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { ethers } from 'ethers';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -8,7 +9,7 @@ import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
 import { formatCurrency, formatPercentage, calculatePaymentSplit } from '@/lib/utils';
-import { mockProjects, getProjectContributors, getUserById } from '@/data/mockData';
+import { mockProjects, getProjectContributors } from '@/data/mockData';
 import { useAuth } from '@/lib/auth';
 import { useWallet } from '@/lib/wallet';
 import { RevenueDistributionService } from '@/lib/services/RevenueDistributionService';
@@ -45,6 +46,15 @@ export const PaymentSplitter: React.FC = () => {
     if (!selectedProject || !paymentAmount) return;
 
     const contributors = getProjectContributors(selectedProject);
+    if (contributors.length === 0) {
+      toast.error('Add contributors first');
+      return;
+    }
+    const invalidWallet = contributors.find((c: any) => !ethers.isAddress(c.walletAddress || ''));
+    if (invalidWallet) {
+      toast.error('All contributors need valid wallet addresses');
+      return;
+    }
     const amount = parseFloat(paymentAmount);
     const splits = calculatePaymentSplit(amount, contributors);
     setCalculatedSplits(splits);
@@ -104,7 +114,7 @@ export const PaymentSplitter: React.FC = () => {
       const shares = calculatedSplits.map(split => ({
         contributorId: split.contributorId,
         contributorName: split.contributorName,
-        walletAddress: getUserById(split.contributorId)?.walletAddress || split.walletAddress || '0x0000000000000000000000000000000000000000',
+        walletAddress: split.walletAddress,
         percentage: split.percentage,
         amount: Number(split.amount),
       }));
@@ -317,9 +327,19 @@ export const PaymentSplitter: React.FC = () => {
                 </label>
               </div>
 
-              <Button 
+              {selectedProject && getProjectContributors(selectedProject).length === 0 && (
+                <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+                  Add contributors first to split payments.
+                </div>
+              )}
+
+              <Button
                 onClick={handleCalculateSplits}
-                disabled={!selectedProject || !paymentAmount}
+                disabled={
+                  !selectedProject ||
+                  !paymentAmount ||
+                  getProjectContributors(selectedProject).length === 0
+                }
                 className="w-full"
               >
                 Calculate Splits
@@ -373,13 +393,19 @@ export const PaymentSplitter: React.FC = () => {
                       Cancel
                     </Button>
                     <div className="flex-1">
-                      <Button 
-                        onClick={handleProcessPayment} 
-                        className="w-full" 
-                        disabled={user?.role !== 'admin' || isProcessing || !isConnected} 
+                      <Button
+                        onClick={handleProcessPayment}
+                        className="w-full"
+                        disabled={
+                          user?.role !== 'admin' ||
+                          isProcessing ||
+                          !isConnected ||
+                          getProjectContributors(selectedProject).length === 0
+                        }
                         isLoading={isProcessing}
                         title={
                           !isConnected ? 'Connect wallet first' :
+                          getProjectContributors(selectedProject).length === 0 ? 'Add contributors first' :
                           user?.role !== 'admin' ? 'You need admin access' : 
                           undefined
                         }

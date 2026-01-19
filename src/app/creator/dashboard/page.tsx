@@ -7,7 +7,7 @@ import { CreatorLayout } from '@/components/layouts/CreatorLayout';
 import { Project, Revenue, CreativeRight } from '@/lib/types';
 
 export default function CreatorDashboardPage() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [revenue, setRevenue] = useState<Revenue[]>([]);
@@ -15,15 +15,11 @@ export default function CreatorDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'creator' && user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
-
     Promise.all([
       fetch('/api/projects').then(r => r.json()),
       fetch('/api/revenue').then(r => r.json()),
@@ -50,9 +46,9 @@ export default function CreatorDashboardPage() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [user, router]);
+  }, [user, isReady, router]);
 
-  if (!user || (user.role !== 'creator' && user.role !== 'admin')) {
+  if (!isReady || !user || (user.role !== 'creator' && user.role !== 'admin')) {
     return null;
   }
 

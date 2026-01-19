@@ -4,14 +4,13 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { CreatorLayout } from '@/components/layouts/CreatorLayout';
-import { WalletService } from '@/lib/services/WalletService';
+import { useWallet } from '@/lib/wallet';
 import { toast } from 'react-hot-toast';
 
 export default function CreatorSettingsPage() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
-  const [walletConnected, setWalletConnected] = useState(false);
-  const [walletAddress, setWalletAddress] = useState('');
+  const { account, isConnected, isConnecting, connectWallet } = useWallet();
   const [bankAccount, setBankAccount] = useState({
     accountName: '',
     accountNumber: '',
@@ -19,47 +18,37 @@ export default function CreatorSettingsPage() {
     routingNumber: '',
   });
   const [payoutPreference, setPayoutPreference] = useState<'crypto' | 'fiat' | 'both'>('crypto');
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'creator' && user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
-
     // Load saved settings from localStorage
     const savedSettings = localStorage.getItem(`creator_settings_${user.id}`);
     if (savedSettings) {
       const settings = JSON.parse(savedSettings);
       setBankAccount(settings.bankAccount || bankAccount);
       setPayoutPreference(settings.payoutPreference || 'crypto');
-      setWalletAddress(settings.walletAddress || '');
-      setWalletConnected(!!settings.walletAddress);
     }
-  }, [user, router]);
+  }, [user, isReady, router]);
 
-  if (!user || (user.role !== 'creator' && user.role !== 'admin')) {
+  useEffect(() => {
+    if (user && account) {
+      saveSettings({ walletAddress: account });
+    }
+  }, [account, user]);
+
+  if (!isReady || !user || (user.role !== 'creator' && user.role !== 'admin')) {
     return null;
   }
 
   const handleConnectWallet = async () => {
-    setLoading(true);
     try {
-      const walletService = WalletService.getInstance();
-      const walletInfo = await walletService.linkAccount();
-      setWalletAddress(walletInfo.address);
-      setWalletConnected(true);
-      toast.success('Wallet connected successfully!');
-      saveSettings({ walletAddress: walletInfo.address });
+      await connectWallet();
     } catch (error) {
-      toast.error('Failed to connect wallet');
       console.error(error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -103,7 +92,7 @@ export default function CreatorSettingsPage() {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Wallet Connection
           </h3>
-          {walletConnected ? (
+          {isConnected && account ? (
             <div className="space-y-3">
               <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                 <span className="text-2xl">✅</span>
@@ -112,7 +101,7 @@ export default function CreatorSettingsPage() {
                     Wallet Connected
                   </p>
                   <p className="text-sm text-green-700 dark:text-green-300 font-mono">
-                    {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                    {account.slice(0, 6)}...{account.slice(-4)}
                   </p>
                 </div>
               </div>
@@ -130,10 +119,10 @@ export default function CreatorSettingsPage() {
               </p>
               <button
                 onClick={handleConnectWallet}
-                disabled={loading}
+                disabled={isConnecting}
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
               >
-                {loading ? 'Connecting...' : 'Connect Wallet'}
+                {isConnecting ? 'Connecting...' : 'Connect Wallet'}
               </button>
             </div>
           )}

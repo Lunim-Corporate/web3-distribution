@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
 import { User } from '@/lib/types';
 
 export default function AdminUsersPage() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [invite, setInvite] = useState({ name: '', email: '', role: 'creator' as Role });
@@ -30,18 +30,15 @@ export default function AdminUsersPage() {
   };
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
     loadUsers();
-  }, [user, router]);
+  }, [user, isReady, router]);
 
-  if (!user || user.role !== 'admin') return null;
+  if (!isReady || !user || user.role !== 'admin') return null;
 
   return (
     <div className="space-y-6">

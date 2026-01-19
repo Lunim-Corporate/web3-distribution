@@ -7,7 +7,7 @@ import { useAuth } from '@/lib/auth';
 import { DistributionMode, RevenueDistributionService } from '@/lib/services/RevenueDistributionService';
 
 export default function AdminSettingsPage() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
   const [mode, setMode] = useState<DistributionMode>('mock');
   const [loading, setLoading] = useState(true);
@@ -25,18 +25,15 @@ export default function AdminSettingsPage() {
   };
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
     loadMode();
-  }, [user, router]);
+  }, [user, isReady, router]);
 
-  if (!user || user.role !== 'admin') return null;
+  if (!isReady || !user || user.role !== 'admin') return null;
 
   const saveMode = () => {
     try {

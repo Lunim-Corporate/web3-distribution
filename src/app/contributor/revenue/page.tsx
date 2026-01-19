@@ -1,16 +1,18 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/lib/auth';
 import { ContributorLayout } from '@/components/layouts/ContributorLayout';
-import { Revenue } from '@/lib/types';
+import { DistributionItem } from '@/lib/types';
+import { getTxExplorerUrl } from '@/lib/tx';
 
 export default function ContributorRevenuePage() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
-  const [revenue, setRevenue] = useState<Revenue[]>([]);
+  const searchParams = useSearchParams();
+  const [revenue, setRevenue] = useState<DistributionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -19,11 +21,26 @@ export default function ContributorRevenuePage() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/revenue');
+      const projectId = searchParams.get('projectId');
+      if (projectId && user.role !== 'admin') {
+        const projRes = await fetch('/api/projects');
+        if (!projRes.ok) throw new Error('Failed to load projects');
+        const projects = await projRes.json();
+        const assigned = projects.find((p: any) =>
+          p.id === projectId && p.contributors?.some((c: any) => c.email === user.email)
+        );
+        if (!assigned) {
+          setRevenue([]);
+          setError('Not authorized');
+          return;
+        }
+      }
+      const res = await fetch(`/api/distributions?contributorUserId=${encodeURIComponent(user.id)}`);
       if (!res.ok) throw new Error('Failed to load revenue');
-      const data: Revenue[] = await res.json();
-      const userRevenue = data.filter(r => r.contributorId === user.id);
-      setRevenue(userRevenue);
+      const data = await res.json();
+      const items: DistributionItem[] = data.items || [];
+      const filtered = projectId ? items.filter(r => r.projectId === projectId) : items;
+      setRevenue(filtered);
     } catch (err: any) {
       setError(err.message || 'Failed to load revenue');
     } finally {
@@ -32,29 +49,25 @@ export default function ContributorRevenuePage() {
   };
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'contributor' && user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
-
     loadRevenue();
-  }, [user, router]);
+  }, [user, isReady, router, searchParams]);
 
-  if (!user || (user.role !== 'contributor' && user.role !== 'admin')) {
+  if (!isReady || !user || (user.role !== 'contributor' && user.role !== 'admin')) {
     return null;
   }
 
   const totalEarnings = revenue.reduce((sum, r) => sum + r.amount, 0);
-  const paidAmount = revenue.filter(r => r.status === 'Paid').reduce((sum, r) => sum + r.amount, 0);
-  const pendingAmount = revenue.filter(r => r.status === 'Pending').reduce((sum, r) => sum + r.amount, 0);
+  const paidAmount = revenue.reduce((sum, r) => sum + r.amount, 0);
+  const pendingAmount = 0;
 
   const exportCsv = () => {
-    const headers = ['Date', 'Project', 'Source', 'Amount', 'Status'];
-    const rows = revenue.map(r => [r.date, r.projectName, r.source, r.amount, r.status]);
+    const headers = ['Date', 'Project', 'Amount', 'Tx Hash'];
+    const rows = revenue.map(r => [r.createdAt, r.projectName, r.amount, r.txHash]);
     const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -147,13 +160,10 @@ export default function ContributorRevenuePage() {
                       Project
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Source
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                       Amount
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Status
+                      Tx Hash
                     </th>
                   </tr>
                 </thead>
@@ -161,28 +171,38 @@ export default function ContributorRevenuePage() {
                   {revenue.map(rev => (
                     <tr key={rev.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {rev.date}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {rev.projectName}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                        {rev.source}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
-                        ${rev.amount.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-medium rounded ${
-                          rev.status === 'Paid' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                          rev.status === 'Pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                          'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                        }`}>
-                          {rev.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                    {new Date(rev.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    {rev.projectName}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
+                    ${rev.amount.toLocaleString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {(() => {
+                      const txUrl = getTxExplorerUrl(rev.chainId, rev.txHash);
+                      if (txUrl) {
+                        return (
+                          <a
+                            href={txUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 dark:text-blue-400 hover:underline"
+                          >
+                            View
+                          </a>
+                        );
+                      }
+                      return rev.txHash ? (
+                        <span className="font-mono">{rev.txHash.slice(0, 10)}...</span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      );
+                    })()}
+                  </td>
+                </tr>
+              ))}
                 </tbody>
               </table>
             </div>

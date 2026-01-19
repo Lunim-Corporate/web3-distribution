@@ -245,7 +245,7 @@ export class RevenueDistributionService extends BaseService {
     for (const share of request.shares) {
       const mockTx: TransactionReceipt = {
         hash: `0x${Math.random().toString(16).slice(2, 66)}`,
-        from: '0x0000000000000000000000000000000000000000',
+        from: request.contractAddress || 'unknown',
         to: share.walletAddress,
         value: share.amount.toString(),
         blockNumber: Math.floor(Math.random() * 1000000),

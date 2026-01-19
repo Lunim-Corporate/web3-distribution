@@ -6,9 +6,10 @@ import { toast } from 'react-hot-toast';
 import { useAuth } from '@/lib/auth';
 import { CreatorLayout } from '@/components/layouts/CreatorLayout';
 import { Revenue } from '@/lib/types';
+import { getTxExplorerUrl } from '@/lib/tx';
 
 export default function CreatorPayoutsPage() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
   const [payouts, setPayouts] = useState<Revenue[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,18 +52,17 @@ export default function CreatorPayoutsPage() {
   };
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'creator' && user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
     loadData();
-  }, [user, router]);
+  }, [user, isReady, router]);
 
-  if (!user || (user.role !== 'creator' && user.role !== 'admin')) {
+  const availableAmount = useMemo(() => available.reduce((sum, p) => sum + p.amount, 0), [available]);
+
+  if (!isReady || !user || (user.role !== 'creator' && user.role !== 'admin')) {
     return null;
   }
 
@@ -72,7 +72,6 @@ export default function CreatorPayoutsPage() {
     const now = new Date();
     return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
   }).reduce((sum, p) => sum + p.amount, 0);
-  const availableAmount = useMemo(() => available.reduce((sum, p) => sum + p.amount, 0), [available]);
 
   const handleRequestPayout = async () => {
     if (available.length === 0) {
@@ -197,18 +196,26 @@ export default function CreatorPayoutsPage() {
                         ${payout.amount.toLocaleString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        {payout.transactionHash ? (
-                          <a
-                            href={`https://etherscan.io/tx/${payout.transactionHash}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 dark:text-blue-400 hover:underline"
-                          >
-                            View on Etherscan
-                          </a>
-                        ) : (
-                          <span className="text-gray-400">Off-chain</span>
-                        )}
+                        {(() => {
+                          const txUrl = getTxExplorerUrl((payout as any).chainId, payout.transactionHash);
+                          if (txUrl) {
+                            return (
+                              <a
+                                href={txUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 dark:text-blue-400 hover:underline"
+                              >
+                                View
+                              </a>
+                            );
+                          }
+                          return payout.transactionHash ? (
+                            <span className="font-mono">{payout.transactionHash.slice(0, 10)}...</span>
+                          ) : (
+                            <span className="text-gray-400">Off-chain</span>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))}

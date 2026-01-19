@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { setAuthCookie, clearAuthCookie } from '@/lib/authCookieClient';
 
 export type Role = 'admin' | 'creator' | 'contributor';
 
@@ -17,13 +18,14 @@ export interface UserSettings {
 
 interface AuthContextValue {
   user: AuthUser | null;
+  isReady: boolean;
   settings: UserSettings;
   login: (email: string, name?: string, role?: Role) => void;
   signup: (name: string, email: string, role: Role) => void;
   logout: () => void;
   setNotifyResurfacingHours: (hours: number) => void;
   listUsers: () => AuthUser[];
-  setUserRole: (userId: string, role: Role) => void;
+  setUserRole: (email: string, role: Role) => void;
   inviteUser: (name: string, email: string, role: Role) => void;
 }
 
@@ -37,8 +39,24 @@ function getUserKey(userId: string) {
   return `crt_settings_${userId}`;
 }
 
+const VALID_ROLES: Role[] = ['admin', 'creator', 'contributor'];
+
+function normalizeUser(raw: any): AuthUser | null {
+  if (!raw || typeof raw !== 'object') return null;
+  if (!raw.id || typeof raw.id !== 'string') return null;
+  if (!raw.email || typeof raw.email !== 'string') return null;
+  const role: Role = VALID_ROLES.includes(raw.role) ? raw.role : 'creator';
+  return {
+    id: raw.id,
+    name: typeof raw.name === 'string' ? raw.name : raw.email.split('@')[0],
+    email: raw.email,
+    role,
+  };
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [isReady, setIsReady] = useState(false);
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
 
   // Load user and settings from localStorage
@@ -46,12 +64,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const rawUser = localStorage.getItem('crt_user');
       if (rawUser) {
-        const parsed = JSON.parse(rawUser) as AuthUser;
-        setUser(parsed);
-        const rawSettings = localStorage.getItem(getUserKey(parsed.id));
+        const parsed = normalizeUser(JSON.parse(rawUser));
+        if (parsed) {
+          setUser(parsed);
+          localStorage.setItem('crt_user', JSON.stringify(parsed));
+          setAuthCookie(parsed);
+        }
+        const rawSettings = parsed ? localStorage.getItem(getUserKey(parsed.id)) : null;
         if (rawSettings) setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(rawSettings) });
       }
     } catch {}
+    setIsReady(true);
   }, []);
 
   // Persist settings per user
@@ -64,17 +87,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = (email: string, name?: string, role: Role = 'creator') => {
     const existing = JSON.parse(localStorage.getItem('crt_users') || '[]') as AuthUser[];
     const found = existing.find((u) => u.email === email);
-    const authUser: AuthUser = found || {
-      id: `user_${Math.random().toString(36).slice(2, 9)}`,
-      name: name || email.split('@')[0],
-      email,
-      role,
-    };
+    const authUser: AuthUser =
+      normalizeUser(found) ||
+      ({
+        id: `user_${Math.random().toString(36).slice(2, 9)}`,
+        name: name || email.split('@')[0],
+        email,
+        role,
+      } as AuthUser);
     if (!found) localStorage.setItem('crt_users', JSON.stringify([...existing, authUser]));
     setUser(authUser);
     localStorage.setItem('crt_user', JSON.stringify(authUser));
     // Also set cookie for middleware
-    try { document.cookie = `crt_user=${encodeURIComponent(JSON.stringify(authUser))}; path=/`; } catch {}
+    setAuthCookie(authUser);
     const rawSettings = localStorage.getItem(getUserKey(authUser.id));
     setSettings(rawSettings ? { ...DEFAULT_SETTINGS, ...JSON.parse(rawSettings) } : DEFAULT_SETTINGS);
   };
@@ -92,7 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem(getUserKey(authUser.id), JSON.stringify(DEFAULT_SETTINGS));
     setUser(authUser);
     setSettings(DEFAULT_SETTINGS);
-    try { document.cookie = `crt_user=${encodeURIComponent(JSON.stringify(authUser))}; path=/`; } catch {}
+    setAuthCookie(authUser);
   };
 
   const inviteUser = (name: string, email: string, role: Role) => {
@@ -109,7 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     localStorage.removeItem('crt_user');
-    try { document.cookie = 'crt_user=; Max-Age=0; path=/'; } catch {}
+    clearAuthCookie();
   };
 
   const setNotifyResurfacingHours = (hours: number) => {
@@ -122,23 +147,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch { return []; }
   };
 
-  const setUserRole = (userId: string, role: Role) => {
+  const setUserRole = (email: string, role: Role) => {
     try {
       const users = listUsers();
-      const updated = users.map(u => u.id === userId ? { ...u, role } : u);
+      const updated = users.map((u) => (u.email === email ? { ...u, role } : u));
       localStorage.setItem('crt_users', JSON.stringify(updated));
       const current = JSON.parse(localStorage.getItem('crt_user') || 'null') as AuthUser | null;
-      if (current && current.id === userId) {
+      if (current && current.email === email) {
         const next = { ...current, role };
         localStorage.setItem('crt_user', JSON.stringify(next));
         setUser(next);
+        setAuthCookie(next);
       }
     } catch {}
   };
 
   const value = useMemo(
-    () => ({ user, settings, login, signup, logout, setNotifyResurfacingHours, listUsers, setUserRole, inviteUser }),
-    [user, settings]
+    () => ({
+      user,
+      isReady,
+      settings,
+      login,
+      signup,
+      logout,
+      setNotifyResurfacingHours,
+      listUsers,
+      setUserRole,
+      inviteUser,
+    }),
+    [user, isReady, settings]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -149,5 +186,3 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
-
-

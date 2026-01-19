@@ -5,13 +5,17 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/lib/auth';
 import { Modal } from '@/components/ui/Modal';
-import { Project, Revenue } from '@/lib/types';
+import { Distribution, DistributionItem, Project, Revenue, TopUp } from '@/lib/types';
+import { getTxExplorerUrl } from '@/lib/tx';
 
 export default function AdminRevenuePage() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
   const [revenue, setRevenue] = useState<Revenue[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [topups, setTopups] = useState<TopUp[]>([]);
+  const [distributions, setDistributions] = useState<Distribution[]>([]);
+  const [distributionItems, setDistributionItems] = useState<DistributionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAdd, setShowAdd] = useState(false);
@@ -27,11 +31,17 @@ export default function AdminRevenuePage() {
     setLoading(true);
     setError('');
     try {
-      const [revRes, projRes] = await Promise.all([fetch('/api/revenue'), fetch('/api/projects')]);
-      if (!revRes.ok || !projRes.ok) throw new Error('Failed to load data');
-      const [revData, projData] = await Promise.all([revRes.json(), projRes.json()]);
+      const [revRes, adminRes] = await Promise.all([
+        fetch('/api/revenue'),
+        fetch('/api/admin/revenue'),
+      ]);
+      if (!revRes.ok || !adminRes.ok) throw new Error('Failed to load data');
+      const [revData, adminData] = await Promise.all([revRes.json(), adminRes.json()]);
       setRevenue(revData);
-      setProjects(projData);
+      setProjects(adminData.projects || []);
+      setTopups(adminData.topups || []);
+      setDistributions(adminData.distributions || []);
+      setDistributionItems(adminData.distributionItems || []);
     } catch (err: any) {
       setError(err.message || 'Failed to load revenue');
     } finally {
@@ -40,18 +50,15 @@ export default function AdminRevenuePage() {
   };
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
     loadData();
-  }, [user, router]);
+  }, [user, isReady, router]);
 
-  if (!user || user.role !== 'admin') return null;
+  if (!isReady || !user || user.role !== 'admin') return null;
 
   const handleAddRevenue = async () => {
     if (!form.projectId || !form.amount) {
@@ -125,6 +132,222 @@ export default function AdminRevenuePage() {
               Add Revenue
             </button>
           </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Recent Top-Ups
+          </h3>
+          {topups.length === 0 ? (
+            <p className="text-gray-600 dark:text-gray-400">No top-ups recorded.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Project
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Tx
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {topups.slice(0, 6).map((topup) => (
+                    <tr key={topup.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        {new Date(topup.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        {topup.projectName}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        {topup.amount} {topup.currency}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {(() => {
+                          const txUrl = getTxExplorerUrl(topup.chainId, topup.txHash);
+                          if (txUrl) {
+                            return (
+                              <a
+                                href={txUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 dark:text-blue-400 hover:underline"
+                              >
+                                View
+                              </a>
+                            );
+                          }
+                          return topup.txHash ? (
+                            <span className="font-mono">{topup.txHash.slice(0, 10)}...</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          );
+                        })()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Distributions
+          </h3>
+          {distributions.length === 0 ? (
+            <p className="text-gray-600 dark:text-gray-400">No distributions recorded.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Project
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Total
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Tx
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Items
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {distributions.slice(0, 6).map((dist) => {
+                    const itemsCount = distributionItems.filter((i) => i.distributionId === dist.id).length;
+                    return (
+                      <tr key={dist.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                          {new Date(dist.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                          {dist.projectName}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                          ${dist.totalAmount.toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {(() => {
+                          const txUrl = getTxExplorerUrl(dist.chainId, dist.txHash);
+                          if (txUrl) {
+                            return (
+                              <a
+                                href={txUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 dark:text-blue-400 hover:underline"
+                              >
+                                View
+                              </a>
+                            );
+                          }
+                          return dist.txHash ? (
+                            <span className="font-mono">{dist.txHash.slice(0, 10)}...</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          );
+                        })()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                          {itemsCount}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Distribution Items
+          </h3>
+          {distributionItems.length === 0 ? (
+            <p className="text-gray-600 dark:text-gray-400">No distribution items recorded.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Project
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Contributor
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      Tx
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {distributionItems.slice(0, 10).map((item) => (
+                    <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        {new Date(item.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        {item.projectName}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                        {item.contributorUserId}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600 dark:text-green-400">
+                        ${item.amount.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {(() => {
+                          const txUrl = getTxExplorerUrl(item.chainId, item.txHash);
+                          if (txUrl) {
+                            return (
+                              <a
+                                href={txUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 dark:text-blue-400 hover:underline"
+                              >
+                                View
+                              </a>
+                            );
+                          }
+                          return item.txHash ? (
+                            <span className="font-mono">{item.txHash.slice(0, 10)}...</span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          );
+                        })()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {loading ? (

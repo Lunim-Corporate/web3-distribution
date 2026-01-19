@@ -4,6 +4,7 @@ import React, { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
+import { useWallet } from '@/lib/wallet';
 
 interface CreatorLayoutProps {
   children: ReactNode;
@@ -28,10 +29,11 @@ const NavItem: React.FC<{ href: string; label: string; icon: string }> = ({ href
 };
 
 export const CreatorLayout: React.FC<CreatorLayoutProps> = ({ children }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, isReady } = useAuth();
+  const { account, isConnected, isConnecting, connectWallet, disconnectWallet, warning, clearWarning } = useWallet();
   const router = useRouter();
 
-  if (!user || (user.role !== 'creator' && user.role !== 'admin')) {
+  if (!isReady || !user || (user.role !== 'creator' && user.role !== 'admin')) {
     return null;
   }
 
@@ -51,6 +53,25 @@ export const CreatorLayout: React.FC<CreatorLayoutProps> = ({ children }) => {
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-600 dark:text-gray-400">{user.email}</span>
+              {isConnected && account ? (
+                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                  <span className="font-mono">Connected: {account.slice(0, 6)}...{account.slice(-4)}</span>
+                  <button
+                    onClick={disconnectWallet}
+                    className="px-3 py-1 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    Disconnect
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={connectWallet}
+                  disabled={isConnecting}
+                  className="px-3 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+                </button>
+              )}
               <button
                 onClick={() => {
                   logout();
@@ -64,6 +85,16 @@ export const CreatorLayout: React.FC<CreatorLayoutProps> = ({ children }) => {
           </div>
         </div>
       </nav>
+      {warning && (
+        <div className="bg-yellow-50 border-b border-yellow-200 text-yellow-800">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between text-sm">
+            <span>{warning}</span>
+            <button onClick={clearWarning} className="text-yellow-900 font-medium">
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-12 gap-6">

@@ -1,106 +1,126 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { ethers } from 'ethers';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { CreatorLayout } from '@/components/layouts/CreatorLayout';
-import { OnRampService, OnRampProvider, OnRampSession } from '@/lib/services/OnRampService';
-import { WalletService } from '@/lib/services/WalletService';
+import { Project, TopUp } from '@/lib/types';
+import { useWallet } from '@/lib/wallet';
 import { toast } from 'react-hot-toast';
+import { getTxExplorerUrl } from '@/lib/tx';
 
 export default function CreatorTopUpPage() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
-  const [providers, setProviders] = useState<OnRampProvider[]>([]);
-  const [selectedProvider, setSelectedProvider] = useState<'stripe' | 'moonpay' | 'transak'>('moonpay');
-  const [fiatAmount, setFiatAmount] = useState('100');
-  const [fiatCurrency, setFiatCurrency] = useState('USD');
-  const [cryptoCurrency, setCryptoCurrency] = useState('USDC');
-  const [walletAddress, setWalletAddress] = useState('');
+  const { account, isConnected, isConnecting, connectWallet } = useWallet();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [amount, setAmount] = useState('0.1');
+  const [currency, setCurrency] = useState('ETH');
   const [loading, setLoading] = useState(false);
-  const [recentSessions, setRecentSessions] = useState<OnRampSession[]>([]);
+  const [topups, setTopups] = useState<TopUp[]>([]);
+
+  const loadTopUps = async () => {
+    if (!user) return;
+    try {
+      const res = await fetch('/api/topups');
+      if (!res.ok) return;
+      const data = await res.json();
+      const filtered = data.filter((t: TopUp) => t.creatorUserId === user.id);
+      setTopups(filtered);
+    } catch {
+      setTopups([]);
+    }
+  };
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'creator' && user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
+    fetch('/api/projects')
+      .then((res) => res.json())
+      .then((data: Project[]) => {
+        const creatorProjects = data.filter((p) => p.creatorId === user.id);
+        setProjects(creatorProjects);
+      })
+      .catch(() => setProjects([]));
+    loadTopUps();
+  }, [user, isReady, router]);
 
-    const onRampService = OnRampService.getInstance();
-    setProviders(onRampService.getProviders());
-    setRecentSessions(onRampService.getRecentSessions(5));
-
-    // Load wallet address if available
-    const savedSettings = localStorage.getItem(`creator_settings_${user.id}`);
-    if (savedSettings) {
-      const settings = JSON.parse(savedSettings);
-      if (settings.walletAddress) {
-        setWalletAddress(settings.walletAddress);
-      }
-    }
-  }, [user, router]);
-
-  if (!user || (user.role !== 'creator' && user.role !== 'admin')) {
+  if (!isReady || !user || (user.role !== 'creator' && user.role !== 'admin')) {
     return null;
   }
 
-  const selectedProviderData = providers.find(p => p.name === selectedProvider);
+  const walletAddress = account || '';
+  const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
   const handleConnectWallet = async () => {
     try {
-      const walletService = WalletService.getInstance();
-      const walletInfo = await walletService.linkAccount();
-      setWalletAddress(walletInfo.address);
-      toast.success('Wallet connected!');
+      await connectWallet();
     } catch (error) {
-      toast.error('Failed to connect wallet');
       console.error(error);
     }
   };
 
   const handleTopUp = async () => {
-    if (!walletAddress) {
+    if (!walletAddress || !isConnected) {
       toast.error('Please connect your wallet first');
       return;
     }
 
-    const amount = parseFloat(fiatAmount);
-    if (isNaN(amount) || amount <= 0) {
+    if (!selectedProjectId) {
+      toast.error('Select a project to top up');
+      return;
+    }
+
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
       toast.error('Please enter a valid amount');
       return;
     }
 
     setLoading(true);
     try {
-      const onRampService = OnRampService.getInstance();
-      const session = await onRampService.createOnRampSession({
-        provider: selectedProvider,
-        fiatAmount: amount,
-        fiatCurrency,
-        cryptoCurrency,
-        walletAddress,
-        email: user.email,
+      if (!window.ethereum) {
+        toast.error('MetaMask is not available');
+        return;
+      }
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const network = await provider.getNetwork();
+      const toAddress = selectedProject?.contractAddress && ethers.isAddress(selectedProject.contractAddress)
+        ? selectedProject.contractAddress
+        : walletAddress;
+      if (!selectedProject?.contractAddress) {
+        toast('No project contract address set. Sending to your wallet as escrow.', { icon: '⚠️' });
+      }
+      const tx = await signer.sendTransaction({
+        to: toAddress,
+        value: ethers.parseEther(parsedAmount.toString()),
       });
+      const receipt = await tx.wait();
 
-      toast.success(`On-ramp session created! Session ID: ${session.sessionId}`);
-      
-      // Simulate completion after 3 seconds
-      setTimeout(async () => {
-        await onRampService.completeOnRampSession(
-          session.sessionId,
-          `0x${Math.random().toString(16).slice(2, 66)}`
-        );
-        toast.success('Top-up completed successfully!');
-        setRecentSessions(onRampService.getRecentSessions(5));
-      }, 3000);
-
-      setRecentSessions(onRampService.getRecentSessions(5));
+      await fetch('/api/topups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: selectedProjectId,
+          projectName: selectedProject?.name || 'Project',
+          creatorUserId: user.id,
+          amount: parsedAmount,
+          currency,
+          chainId: Number(network.chainId),
+          txHash: receipt?.hash || tx.hash,
+          createdAt: new Date().toISOString(),
+        }),
+      });
+      toast.success(`Top-up confirmed! Tx: ${receipt?.hash || tx.hash}`);
+      await loadTopUps();
     } catch (error) {
-      toast.error('Failed to create on-ramp session');
+      toast.error('Failed to top up');
       console.error(error);
     } finally {
       setLoading(false);
@@ -116,7 +136,7 @@ export default function CreatorTopUpPage() {
             Top Up
           </h2>
           <p className="text-gray-600 dark:text-gray-400">
-            Add funds to your wallet using fiat currency.
+            Add funds to a project wallet using your connected account.
           </p>
         </div>
 
@@ -128,7 +148,7 @@ export default function CreatorTopUpPage() {
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Wallet Address
               </h3>
-              {walletAddress ? (
+              {isConnected && walletAddress ? (
                 <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                   <span className="text-2xl">✅</span>
                   <div className="flex-1">
@@ -147,39 +167,31 @@ export default function CreatorTopUpPage() {
                   </p>
                   <button
                     onClick={handleConnectWallet}
+                    disabled={isConnecting}
                     className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
                   >
-                    Connect Wallet
+                    {isConnecting ? 'Connecting...' : 'Connect Wallet'}
                   </button>
                 </div>
               )}
             </div>
 
-            {/* Provider Selection */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Select Provider
+                Select Project
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {providers.map(provider => (
-                  <button
-                    key={provider.name}
-                    onClick={() => setSelectedProvider(provider.name)}
-                    className={`p-4 border-2 rounded-lg transition-all ${
-                      selectedProvider === provider.name
-                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20'
-                        : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
-                    }`}
-                  >
-                    <p className="font-semibold text-gray-900 dark:text-white">
-                      {provider.displayName}
-                    </p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {provider.supportedCurrencies.length} currencies
-                    </p>
-                  </button>
+              <select
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="">Choose a project</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
                 ))}
-              </div>
+              </select>
             </div>
 
             {/* Amount and Currency */}
@@ -191,91 +203,93 @@ export default function CreatorTopUpPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Fiat Amount
+                      Amount
                     </label>
                     <input
                       type="number"
-                      value={fiatAmount}
-                      onChange={(e) => setFiatAmount(e.target.value)}
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      placeholder="100"
+                      placeholder="0.1"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Fiat Currency
+                      Currency
                     </label>
                     <select
-                      value={fiatCurrency}
-                      onChange={(e) => setFiatCurrency(e.target.value)}
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
-                      {selectedProviderData?.supportedCurrencies.map(currency => (
-                        <option key={currency} value={currency}>{currency}</option>
-                      ))}
+                      <option value="ETH">ETH</option>
+                      <option value="MATIC">MATIC</option>
                     </select>
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Receive Crypto
-                  </label>
-                  <select
-                    value={cryptoCurrency}
-                    onChange={(e) => setCryptoCurrency(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    {selectedProviderData?.supportedCrypto.map(crypto => (
-                      <option key={crypto} value={crypto}>{crypto}</option>
-                    ))}
-                  </select>
-                </div>
                 <button
                   onClick={handleTopUp}
-                  disabled={loading || !walletAddress}
+                  disabled={loading || !walletAddress || !selectedProjectId}
                   className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Processing...' : `Top Up ${fiatAmount} ${fiatCurrency}`}
+                  {loading ? 'Processing...' : `Top Up ${amount} ${currency}`}
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Recent Sessions */}
+          {/* Recent Top-Ups */}
           <div className="lg:col-span-1">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Recent Top-Ups
               </h3>
-              {recentSessions.length === 0 ? (
+              {topups.length === 0 ? (
                 <p className="text-gray-600 dark:text-gray-400 text-sm">
                   No recent top-ups.
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {recentSessions.map(session => (
+                  {topups.slice(0, 6).map(topup => (
                     <div
-                      key={session.sessionId}
+                      key={topup.id}
                       className="p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
                     >
                       <div className="flex justify-between items-start mb-2">
                         <span className="text-sm font-medium text-gray-900 dark:text-white">
-                          {session.fiatAmount} {session.fiatCurrency}
+                          {topup.amount} {topup.currency}
                         </span>
-                        <span className={`text-xs px-2 py-1 rounded ${
-                          session.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                          session.status === 'processing' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                          session.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                          'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                        }`}>
-                          {session.status}
+                        <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                          Confirmed
                         </span>
                       </div>
                       <p className="text-xs text-gray-600 dark:text-gray-400">
-                        {session.cryptoAmount?.toFixed(4)} {session.cryptoCurrency}
+                        Project: {topup.projectName}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {(() => {
+                          const txUrl = getTxExplorerUrl(topup.chainId, topup.txHash);
+                          if (txUrl) {
+                            return (
+                              <a
+                                href={txUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 dark:text-blue-400 hover:underline"
+                              >
+                                View tx
+                              </a>
+                            );
+                          }
+                          return topup.txHash ? (
+                            <span className="font-mono">{topup.txHash.slice(0, 10)}...</span>
+                          ) : (
+                            <span className="text-gray-400">Tx pending</span>
+                          );
+                        })()}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                        {new Date(session.createdAt).toLocaleDateString()}
+                        {new Date(topup.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                   ))}

@@ -5,20 +5,18 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { CreatorLayout } from '@/components/layouts/CreatorLayout';
 import { OffRampService, OffRampProvider, OffRampTransaction, BankAccount } from '@/lib/services/OffRampService';
-import { WalletService } from '@/lib/services/WalletService';
-import { PaymentService } from '@/lib/services/PaymentService';
+import { useWallet } from '@/lib/wallet';
 import { toast } from 'react-hot-toast';
 
 export default function CreatorWithdrawPage() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
+  const { account, isConnected, isConnecting, chainId, balance, connectWallet } = useWallet();
   const [providers, setProviders] = useState<OffRampProvider[]>([]);
   const [selectedProvider, setSelectedProvider] = useState<'tink' | 'truelayer' | 'plaid' | 'chimoney' | 'paystack'>('chimoney');
   const [cryptoAmount, setCryptoAmount] = useState('100');
   const [cryptoCurrency, setCryptoCurrency] = useState('USDC');
   const [fiatCurrency, setFiatCurrency] = useState('USD');
-  const [walletAddress, setWalletAddress] = useState('');
-  const [walletBalance, setWalletBalance] = useState('0');
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [selectedBankAccount, setSelectedBankAccount] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,56 +31,31 @@ export default function CreatorWithdrawPage() {
   });
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'creator' && user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
-
     const offRampService = OffRampService.getInstance();
     setProviders(offRampService.getProviders());
     setRecentTransactions(offRampService.getRecentTransactions(5));
     setBankAccounts(offRampService.getBankAccounts());
+  }, [user, isReady, router]);
 
-    // Load wallet address and balance
-    const savedSettings = localStorage.getItem(`creator_settings_${user.id}`);
-    if (savedSettings) {
-      const settings = JSON.parse(savedSettings);
-      if (settings.walletAddress) {
-        setWalletAddress(settings.walletAddress);
-        loadWalletBalance(settings.walletAddress);
-      }
-    }
-  }, [user, router]);
-
-  const loadWalletBalance = async (address: string) => {
-    try {
-      const paymentService = PaymentService.getInstance();
-      const balance = await paymentService.getBalance(address);
-      setWalletBalance(balance);
-    } catch (error) {
-      console.error('Failed to load balance:', error);
-    }
-  };
-
-  if (!user || (user.role !== 'creator' && user.role !== 'admin')) {
+  if (!isReady || !user || (user.role !== 'creator' && user.role !== 'admin')) {
     return null;
   }
 
   const selectedProviderData = providers.find(p => p.name === selectedProvider);
+  const walletAddress = account || '';
+  const isPolygonChain = chainId === 137 || chainId === 80001 || chainId === 80002;
+  const balanceLabel = isPolygonChain ? 'MATIC' : 'ETH';
+  const balanceValue = parseFloat(balance || '0');
 
   const handleConnectWallet = async () => {
     try {
-      const walletService = WalletService.getInstance();
-      const walletInfo = await walletService.linkAccount();
-      setWalletAddress(walletInfo.address);
-      setWalletBalance(walletInfo.balance);
-      toast.success('Wallet connected!');
+      await connectWallet();
     } catch (error) {
-      toast.error('Failed to connect wallet');
       console.error(error);
     }
   };
@@ -130,8 +103,7 @@ export default function CreatorWithdrawPage() {
       return;
     }
 
-    const balance = parseFloat(walletBalance);
-    if (amount > balance) {
+    if (amount > balanceValue) {
       toast.error('Insufficient balance');
       return;
     }
@@ -158,7 +130,6 @@ export default function CreatorWithdrawPage() {
         );
         toast.success('Withdrawal completed successfully!');
         setRecentTransactions(offRampService.getRecentTransactions(5));
-        loadWalletBalance(walletAddress);
       }, 5000);
 
       setRecentTransactions(offRampService.getRecentTransactions(5));
@@ -181,6 +152,9 @@ export default function CreatorWithdrawPage() {
           <p className="text-gray-600 dark:text-gray-400">
             Convert your crypto to fiat and withdraw to your bank account.
           </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+            Demo mode: off-ramp transactions are simulated for testing.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -191,13 +165,13 @@ export default function CreatorWithdrawPage() {
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Wallet Balance
               </h3>
-              {walletAddress ? (
+              {isConnected && walletAddress ? (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">Available Balance</p>
                       <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                        {parseFloat(walletBalance).toFixed(4)} ETH
+                        {balanceValue.toFixed(4)} {balanceLabel}
                       </p>
                     </div>
                     <span className="text-3xl">💰</span>
@@ -213,9 +187,10 @@ export default function CreatorWithdrawPage() {
                   </p>
                   <button
                     onClick={handleConnectWallet}
+                    disabled={isConnecting}
                     className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
                   >
-                    Connect Wallet
+                    {isConnecting ? 'Connecting...' : 'Connect Wallet'}
                   </button>
                 </div>
               )}

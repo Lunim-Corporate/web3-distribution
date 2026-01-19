@@ -1,39 +1,44 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { ContributorLayout } from '@/components/layouts/ContributorLayout';
-import { Project, Revenue } from '@/lib/types';
+import { DistributionItem, Project } from '@/lib/types';
 
 export default function ContributorDashboardPage() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [projects, setProjects] = useState<Project[]>([]);
-  const [revenue, setRevenue] = useState<Revenue[]>([]);
+  const [revenue, setRevenue] = useState<DistributionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'contributor' && user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
-
     Promise.all([
       fetch('/api/projects').then(r => r.json()),
-      fetch('/api/revenue').then(r => r.json()),
+      fetch(`/api/distributions?contributorUserId=${encodeURIComponent(user.id)}`).then(r => r.json()),
     ])
       .then(([projectsData, revenueData]) => {
         // Filter data for current user
         const userProjects = projectsData.filter((p: Project) =>
           p.contributors.some(c => c.email === user.email)
         );
-        const userRevenue = revenueData.filter((r: Revenue) => r.contributorId === user.id);
+        const projectId = searchParams.get('projectId');
+        if (projectId && user.role !== 'admin' && !userProjects.some(p => p.id === projectId)) {
+          setProjects([]);
+          setRevenue([]);
+          setError('Not authorized');
+          setLoading(false);
+          return;
+        }
+        const userRevenue = (revenueData.items || []) as DistributionItem[];
 
         setProjects(userProjects);
         setRevenue(userRevenue);
@@ -43,16 +48,14 @@ export default function ContributorDashboardPage() {
         setError(err.message || 'Failed to load data');
         setLoading(false);
       });
-  }, [user, router]);
+  }, [user, isReady, router, searchParams]);
 
-  if (!user || (user.role !== 'contributor' && user.role !== 'admin')) {
+  if (!isReady || !user || (user.role !== 'contributor' && user.role !== 'admin')) {
     return null;
   }
 
   const totalEarnings = revenue.reduce((sum, r) => sum + r.amount, 0);
-  const pendingPayments = revenue
-    .filter(r => r.status === 'Pending' || r.status === 'Processing')
-    .reduce((sum, r) => sum + r.amount, 0);
+  const pendingPayments = 0;
   const activeProjects = projects.filter(p => p.status === 'Active').length;
 
   return (
@@ -178,37 +181,35 @@ export default function ContributorDashboardPage() {
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Recent Revenue
           </h3>
-          {loading ? (
-            <p className="text-gray-600 dark:text-gray-400">Loading...</p>
-          ) : revenue.length === 0 ? (
-            <p className="text-gray-600 dark:text-gray-400">No revenue yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {revenue.slice(0, 5).map(rev => (
-                <div
-                  key={rev.id}
-                  className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
-                >
-                  <div className="flex-1">
-                    <h4 className="font-medium text-gray-900 dark:text-white">{rev.projectName}</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">{rev.source} • {rev.date}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-900 dark:text-white">
-                      ${rev.amount.toLocaleString()}
-                    </p>
-                    <span className={`text-xs px-2 py-1 rounded ${
-                      rev.status === 'Paid' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                      rev.status === 'Pending' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                      'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                    }`}>
-                      {rev.status}
-                    </span>
-                  </div>
+        {loading ? (
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+        ) : revenue.length === 0 ? (
+          <p className="text-gray-600 dark:text-gray-400">No revenue yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {revenue.slice(0, 5).map(rev => (
+              <div
+                key={rev.id}
+                className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
+              >
+                <div className="flex-1">
+                  <h4 className="font-medium text-gray-900 dark:text-white">{rev.projectName}</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {new Date(rev.createdAt).toLocaleDateString()}
+                  </p>
                 </div>
-              ))}
-            </div>
-          )}
+                <div className="text-right">
+                  <p className="font-semibold text-gray-900 dark:text-white">
+                    ${rev.amount.toLocaleString()}
+                  </p>
+                  <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    Confirmed
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         </div>
       </div>
     </ContributorLayout>

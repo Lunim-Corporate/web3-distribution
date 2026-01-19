@@ -19,6 +19,8 @@ export const SmartContractPanel: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
   const contractService = ContractService.getInstance();
+  const isPolygonChain = chainId === 137 || chainId === 80001 || chainId === 80002;
+  const balanceLabel = isPolygonChain ? 'MATIC' : 'ETH';
 
   const handleContractInteraction = async (functionName: string, contractAddress?: string) => {
     if (!isConnected) {
@@ -91,7 +93,7 @@ export const SmartContractPanel: React.FC = () => {
                     <span>{truncateAddress(account || '')}</span>
                   </div>
                   <div className="text-xs text-gray-600 dark:text-gray-400">
-                    <div>{balance} ETH</div>
+                    <div>{balance} {balanceLabel}</div>
                     <div>{getNetworkName(chainId)}</div>
                   </div>
                   <Button onClick={disconnectWallet} size="sm" variant="ghost">

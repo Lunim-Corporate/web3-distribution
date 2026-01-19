@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { ethers } from 'ethers';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/lib/auth';
@@ -9,7 +10,7 @@ import { Project } from '@/lib/types';
 import { Modal } from '@/components/ui/Modal';
 
 export default function CreatorProjectsPage() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +28,7 @@ export default function CreatorProjectsPage() {
     email: '',
     revenueShare: '',
     role: '',
+    walletAddress: '',
   });
   const [filter, setFilter] = useState<'all' | 'Active' | 'Completed' | 'In Progress'>('all');
 
@@ -48,25 +50,21 @@ export default function CreatorProjectsPage() {
   };
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'creator' && user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
-
     loadProjects();
-  }, [user, router]);
-
-  if (!user || (user.role !== 'creator' && user.role !== 'admin')) {
-    return null;
-  }
+  }, [user, isReady, router]);
 
   const filteredProjects = useMemo(() => (
     filter === 'all' ? projects : projects.filter(p => p.status === filter)
   ), [filter, projects]);
+
+  if (!isReady || !user || (user.role !== 'creator' && user.role !== 'admin')) {
+    return null;
+  }
 
   const handleCreate = async () => {
     if (!createForm.name.trim()) {
@@ -109,16 +107,31 @@ export default function CreatorProjectsPage() {
       toast.error('Email is required');
       return;
     }
+    if (!ethers.isAddress(contributorForm.walletAddress || '')) {
+      toast.error('Valid wallet address is required');
+      return;
+    }
+    let contributorId = `contrib_${Date.now()}`;
+    try {
+      const res = await fetch(`/api/users?email=${encodeURIComponent(contributorForm.email.trim())}`);
+      if (res.ok) {
+        const matches = await res.json();
+        if (matches && matches.length > 0 && matches[0].id) {
+          contributorId = matches[0].id;
+        }
+      }
+    } catch {}
     const updatedContributors = [
       ...selectedProject.contributors,
       {
-        id: `contrib_${Date.now()}`,
+        id: contributorId,
         name: contributorForm.name || contributorForm.email.split('@')[0],
         email: contributorForm.email,
         avatar: '',
         revenueShare: Number(contributorForm.revenueShare) || 0,
         totalEarned: 0,
         role: contributorForm.role || 'Contributor',
+        walletAddress: contributorForm.walletAddress,
       },
     ];
     try {
@@ -133,7 +146,7 @@ export default function CreatorProjectsPage() {
       if (!res.ok) throw new Error('Failed to update contributors');
       toast.success('Contributor added');
       setShowContributor(false);
-      setContributorForm({ name: '', email: '', revenueShare: '', role: '' });
+      setContributorForm({ name: '', email: '', revenueShare: '', role: '', walletAddress: '' });
       loadProjects();
     } catch (err: any) {
       toast.error(err.message || 'Could not add contributor');
@@ -389,6 +402,15 @@ export default function CreatorProjectsPage() {
               onChange={(e) => setContributorForm({ ...contributorForm, name: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
               placeholder="Name (optional)"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Wallet Address</label>
+            <input
+              value={contributorForm.walletAddress}
+              onChange={(e) => setContributorForm({ ...contributorForm, walletAddress: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+              placeholder="0x..."
             />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

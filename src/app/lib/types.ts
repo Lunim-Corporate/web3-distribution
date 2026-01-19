@@ -36,6 +36,7 @@ export interface Contributor {
   revenueShare: number;
   totalEarned: number;
   role: string;
+  walletAddress: string;
 }
 
 export interface CreativeRight {
@@ -72,6 +73,42 @@ export interface PaymentSplit {
   amount: number;
   percentage: number;
   status: 'Paid' | 'Pending' | 'Processing';
+}
+
+export interface TopUp {
+  id: string;
+  projectId: string;
+  projectName: string;
+  creatorUserId: string;
+  amount: number;
+  currency: string;
+  chainId: number;
+  txHash: string;
+  createdAt: string;
+}
+
+export interface Distribution {
+  id: string;
+  projectId: string;
+  projectName: string;
+  creatorUserId: string;
+  totalAmount: number;
+  chainId: number;
+  txHash: string;
+  createdAt: string;
+}
+
+export interface DistributionItem {
+  id: string;
+  distributionId: string;
+  projectId: string;
+  projectName: string;
+  contributorUserId: string;
+  contributorWallet: string;
+  amount: number;
+  createdAt: string;
+  txHash: string;
+  chainId: number;
 }
 
 export interface SmartContract {

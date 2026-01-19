@@ -7,22 +7,18 @@ import { ContributorLayout } from '@/components/layouts/ContributorLayout';
 import { Project } from '@/lib/types';
 
 export default function ContributorProjectsPage() {
-  const { user } = useAuth();
+  const { user, isReady } = useAuth();
   const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (!isReady) return;
     if (!user) {
       router.replace('/login');
       return;
     }
-    if (user.role !== 'contributor' && user.role !== 'admin') {
-      router.replace('/unauthorized');
-      return;
-    }
-
     fetch('/api/projects')
       .then(r => {
         if (!r.ok) throw new Error('Failed to load projects');
@@ -39,9 +35,9 @@ export default function ContributorProjectsPage() {
         setError(err.message || 'Failed to load projects');
         setLoading(false);
       });
-  }, [user, router]);
+  }, [user, isReady, router]);
 
-  if (!user || (user.role !== 'contributor' && user.role !== 'admin')) {
+  if (!isReady || !user || (user.role !== 'contributor' && user.role !== 'admin')) {
     return null;
   }
 

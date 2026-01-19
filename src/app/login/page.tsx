@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
 import { DemoSetup } from '@/components/DemoSetup';
@@ -9,6 +9,8 @@ import { DemoSetup } from '@/components/DemoSetup';
 export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const reason = searchParams.get('reason');
   const [email, setEmail] = useState('');
 
   return (
@@ -22,6 +24,12 @@ export default function LoginPage() {
             RISIDIO Capstone Project - Login or Setup Demo
           </p>
         </div>
+
+        {reason === 'not_logged_in' && (
+          <div className="mb-6 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+            Not logged in. Please sign in to continue.
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Regular Login */}
@@ -95,5 +103,4 @@ export default function LoginPage() {
     </div>
   );
 }
-
 
