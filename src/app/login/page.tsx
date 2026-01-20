@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
 import { DemoSetup } from '@/components/DemoSetup';
@@ -9,8 +9,9 @@ import { DemoSetup } from '@/components/DemoSetup';
 export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const reason = searchParams.get('reason');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
@@ -23,6 +24,12 @@ export default function LoginPage() {
             RISIDIO Capstone Project - Login or Setup Demo
           </p>
         </div>
+
+        {reason === 'not_logged_in' && (
+          <div className="mb-6 rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+            Not logged in. Please sign in to continue.
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Regular Login */}
@@ -37,32 +44,25 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              <input
-                type="password"
-                className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                placeholder="Enter password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
               <button
                 className="w-full px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors"
-                onClick={async () => {
+                onClick={() => {
                   if (!email.trim()) {
                     toast.error('Please enter an email address');
                     return;
                   }
-                  if (!password.trim()) {
-                    toast.error('Please enter a password');
-                    return;
-                  }
-                  await login(email, password);
+                  login(email);
                   const role = JSON.parse(localStorage.getItem('crt_user')||'{}').role;
                   if (role === 'admin') {
-                    toast.success('Welcome back, Admin! You have full access.');
+                    toast.success('Welcome back, Admin!');
+                    router.push('/admin/dashboard');
+                  } else if (role === 'creator') {
+                    toast.success('Welcome back, Creator!');
+                    router.push('/creator/dashboard');
                   } else {
-                    toast.success('Welcome back! Limited access based on your role.');
+                    toast.success('Welcome back!');
+                    router.push('/dashboard');
                   }
-                  router.push('/dashboard');
                 }}
               >
                 Continue to Dashboard
@@ -103,5 +103,4 @@ export default function LoginPage() {
     </div>
   );
 }
-
 

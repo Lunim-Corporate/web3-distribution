@@ -30,7 +30,7 @@ export const TraditionalContractsPanel: React.FC = () => {
   };
 
   const sign = (id: string) => {
-    const updated: Contract[] = contracts.map(c => c.id === id ? { ...c, status: 'Signed' as const } : c);
+    const updated = contracts.map(c => c.id === id ? { ...c, status: 'Signed' as const } : c);
     save(updated); toast.success('Contract signed');
   };
 

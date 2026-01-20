@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { ethers } from 'ethers';
 import { toast } from 'react-hot-toast';
 
 declare global {
@@ -15,10 +16,13 @@ interface WalletContextValue {
   isConnecting: boolean;
   chainId: number | null;
   balance: string | null;
+  warning: string | null;
   connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
   switchNetwork: (chainId: string) => Promise<void>;
   sendTransaction: (to: string, value: string) => Promise<string>;
+  getNetworkName: (chainId: number | null) => string;
+  clearWarning: () => void;
 }
 
 const WalletContext = createContext<WalletContextValue | undefined>(undefined);
@@ -29,28 +33,19 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isConnecting, setIsConnecting] = useState(false);
   const [chainId, setChainId] = useState<number | null>(null);
   const [balance, setBalance] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
 
-  // Check if wallet is already connected on load
   useEffect(() => {
-    checkConnection();
     setupEventListeners();
-  }, []);
 
-  const checkConnection = async () => {
-    if (typeof window !== 'undefined' && window.ethereum) {
-      try {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        if (accounts.length > 0) {
-          setAccount(accounts[0]);
-          setIsConnected(true);
-          await getChainId();
-          await getBalance(accounts[0]);
-        }
-      } catch (error) {
-        console.error('Error checking connection:', error);
+    return () => {
+      if (typeof window !== 'undefined' && window.ethereum) {
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged);
+        window.ethereum.removeListener('chainChanged', handleChainChanged);
+        window.ethereum.removeListener('disconnect', handleDisconnect);
       }
-    }
-  };
+    };
+  }, []);
 
   const setupEventListeners = () => {
     if (typeof window !== 'undefined' && window.ethereum) {
@@ -60,18 +55,26 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const handleAccountsChanged = (accounts: string[]) => {
+  const handleAccountsChanged = async (accounts: string[]) => {
     if (accounts.length === 0) {
       disconnectWallet();
     } else {
       setAccount(accounts[0]);
-      getBalance(accounts[0]);
+      setIsConnected(true);
+      setWarning('Wallet account changed. Please confirm before sending transactions.');
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const network = await provider.getNetwork();
+        setChainId(Number(network.chainId));
+      } catch (error) {
+        console.error('Error updating chain after account change:', error);
+      }
     }
   };
 
-  const handleChainChanged = (chainId: string) => {
-    setChainId(parseInt(chainId, 16));
-    window.location.reload(); // Recommended by MetaMask
+  const handleChainChanged = (nextChainId: string) => {
+    setChainId(parseInt(nextChainId, 16));
+    setWarning('Wallet network changed. Please confirm before sending transactions.');
   };
 
   const handleDisconnect = () => {
@@ -87,24 +90,36 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setIsConnecting(true);
     try {
-      const accounts = await window.ethereum.request({
-        method: 'eth_requestAccounts',
-      });
-
-      if (accounts.length > 0) {
-        setAccount(accounts[0]);
-        setIsConnected(true);
-        await getChainId();
-        await getBalance(accounts[0]);
-        toast.success('Wallet connected successfully!');
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      if (!accounts || accounts.length === 0) {
+        throw new Error('No accounts found. Please unlock your wallet.');
       }
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const address = await signer.getAddress();
+      const network = await provider.getNetwork();
+      let nextBalance = '0';
+      try {
+        const fetchedBalance = await provider.getBalance(address);
+        nextBalance = ethers.formatEther(fetchedBalance);
+      } catch (error) {
+        console.warn('Balance fetch failed:', error);
+      }
+      setAccount(address);
+      setIsConnected(true);
+      setChainId(Number(network.chainId));
+      setBalance(nextBalance);
+      setWarning(null);
+      try {
+        sessionStorage.setItem(
+          'crt_wallet',
+          JSON.stringify({ address, chainId: Number(network.chainId) })
+        );
+      } catch {}
+      toast.success('Wallet connected');
     } catch (error: any) {
-      console.error('Error connecting wallet:', error);
-      if (error.code === 4001) {
-        toast.error('Connection rejected by user');
-      } else {
-        toast.error('Failed to connect wallet');
-      }
+      console.error('Error linking account:', error);
+      toast.error(error.message || 'Failed to link account');
     } finally {
       setIsConnecting(false);
     }
@@ -115,78 +130,67 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsConnected(false);
     setChainId(null);
     setBalance(null);
-    toast.success('Wallet disconnected');
-  };
-
-  const getChainId = async () => {
+    setWarning(null);
     try {
-      const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-      setChainId(parseInt(chainId, 16));
-    } catch (error) {
-      console.error('Error getting chain ID:', error);
-    }
-  };
-
-  const getBalance = async (address: string) => {
-    try {
-      const balance = await window.ethereum.request({
-        method: 'eth_getBalance',
-        params: [address, 'latest'],
-      });
-      // Convert from wei to ETH
-      const ethBalance = (parseInt(balance, 16) / Math.pow(10, 18)).toFixed(4);
-      setBalance(ethBalance);
-    } catch (error) {
-      console.error('Error getting balance:', error);
-    }
+      sessionStorage.removeItem('crt_wallet');
+    } catch {}
+    toast.success('Account disconnected');
   };
 
   const switchNetwork = async (targetChainId: string) => {
     try {
+      if (typeof window === 'undefined' || !window.ethereum) {
+        throw new Error('MetaMask is not available');
+      }
+      const chainIdNum = targetChainId.startsWith('0x')
+        ? targetChainId
+        : `0x${parseInt(targetChainId, 10).toString(16)}`;
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
-        params: [{ chainId: targetChainId }],
+        params: [{ chainId: chainIdNum }],
       });
+      toast.success('Network switched successfully');
     } catch (error: any) {
-      if (error.code === 4902) {
-        // Network not added to MetaMask
-        toast.error('Please add this network to MetaMask first');
-      } else {
-        toast.error('Failed to switch network');
-      }
+      console.error('Error switching network:', error);
+      toast.error(error.message || 'Failed to switch network');
       throw error;
     }
   };
 
   const sendTransaction = async (to: string, value: string): Promise<string> => {
-    if (!account) throw new Error('No account connected');
+    if (!account || !isConnected) throw new Error('No account connected');
+    if (typeof window === 'undefined' || !window.ethereum) {
+      throw new Error('MetaMask is not available');
+    }
 
     try {
-      const txHash = await window.ethereum.request({
-        method: 'eth_sendTransaction',
-        params: [{
-          from: account,
-          to,
-          value: `0x${(parseFloat(value) * Math.pow(10, 18)).toString(16)}`, // Convert ETH to wei
-        }],
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const tx = await signer.sendTransaction({
+        to,
+        value: ethers.parseEther(value),
       });
-      return txHash;
+      return tx.hash;
     } catch (error) {
       console.error('Transaction failed:', error);
       throw error;
     }
   };
 
+
   const getNetworkName = (chainId: number | null): string => {
-    switch (chainId) {
-      case 1: return 'Ethereum Mainnet';
-      case 5: return 'Goerli Testnet';
-      case 137: return 'Polygon Mainnet';
-      case 80001: return 'Polygon Mumbai';
-      case 56: return 'BSC Mainnet';
-      case 97: return 'BSC Testnet';
-      default: return 'Unknown Network';
-    }
+    if (!chainId) return 'Unknown Network';
+    const networks: Record<number, string> = {
+      1: 'Ethereum Mainnet',
+      5: 'Goerli Testnet',
+      11155111: 'Sepolia Testnet',
+      137: 'Polygon Mainnet',
+      80002: 'Polygon Amoy',
+      80001: 'Polygon Mumbai',
+      56: 'BSC Mainnet',
+      97: 'BSC Testnet',
+    };
+    return networks[chainId] || `Unknown Network (${chainId})`;
   };
 
   const value = {
@@ -195,11 +199,13 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     isConnecting,
     chainId,
     balance,
+    warning,
     connectWallet,
     disconnectWallet,
     switchNetwork,
     sendTransaction,
     getNetworkName,
+    clearWarning: () => setWarning(null),
   };
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;

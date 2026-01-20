@@ -1,19 +1,82 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseServer';
+import { mockRights } from '@/data/mockData';
 
-export async function GET() {
-  try {
-    const { data, error } = await supabaseAdmin
-      .from('creative_rights')
-      .select('*')
-      .order('created_at', { ascending: false });
+let rightsStore = [...mockRights];
 
-    if (error) throw error;
-    return NextResponse.json(data || []);
-  } catch (error) {
-    console.error('Error fetching rights:', error);
-    return NextResponse.json([], { status: 200 });
-  }
+const EXPIRING_SOON_DAYS = 30;
+
+function withDynamicStatus() {
+  const now = new Date();
+  rightsStore = rightsStore.map((right) => {
+    const expires = new Date(right.expirationDate);
+    const diffDays = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    let status = right.status;
+    if (diffDays < 0) {
+      status = 'Expired';
+    } else if (diffDays <= EXPIRING_SOON_DAYS && right.status !== 'Expired') {
+      status = 'Expiring Soon';
+    } else if (right.status !== 'Transferred') {
+      status = 'Active';
+    }
+
+    return { ...right, status };
+  });
 }
 
+export async function GET(request: Request) {
+  withDynamicStatus();
+  const { searchParams } = new URL(request.url);
+  const userId = searchParams.get('userId');
+  const status = searchParams.get('status');
 
+  let filteredRights = rightsStore;
+
+  // Filter by user if userId is provided
+  if (userId) {
+    filteredRights = filteredRights.filter(r => r.ownerId === userId);
+  }
+
+  // Filter by status if provided
+  if (status) {
+    filteredRights = filteredRights.filter(r => r.status === status);
+  }
+
+  return NextResponse.json(filteredRights);
+}
+
+export async function POST(request: Request) {
+  const body = await request.json();
+
+  const newRight = {
+    id: `right_${Date.now()}`,
+    projectId: body.projectId || '',
+    projectName: body.projectName || 'Untitled Project',
+    rightsType: body.rightsType || 'Rights',
+    owner: body.owner || 'Unassigned',
+    ownerId: body.ownerId || '',
+    status: body.status || 'Active',
+    expirationDate: body.expirationDate || new Date().toISOString().split('T')[0],
+    revenueShare: Number(body.revenueShare) || 0,
+    createdDate: new Date().toISOString().split('T')[0],
+  };
+
+  rightsStore = [newRight, ...rightsStore];
+  return NextResponse.json(newRight, { status: 201 });
+}
+
+export async function PUT(request: Request) {
+  const body = await request.json();
+  const { id, ...updates } = body;
+
+  if (!id) {
+    return NextResponse.json({ error: 'Right id is required' }, { status: 400 });
+  }
+
+  rightsStore = rightsStore.map(right =>
+    right.id === id ? { ...right, ...updates } : right
+  );
+
+  const updated = rightsStore.find(r => r.id === id);
+  return NextResponse.json(updated);
+}

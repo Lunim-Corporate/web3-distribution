@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Line, Doughnut } from 'react-chartjs-2';
-import { formatCurrency } from '@/lib/utils';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -17,61 +16,68 @@ import {
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Tooltip, Legend);
 
-const monthsNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const LineChart: React.FC<{ data: number[] }> = ({ data }) => {
+  const max = Math.max(...data, 1);
+  const points = data.map((v, i) => `${(i / (data.length - 1)) * 100},${100 - (v / max) * 100}`).join(' ');
+  return (
+    <svg viewBox="0 0 100 100" className="w-full h-60" role="img" aria-label="Revenue trend line chart"> 
+      <polyline fill="none" stroke="#22c55e" strokeWidth="2" points={points} />
+      {data.map((v, i) => (
+        <g key={i}>
+          <circle cx={(i / (data.length - 1)) * 100} cy={100 - (v / max) * 100} r="1.5" fill="#22c55e">
+            <title>${v.toLocaleString()}</title>
+          </circle>
+        </g>
+      ))}
+    </svg>
+  );
+};
 
-const ChartsPanel: React.FC = () => {
-  const [revenue, setRevenue] = useState<any[]>([]);
-  const [timeframe, setTimeframe] = useState<'6'|'12'|'ytd'>('6');
-  const [cumulative, setCumulative] = useState(false);
+const DonutChart: React.FC<{ segments: { label: string; value: number; color: string }[] }> = ({ segments }) => {
+  const total = segments.reduce((s, x) => s + x.value, 0) || 1;
+  let offset = 25; // start at top
+  return (
+    <svg viewBox="0 0 36 36" className="w-full h-60"> 
+      {segments.map((s, idx) => {
+        const frac = s.value / total;
+        const dash = 100 * frac;
+        const circle = (
+          <circle
+            key={idx}
+            cx="18"
+            cy="18"
+            r="15.9155"
+            fill="transparent"
+            stroke={s.color}
+            strokeWidth="4"
+            strokeDasharray={`${dash} ${100 - dash}`}
+            strokeDashoffset={offset}
+            >
+            <title>{`${s.label}: $${s.value.toLocaleString()}`}</title>
+          </circle>
+        );
+        offset -= dash;
+        return circle;
+      })}
+      <circle cx="18" cy="18" r="10" fill="white" className="dark:fill-gray-900" />
+    </svg>
+  );
+};
 
-  useEffect(() => {
-    let mounted = true;
-    fetch('/api/revenue')
-      .then(r => r.json())
-      .then(data => { if (mounted) setRevenue(Array.isArray(data) ? data : []); })
-      .catch(() => { if (mounted) setRevenue([]); });
-    return () => { mounted = false; };
-  }, []);
+export const ChartsPanel: React.FC = () => {
+  const [revenue, setRevenue] = React.useState<any[]>([]);
+  React.useEffect(()=>{ fetch('/api/revenue').then(r=>r.json()).then(setRevenue).catch(()=>setRevenue([])); },[]);
 
-  // Build month buckets by year-month key
-  const { labels, trendData, sourceSegments } = useMemo(() => {
-    const monthly: Record<string, number> = {};
-    const sourceMap: Record<string, number> = {};
-    revenue.forEach((r:any) => {
-      const d = new Date(r.date);
-      if (isNaN(d.getTime())) return;
-      const key = `${d.getFullYear()}-${d.getMonth()}`;
-      monthly[key] = (monthly[key] || 0) + Number(r.amount || 0);
-      const src = r.source || 'Direct Payment';
-      sourceMap[src] = (sourceMap[src] || 0) + Number(r.amount || 0);
-    });
+  // Aggregate monthly
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const byMonth: number[] = Array(12).fill(0);
+  revenue.forEach((r:any)=>{ const d = new Date(r.date); byMonth[d.getMonth()] += r.amount; });
+  const trimmed = byMonth.slice(0, Math.max(new Date().getMonth()+1, 6));
 
-    const now = new Date();
-    const monthsCount = timeframe === '6' ? 6 : timeframe === '12' ? 12 : (now.getMonth() + 1);
-    const lbls: string[] = [];
-    const vals: number[] = [];
-    for (let i = monthsCount - 1; i >= 0; i--) {
-      const dt = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${dt.getFullYear()}-${dt.getMonth()}`;
-      lbls.push(`${monthsNames[dt.getMonth()]} '${String(dt.getFullYear()).slice(-2)}`);
-      vals.push(monthly[key] || 0);
-    }
-
-    // demo fallback when empty
-    const hasRevenue = revenue && revenue.length > 0;
-    const demo = [0,12000,8000,20000,4000,65000,5000,12000,25000,8000,15000,10000];
-    const trimmed = hasRevenue ? vals : demo.slice(-monthsCount);
-    const trend = cumulative ? trimmed.reduce((acc, v, i) => { acc.push((acc[i-1]||0) + v); return acc; }, [] as number[]) : trimmed;
-
-    // top sources + other
-    const colors = ['#06b6d4','#f59e0b','#84cc16','#8b5cf6','#ef4444','#3b82f6'];
-    const sources = Object.entries(sourceMap).sort((a,b)=>b[1]-a[1]);
-    const top = sources.slice(0,5).map((s,i)=>({ label: s[0], value: s[1], color: colors[i%colors.length] }));
-    const otherTotal = sources.slice(5).reduce((s,a)=>s+a[1],0);
-    if (otherTotal > 0) top.push({ label: 'Other', value: otherTotal, color: colors[top.length%colors.length] });
-
-    return { labels: lbls, trendData: trend, sourceSegments: top };
-  }, [revenue, timeframe, cumulative]);
+  // Aggregate by source
+  const sourceMap: Record<string, number> = {};
+  revenue.forEach((r:any)=>{ sourceMap[r.source] = (sourceMap[r.source]||0) + r.amount; });
+  const sourceSegments = Object.entries(sourceMap).map(([label,value],i)=>({ label, value, color: ['#06b6d4','#f59e0b','#84cc16','#8b5cf6','#ef4444'][i%5] }));
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -80,63 +86,40 @@ const ChartsPanel: React.FC = () => {
           <CardTitle>Revenue Trends</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-3 mb-4">
-            <label className="text-sm text-gray-600">Timeframe:</label>
-            <select value={timeframe} onChange={(e)=>setTimeframe(e.target.value as any)} className="px-2 py-1 rounded border bg-white dark:bg-gray-800">
-              <option value="6">Last 6 months</option>
-              <option value="12">Last 12 months</option>
-              <option value="ytd">Year to date</option>
-            </select>
-            <label className="ml-4 text-sm"><input type="checkbox" checked={cumulative} onChange={e=>setCumulative(e.target.checked)} className="mr-2"/>Cumulative</label>
-          </div>
-
-          <div style={{height:240}}>
-            <Line
-              data={{
-                labels,
-                datasets: [{
-                  label: 'Revenue',
-                  data: trendData,
-                  borderColor: '#22c55e',
-                  backgroundColor: 'rgba(34,197,94,0.12)',
-                  fill: true,
-                  tension: 0.3,
-                  pointRadius: 3,
-                  pointHoverRadius: 6,
-                }],
-              }}
-              options={{
-                plugins: {
-                  legend: { display: false },
-                  tooltip: { callbacks: { label: (ctx:any) => formatCurrency(Number(ctx.parsed?.y ?? ctx.parsed) || 0) } },
-                },
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                  x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } },
-                  y: { beginAtZero: true, ticks: { callback: (v:any) => formatCurrency(Number(v)) } },
-                },
-                elements: { line: { borderWidth: 2 }, point: { hitRadius: 8 } },
-              }}
-            />
-          </div>
+          <Line
+            data={{
+              labels: months.slice(0, trimmed.length),
+              datasets: [{
+                label: 'Revenue',
+                data: trimmed,
+                borderColor: '#22c55e',
+                backgroundColor: 'rgba(34,197,94,0.2)',
+                fill: true,
+                tension: 0.3,
+              }],
+            }}
+            options={{ plugins: { legend: { display: false } }, responsive: true, maintainAspectRatio: false }}
+            height={240}
+          />
         </CardContent>
       </Card>
-
       <Card>
         <CardHeader>
           <CardTitle>Revenue by Source</CardTitle>
         </CardHeader>
         <CardContent>
-          <div style={{height:240}}>
-            <Doughnut
-              data={{
-                labels: sourceSegments.map(s => s.label),
-                datasets: [{ data: sourceSegments.length ? sourceSegments.map(s=>s.value) : [1], backgroundColor: sourceSegments.length ? sourceSegments.map(s=>s.color) : ['#e5e7eb'], borderWidth: 0 }]
-              }}
-              options={{ plugins: { legend: { position: 'bottom' as const, labels: { boxWidth:12 } }, tooltip: { callbacks: { label: (ctx:any) => `${ctx.label}: ${formatCurrency(Number(ctx.raw) || 0)}` } } }, responsive: true, maintainAspectRatio: false }}
-            />
-          </div>
+          <Doughnut
+            data={{
+              labels: sourceSegments.map(s=>s.label),
+              datasets: [{
+                data: sourceSegments.length ? sourceSegments.map(s=>s.value) : [1],
+                backgroundColor: sourceSegments.length ? sourceSegments.map(s=>s.color) : ['#e5e7eb'],
+                borderWidth: 0,
+              }],
+            }}
+            options={{ plugins: { legend: { position: 'bottom' as const } }, responsive: true, maintainAspectRatio: false }}
+            height={240}
+          />
         </CardContent>
       </Card>
     </div>
@@ -144,4 +127,5 @@ const ChartsPanel: React.FC = () => {
 };
 
 export default ChartsPanel;
-export { ChartsPanel };
+
+
