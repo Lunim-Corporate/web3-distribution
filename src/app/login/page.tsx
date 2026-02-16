@@ -10,6 +10,7 @@ export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
@@ -36,14 +37,25 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
+              <input
+                type="password"
+                className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                placeholder="Enter password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
               <button
                 className="w-full px-3 py-2 rounded bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors"
-                onClick={() => {
+                onClick={async () => {
                   if (!email.trim()) {
                     toast.error('Please enter an email address');
                     return;
                   }
-                  login(email);
+                  if (!password.trim()) {
+                    toast.error('Please enter a password');
+                    return;
+                  }
+                  await login(email, password);
                   const role = JSON.parse(localStorage.getItem('crt_user')||'{}').role;
                   if (role === 'admin') {
                     toast.success('Welcome back, Admin! You have full access.');

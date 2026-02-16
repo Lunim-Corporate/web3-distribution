@@ -1,153 +1,198 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
-export type Role = 'admin' | 'creator' | 'contributor';
+export type Role = 'admin' | 'creator' | 'contributor' | 'viewer';
 
-export interface AuthUser {
-  id: string;
-  name: string;
-  email: string;
-  role: Role;
-}
-
-export interface UserSettings {
-  notifyResurfacingHours: number;
-}
-
-interface AuthContextValue {
-  user: AuthUser | null;
-  settings: UserSettings;
-  login: (email: string, name?: string, role?: Role) => void;
-  signup: (name: string, email: string, role: Role) => void;
-  logout: () => void;
-  setNotifyResurfacingHours: (hours: number) => void;
-  listUsers: () => AuthUser[];
-  setUserRole: (userId: string, role: Role) => void;
-  inviteUser: (name: string, email: string, role: Role) => void;
-}
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-const DEFAULT_SETTINGS: UserSettings = {
-  notifyResurfacingHours: 6,
+type Settings = {
+  notifyResurfacingHours?: number;
 };
 
-function getUserKey(userId: string) {
-  return `crt_settings_${userId}`;
-}
+export type User = {
+  id: string;
+  email: string;
+  name?: string;
+  isAdmin?: boolean;
+  role?: Role;
+  settings?: Settings;
+  wallet_address?: string | null;     // Optional wallet address
+  wallet_connected?: boolean;           // Whether wallet is connected
+  wallet_connected_at?: string | null;  // When wallet was connected
+};
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
+type AuthContextType = {
+  user: User | null;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
+  signup: (name: string, email: string, role: Role) => void;
+  settings: Settings | null;
+  setNotifyResurfacingHours: (hours: number) => void;
+  listUsers: () => User[];
+  setUserRole: (userId: string, role: Role) => void;
+  inviteUser: (email: string, name: string, role: Role) => void;
+  connectUserWallet: (walletAddress: string) => void;  // Add wallet after login
+  disconnectUserWallet: () => void;                      // Remove wallet connection
+};
 
-  // Load user and settings from localStorage
+const ADMIN_EMAIL = 'jeevesh2515@gmail.com';
+const ADMIN_PASSWORD = 'Newproject1';
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+
   useEffect(() => {
-    try {
-      const rawUser = localStorage.getItem('crt_user');
-      if (rawUser) {
-        const parsed = JSON.parse(rawUser) as AuthUser;
-        setUser(parsed);
-        const rawSettings = localStorage.getItem(getUserKey(parsed.id));
-        if (rawSettings) setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(rawSettings) });
+    const raw = localStorage.getItem('crt_user');
+    if (raw) {
+      try {
+        setUser(JSON.parse(raw));
+      } catch {
+        localStorage.removeItem('crt_user');
       }
-    } catch {}
+    }
   }, []);
 
-  // Persist settings per user
   useEffect(() => {
-    try {
-      if (user) localStorage.setItem(getUserKey(user.id), JSON.stringify(settings));
-    } catch {}
-  }, [user, settings]);
+    if (user) {
+      localStorage.setItem('crt_user', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('crt_user');
+    }
+  }, [user]);
 
-  const login = (email: string, name?: string, role: Role = 'creator') => {
-    const existing = JSON.parse(localStorage.getItem('crt_users') || '[]') as AuthUser[];
-    const found = existing.find((u) => u.email === email);
-    const authUser: AuthUser = found || {
-      id: `user_${Math.random().toString(36).slice(2, 9)}`,
-      name: name || email.split('@')[0],
+  async function login(email: string, password: string) {
+    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+      setUser({
+        id: 'admin-1',
+        email,
+        name: 'Admin',
+        isAdmin: true,
+        role: 'admin',
+        settings: { notifyResurfacingHours: 24 },
+      });
+      return;
+    }
+    setUser({
+      id: `u-${Date.now()}`,
       email,
-      role,
-    };
-    if (!found) localStorage.setItem('crt_users', JSON.stringify([...existing, authUser]));
-    setUser(authUser);
-    localStorage.setItem('crt_user', JSON.stringify(authUser));
-    // Also set cookie for middleware
-    try { document.cookie = `crt_user=${encodeURIComponent(JSON.stringify(authUser))}; path=/`; } catch {}
-    const rawSettings = localStorage.getItem(getUserKey(authUser.id));
-    setSettings(rawSettings ? { ...DEFAULT_SETTINGS, ...JSON.parse(rawSettings) } : DEFAULT_SETTINGS);
-  };
+      name: email.split('@')[0],
+      isAdmin: false,
+      role: 'creator',
+      settings: { notifyResurfacingHours: 24 },
+    });
+  }
 
-  const signup = (name: string, email: string, role: Role) => {
-    const authUser: AuthUser = {
-      id: `user_${Math.random().toString(36).slice(2, 9)}`,
+  function signup(name: string, email: string, role: Role) {
+    const newUser: User = {
+      id: `u-${Date.now()}`,
+      email,
       name,
-      email,
+      isAdmin: role === 'admin',
       role,
+      settings: { notifyResurfacingHours: 24 },
     };
-    const existing = JSON.parse(localStorage.getItem('crt_users') || '[]') as AuthUser[];
-    localStorage.setItem('crt_users', JSON.stringify([...existing, authUser]));
-    localStorage.setItem('crt_user', JSON.stringify(authUser));
-    localStorage.setItem(getUserKey(authUser.id), JSON.stringify(DEFAULT_SETTINGS));
-    setUser(authUser);
-    setSettings(DEFAULT_SETTINGS);
-    try { document.cookie = `crt_user=${encodeURIComponent(JSON.stringify(authUser))}; path=/`; } catch {}
-  };
+    setUser(newUser);
+  }
 
-  const inviteUser = (name: string, email: string, role: Role) => {
-    const invited: AuthUser = {
-      id: `user_${Math.random().toString(36).slice(2, 9)}`,
-      name,
-      email,
-      role,
-    };
-    const existing = JSON.parse(localStorage.getItem('crt_users') || '[]') as AuthUser[];
-    localStorage.setItem('crt_users', JSON.stringify([...existing, invited]));
-  };
-
-  const logout = () => {
+  function logout() {
     setUser(null);
-    localStorage.removeItem('crt_user');
-    try { document.cookie = 'crt_user=; Max-Age=0; path=/'; } catch {}
-  };
+  }
 
-  const setNotifyResurfacingHours = (hours: number) => {
-    setSettings((prev) => ({ ...prev, notifyResurfacingHours: hours }));
-  };
+  function setNotifyResurfacingHours(hours: number) {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = {
+        ...prev,
+        settings: { ...(prev.settings || {}), notifyResurfacingHours: hours },
+      };
+      localStorage.setItem('crt_user', JSON.stringify(updated));
+      return updated;
+    });
+  }
 
-  const listUsers = () => {
+  const settings = user?.settings ?? null;
+
+  function listUsers(): User[] {
+    const stored = localStorage.getItem('crt_all_users');
+    if (!stored) return [];
     try {
-      return JSON.parse(localStorage.getItem('crt_users') || '[]') as AuthUser[];
-    } catch { return []; }
-  };
+      return JSON.parse(stored);
+    } catch {
+      return [];
+    }
+  }
 
-  const setUserRole = (userId: string, role: Role) => {
-    try {
-      const users = listUsers();
-      const updated = users.map(u => u.id === userId ? { ...u, role } : u);
-      localStorage.setItem('crt_users', JSON.stringify(updated));
-      const current = JSON.parse(localStorage.getItem('crt_user') || 'null') as AuthUser | null;
-      if (current && current.id === userId) {
-        const next = { ...current, role };
-        localStorage.setItem('crt_user', JSON.stringify(next));
-        setUser(next);
-      }
-    } catch {}
-  };
+  function setUserRole(userId: string, role: Role) {
+    const users = listUsers();
+    const updated = users.map(u => u.id === userId ? { ...u, role } : u);
+    localStorage.setItem('crt_all_users', JSON.stringify(updated));
+  }
 
-  const value = useMemo(
-    () => ({ user, settings, login, signup, logout, setNotifyResurfacingHours, listUsers, setUserRole, inviteUser }),
-    [user, settings]
+  function inviteUser(email: string, name: string, role: Role) {
+    const users = listUsers();
+    const newUser: User = {
+      id: `u-${Date.now()}`,
+      email,
+      name,
+      role,
+      settings: { notifyResurfacingHours: 24 },
+    };
+    users.push(newUser);
+    localStorage.setItem('crt_all_users', JSON.stringify(users));
+  }
+
+  function connectUserWallet(walletAddress: string) {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = {
+        ...prev,
+        wallet_address: walletAddress,
+        wallet_connected: true,
+        wallet_connected_at: new Date().toISOString(),
+      };
+      localStorage.setItem('crt_user', JSON.stringify(updated));
+      return updated;
+    });
+  }
+
+  function disconnectUserWallet() {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = {
+        ...prev,
+        wallet_address: null,
+        wallet_connected: false,
+        wallet_connected_at: null,
+      };
+      localStorage.setItem('crt_user', JSON.stringify(updated));
+      return updated;
+    });
+  }
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        logout,
+        signup,
+        settings,
+        setNotifyResurfacingHours,
+        listUsers,
+        setUserRole,
+        inviteUser,
+        connectUserWallet,
+        disconnectUserWallet,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
   );
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
+}
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
   return ctx;
 }
-
-
