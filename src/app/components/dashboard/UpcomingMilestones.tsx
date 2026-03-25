@@ -6,13 +6,6 @@ import { Badge } from '@/components/ui/Badge';
 import { mockMilestones } from '@/data/mockData';
 import { formatDate } from '@/lib/utils';
 
-const priorityVariant: Record<string, 'low' | 'medium' | 'high' | 'critical'> = {
-  low: 'low',
-  medium: 'medium',
-  high: 'high',
-  critical: 'critical',
-};
-
 export const UpcomingMilestones: React.FC = () => {
   const upcoming = [...mockMilestones]
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
@@ -32,7 +25,19 @@ export const UpcomingMilestones: React.FC = () => {
                 <p className="text-sm text-gray-600 dark:text-gray-400">{m.description}</p>
                 <p className="text-xs text-gray-500 mt-1">{formatDate(m.date, 'short')}</p>
               </div>
-              <Badge variant={m.priority as any}>{m.priority}</Badge>
+              <Badge
+                variant={
+                  (m.priority?.toLowerCase() || 'medium') === 'critical'
+                    ? 'error'
+                    : (m.priority?.toLowerCase() || 'medium') === 'high'
+                      ? 'warning'
+                      : (m.priority?.toLowerCase() || 'medium') === 'low'
+                        ? 'info'
+                        : 'default'
+                }
+              >
+                {m.priority}
+              </Badge>
             </div>
           ))}
         </div>

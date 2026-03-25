@@ -52,8 +52,8 @@ export const ButtonTestPanel: React.FC = () => {
       name: 'PDF Generation',
       description: 'Test PDF generation functionality',
       test: async () => {
-        const jsPdfModule: any = await import('jspdf');
-        const jsPDF = jsPdfModule.default || jsPdfModule.jsPDF || jsPdfModule;
+        const jsPdfModule = await import('jspdf');
+        const jsPDF = jsPdfModule.default || (jsPdfModule as { jsPDF: typeof jsPdfModule.default }).jsPDF || jsPdfModule;
         const doc = new jsPDF();
         doc.text('Button Test PDF', 14, 16);
         doc.save('button_test.pdf');

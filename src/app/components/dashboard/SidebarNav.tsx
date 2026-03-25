@@ -40,24 +40,18 @@ export const SidebarNav: React.FC = () => {
     }).catch(()=>{});
   }, []);
 
-  const go = (id: string) => {
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
   return (
     <aside className="hidden lg:block lg:col-span-2">
       <div className="sticky top-20 space-y-2">
         <div className="px-3 py-2 text-xs font-semibold tracking-wide text-gray-500">Overview</div>
-        <button onClick={()=>go('rights-ledger')} className="w-full text-left">
-          <NavItem href="#rights-ledger" label={`Rights (${counts.rights})`} icon="⚖️" />
-        </button>
-        <button onClick={()=>go('payment-splitter')} className="w-full text-left">
-          <NavItem href="#payment-splitter" label={`Revenue (${counts.revenue})`} icon="💸" />
-        </button>
-        <button onClick={()=>go('upcoming-milestones')} className="w-full text-left">
-          <NavItem href="#upcoming-milestones" label={`Milestones (${counts.milestones})`} icon="📅" />
-        </button>
+        <NavItem href="/dashboard/rights" label={`Rights (${counts.rights})`} icon="⚖️" />
+        <NavItem href="/dashboard/projects" label={`Revenue (${counts.revenue})`} icon="💸" />
+        <NavItem
+          href="/dashboard/projects#upcoming-milestones"
+          label={`Milestones (${counts.milestones})`}
+          icon="📅"
+        />
+        <NavItem href="/dashboard/contracts" label="Contracts" icon="⛓️" />
       </div>
     </aside>
   );

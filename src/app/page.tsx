@@ -36,10 +36,6 @@ export default function HomePage() {
           </Link>
         )}
 
-        <Link href="/project-search" className="p-4 bg-green-600 text-white rounded-lg hover:bg-green-700">
-          Search Public Project
-        </Link>
-
         {!user && (
           <>
             <Link href="/login" className="p-4 bg-gray-600 text-white rounded-lg hover:bg-gray-700">

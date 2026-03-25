@@ -1,49 +1,16 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseServer';
 
-export async function GET(
-  _request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET() {
   try {
     const { data, error } = await supabaseAdmin
       .from('projects')
-      .select(`
-        *,
-        project_contributors(*, users(*)),
-        payments(*),
-        creative_rights(*, users:owner_id(*)),
-        milestones(*),
-        activities(*)
-      `)
-      .eq('id', params.id)
-      .single();
+      .select('id,name,status,progress,total_revenue,cover_image_url,type,created_at')
+      .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return NextResponse.json({ data });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(data || []);
+  } catch {
+    return NextResponse.json([], { status: 200 });
   }
 }
-
-export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const body = await request.json();
-    const { data, error } = await supabaseAdmin
-      .from('projects')
-      .update(body)
-      .eq('id', params.id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return NextResponse.json({ data });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-}
-
-

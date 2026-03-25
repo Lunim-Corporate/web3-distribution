@@ -7,29 +7,46 @@ import { Badge } from '@/components/ui/Badge';
 import { quickLoginAsAdmin, quickLoginAsCreator, quickLoginAsContributor, setupAdminDemo } from '@/lib/adminSetup';
 import { toast } from 'react-hot-toast';
 
+interface SetupResults {
+  totalUsers: number;
+}
+
 export const DemoSetup: React.FC = () => {
   const [isSetupComplete, setIsSetupComplete] = useState(false);
-  const [setupResults, setSetupResults] = useState<any>(null);
+  const [setupResults, setSetupResults] = useState<SetupResults | null>(null);
 
   const handleSetupDemo = () => {
-    const results = setupAdminDemo();
-    setSetupResults(results);
-    setIsSetupComplete(true);
-    toast.success(`Demo setup complete! Created ${results.totalUsers} users.`);
+    void (async () => {
+      try {
+        const results = await setupAdminDemo();
+        setSetupResults({ totalUsers: results.totalUsers });
+        setIsSetupComplete(true);
+        toast.success(`Demo setup complete! Created ${results.totalUsers} users.`);
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : 'Failed to setup demo users');
+      }
+    })();
   };
 
   const handleQuickLogin = (role: 'admin' | 'creator' | 'contributor') => {
-    switch (role) {
-      case 'admin':
-        quickLoginAsAdmin();
-        break;
-      case 'creator':
-        quickLoginAsCreator();
-        break;
-      case 'contributor':
-        quickLoginAsContributor();
-        break;
-    }
+    void (async () => {
+      try {
+        switch (role) {
+          case 'admin':
+            await quickLoginAsAdmin();
+            break;
+          case 'creator':
+            await quickLoginAsCreator();
+            break;
+          case 'contributor':
+            await quickLoginAsContributor();
+            break;
+        }
+        toast.success('Signed in!');
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : 'Wallet sign-in failed');
+      }
+    })();
   };
 
   return (

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseServer';
+import { normalizePaymentStatus } from '@/lib/utils';
 
 export async function GET() {
   try {
@@ -11,15 +12,33 @@ export async function GET() {
     if (error) throw error;
     
     // Transform to expected format
-    const formatted = (data || []).map((p: any) => ({
-      id: p.id,
-      projectId: p.project_id,
-      projectName: p.projects?.name || 'Unknown Project',
-      amount: p.amount_cents / 100,
-      source: p.payment_method || 'Direct Payment',
-      date: p.payment_date,
-      status: p.status || 'completed'
-    }));
+    const formatted = (data || []).map((p) => {
+      const pr = p as Record<string, unknown>;
+      const amountCents =
+        typeof pr.amount_cents === 'number'
+          ? pr.amount_cents
+          : typeof pr.amount === 'number'
+            ? pr.amount
+            : Number(pr.amount_cents ?? pr.amount ?? 0);
+
+      const status = normalizePaymentStatus(pr.status ?? 'completed');
+
+      const projectsRow = pr['projects'] as Record<string, unknown> | undefined;
+      const projectName =
+        projectsRow && typeof projectsRow.name === 'string'
+          ? projectsRow.name
+          : 'Unknown Project';
+
+      return {
+        id: String(pr.id ?? ''),
+        projectId: String(pr.project_id ?? ''),
+        projectName,
+        amount: amountCents / 100,
+        source: String(pr.payment_method ?? pr.source ?? 'Direct Payment'),
+        date: String(pr.payment_date ?? ''),
+        status,
+      };
+    });
     
     return NextResponse.json(formatted);
   } catch (error) {

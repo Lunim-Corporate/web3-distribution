@@ -1,14 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
 import { Badge } from '@/components/ui/Badge';
-import { Modal } from '@/components/ui/Modal';
 import { formatCurrency, formatPercentage, calculatePaymentSplit } from '@/lib/utils';
-import { mockProjects, mockRevenue, getProjectContributors } from '@/data/mockData';
+import { gbpToCents } from '@/lib/currency';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
 
@@ -18,12 +15,47 @@ export const PaymentSplitter: React.FC = () => {
   const [selectedProject, setSelectedProject] = useState('');
   const [paymentAmount, setPaymentAmount] = useState('');
   const [revenueSource, setRevenueSource] = useState('');
-  const [calculatedSplits, setCalculatedSplits] = useState<any[]>([]);
+  const [calculatedSplits, setCalculatedSplits] = useState<
+    Array<{
+      contributorId: string;
+      contributorName: string;
+      percentage: number;
+      amount: number;
+      status: 'Pending';
+    }>
+  >([]);
+  const [projectOptions, setProjectOptions] = useState<Array<{ value: string; label: string }>>([]);
+  const [recentPayments, setRecentPayments] = useState<
+    Array<{ id: string; projectName: string; amount: number; date: string; source: string; status: string }>
+  >([]);
 
-  const projectOptions = mockProjects.map(project => ({
-    value: project.id,
-    label: project.name
-  }));
+  useEffect(() => {
+    void (async () => {
+      try {
+        const [projectsRes, revenueRes] = await Promise.all([
+          fetch('/api/projects').then((r) => r.json()),
+          fetch('/api/revenue').then((r) => r.json()),
+        ]);
+
+        const projects = Array.isArray(projectsRes) ? projectsRes : [];
+        setProjectOptions(
+          projects.map((p) => {
+            const row = p as Record<string, unknown>;
+            return {
+              value: String(row.id ?? ''),
+              label: String(row.name ?? 'Project'),
+            };
+          })
+        );
+
+        const revenue = Array.isArray(revenueRes) ? revenueRes : [];
+        setRecentPayments(revenue);
+      } catch {
+        setProjectOptions([]);
+        setRecentPayments([]);
+      }
+    })();
+  }, []);
 
   const revenueSourceOptions = [
     { value: 'streaming', label: 'Streaming Royalties' },
@@ -34,13 +66,36 @@ export const PaymentSplitter: React.FC = () => {
     { value: 'other', label: 'Other' },
   ];
 
-  const handleCalculateSplits = () => {
+  const handleCalculateSplits = async () => {
     if (!selectedProject || !paymentAmount) return;
-
-    const contributors = getProjectContributors(selectedProject);
     const amount = parseFloat(paymentAmount);
-    const splits = calculatePaymentSplit(amount, contributors);
-    setCalculatedSplits(splits);
+    if (!Number.isFinite(amount)) return;
+
+    try {
+      const res = await fetch(`/api/projects/${selectedProject}`);
+      const json = await res.json();
+      const project = json?.data;
+      const contributorsRaw = project?.project_contributors ?? [];
+
+      const contributors = contributorsRaw.map((pc: unknown) => {
+        const pcRow = pc as Record<string, unknown>;
+        const usersRow = (pcRow['users'] as Record<string, unknown> | undefined) ?? {};
+        return {
+          id: String(pcRow.id ?? pcRow.user_id ?? ''),
+          name: String(
+            (usersRow && typeof usersRow.name === 'string' ? usersRow.name : undefined) ??
+              (usersRow && typeof usersRow.email === 'string' ? usersRow.email : undefined) ??
+              'Unknown'
+          ),
+          revenueShare: Number(pcRow.revenue_share ?? 0),
+        };
+      });
+
+      setCalculatedSplits(calculatePaymentSplit(amount, contributors));
+    } catch {
+      toast.error('Failed to load contributors for the selected project');
+      setCalculatedSplits([]);
+    }
   };
 
   const handleProcessPayment = async () => {
@@ -48,43 +103,42 @@ export const PaymentSplitter: React.FC = () => {
       toast.error('Admin only: You do not have permission to process payments.');
       return;
     }
-    
+
     try {
-      toast.loading('Processing payment splits...');
-      
-      // Simulate processing delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Here you would integrate with smart contract or payment processor
-      console.log('Processing payment splits:', calculatedSplits);
-      
-      // Persist to localStorage recent payments
-      const existing = JSON.parse(localStorage.getItem('crt_recent_splits') || '[]');
-      const entry = { 
-        id: Date.now().toString(), 
-        projectId: selectedProject, 
-        amount: parseFloat(paymentAmount), 
-        splits: calculatedSplits.map(split => ({
-          ...split,
-          status: 'Paid',
-          transactionId: `tx_${Math.random().toString(36).substr(2, 9)}`
-        })), 
-        date: new Date().toISOString(),
-        status: 'Completed'
-      };
-      localStorage.setItem('crt_recent_splits', JSON.stringify([entry, ...existing].slice(0, 10)));
-      
+      const amountGBP = parseFloat(paymentAmount);
+      if (!Number.isFinite(amountGBP) || !selectedProject) return;
+
+      const amountCents = gbpToCents(amountGBP);
+
+      toast.loading('Processing payment...');
+
+      const res = await fetch('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: selectedProject,
+          amount_cents: amountCents,
+          source: revenueSource || 'Manual',
+          tx_hash: null,
+        }),
+      });
+
+      if (!res.ok) throw new Error('Payment processing failed');
+
       toast.dismiss();
-      toast.success(`Payment of ${formatCurrency(parseFloat(paymentAmount))} successfully split among ${calculatedSplits.length} contributors!`);
-      
+      toast.success(
+        `Payment of ${formatCurrency(amountGBP)} recorded and split among ${calculatedSplits.length} contributors!`
+      );
+
       setIsModalOpen(false);
       setSelectedProject('');
       setPaymentAmount('');
       setRevenueSource('');
       setCalculatedSplits([]);
-      
-      // Refresh the component to show new data
-      window.location.reload();
+
+      const revenueRes = await fetch('/api/revenue');
+      const revenueJson = await revenueRes.json();
+      setRecentPayments(Array.isArray(revenueJson) ? revenueJson : []);
       
     } catch (error) {
       toast.dismiss();
@@ -115,8 +169,8 @@ export const PaymentSplitter: React.FC = () => {
                 variant="success" 
                 onClick={() => {
                   // Quick split with default values
-                  if (mockProjects.length > 0) {
-                    setSelectedProject(mockProjects[0].id);
+                  if (projectOptions.length > 0) {
+                    setSelectedProject(projectOptions[0].value);
                     setPaymentAmount('1000');
                     setRevenueSource('streaming');
                     setIsModalOpen(true);
@@ -135,55 +189,38 @@ export const PaymentSplitter: React.FC = () => {
         <CardContent>
           <div className="space-y-4">
             <h4 className="font-medium text-gray-900 dark:text-white">Recent Payment Splits</h4>
-            {(() => {
-              let recent: any[] = [];
-              try { recent = JSON.parse(localStorage.getItem('crt_recent_splits') || '[]'); } catch {}
-              const combined = [
-                ...recent.map((r:any)=>({ id: r.id, projectName: (mockProjects.find(p=>p.id===r.projectId)?.name)||'Project', amount: r.amount, date: r.date, source: 'Split', status: 'Paid', splits: r.splits })),
-                ...mockRevenue.filter(rev => rev.splits && rev.splits.length > 0),
-              ].slice(0,5);
-              return combined;
-            })().map((revenue:any) => (
-              <div key={revenue.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <h5 className="font-medium text-gray-900 dark:text-white">
-                      {revenue.projectName}
-                    </h5>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {revenue.source} • {new Date(revenue.date).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-900 dark:text-white">
-                      {formatCurrency(revenue.amount)}
-                    </p>
-                    <Badge variant={revenue.status === 'Paid' ? 'success' : 'warning'}>
-                      {revenue.status}
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <h6 className="text-sm font-medium text-gray-700 dark:text-gray-300">Payment Splits:</h6>
-                  {revenue.splits?.map((split: any, index: number) => (
-                    <div key={index} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">
-                        {split.contributorName} ({formatPercentage(split.percentage)})
-                      </span>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium text-gray-900 dark:text-white">
-                          {formatCurrency(split.amount)}
-                        </span>
-                        <Badge variant={split.status === 'Paid' ? 'success' : 'warning'} className="text-xs">
-                          {split.status}
-                        </Badge>
-                      </div>
+            {recentPayments.length === 0 ? (
+              <p className="text-sm text-gray-600 dark:text-gray-400">No payments recorded yet.</p>
+            ) : (
+              recentPayments.slice(0, 5).map((revenue) => (
+                <div
+                  key={revenue.id}
+                  className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <h5 className="font-medium text-gray-900 dark:text-white">
+                        {revenue.projectName}
+                      </h5>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {revenue.source} •{' '}
+                        {new Date(revenue.date).toLocaleDateString()}
+                      </p>
                     </div>
-                  ))}
+                    <div className="text-right">
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {formatCurrency(revenue.amount)}
+                      </p>
+                      <Badge
+                        variant={revenue.status === 'Paid' ? 'success' : 'warning'}
+                      >
+                        {revenue.status}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

@@ -5,7 +5,11 @@ import { toast } from 'react-hot-toast';
 
 declare global {
   interface Window {
-    ethereum?: any;
+    ethereum?: {
+      request: (params: { method: string; params?: unknown[] }) => Promise<unknown>;
+      on?: (event: string, callback: (...args: unknown[]) => void) => void;
+      removeListener?: (event: string, callback: (...args: unknown[]) => void) => void;
+    };
   }
 }
 
@@ -32,14 +36,19 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Check if wallet is already connected on load
   useEffect(() => {
-    checkConnection();
+    void checkConnection();
     setupEventListeners();
+    // Dependencies are intentionally empty as this runs once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkConnection = async () => {
     if (typeof window !== 'undefined' && window.ethereum) {
       try {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+        const accountsUnknown = await window.ethereum.request({ method: 'eth_accounts' });
+        const accounts = Array.isArray(accountsUnknown)
+          ? accountsUnknown.filter((a) => typeof a === 'string') as string[]
+          : [];
         if (accounts.length > 0) {
           setAccount(accounts[0]);
           setIsConnected(true);
@@ -54,13 +63,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const setupEventListeners = () => {
     if (typeof window !== 'undefined' && window.ethereum) {
-      window.ethereum.on('accountsChanged', handleAccountsChanged);
-      window.ethereum.on('chainChanged', handleChainChanged);
-      window.ethereum.on('disconnect', handleDisconnect);
+      window.ethereum.on?.('accountsChanged', handleAccountsChanged);
+      window.ethereum.on?.('chainChanged', handleChainChanged);
+      window.ethereum.on?.('disconnect', handleDisconnect);
     }
   };
 
-  const handleAccountsChanged = (accounts: string[]) => {
+  const handleAccountsChanged = (...args: unknown[]) => {
+    const accounts = Array.isArray(args[0]) ? (args[0] as unknown[]).filter((a): a is string => typeof a === 'string') : [];
     if (accounts.length === 0) {
       disconnectWallet();
     } else {
@@ -69,12 +79,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  const handleChainChanged = (chainId: string) => {
-    setChainId(parseInt(chainId, 16));
+  const handleChainChanged = (...args: unknown[]) => {
+    const chainIdHex = typeof args[0] === 'string' ? args[0] : '';
+    setChainId(parseInt(chainIdHex, 16));
     window.location.reload(); // Recommended by MetaMask
   };
 
-  const handleDisconnect = () => {
+  const handleDisconnect = (..._args: unknown[]) => {
+    void _args;
     disconnectWallet();
   };
 
@@ -87,9 +99,13 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     setIsConnecting(true);
     try {
-      const accounts = await window.ethereum.request({
+      const accountsUnknown = await window.ethereum.request({
         method: 'eth_requestAccounts',
       });
+
+      const accounts = Array.isArray(accountsUnknown)
+        ? accountsUnknown.filter((a) => typeof a === 'string') as string[]
+        : [];
 
       if (accounts.length > 0) {
         setAccount(accounts[0]);
@@ -98,9 +114,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         await getBalance(accounts[0]);
         toast.success('Wallet connected successfully!');
       }
-    } catch (error: any) {
-      console.error('Error connecting wallet:', error);
-      if (error.code === 4001) {
+    } catch (error) {
+      const err = error as { code?: number; message?: string };
+      console.error('Error connecting wallet:', err);
+      if (err.code === 4001) {
         toast.error('Connection rejected by user');
       } else {
         toast.error('Failed to connect wallet');
@@ -120,8 +137,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const getChainId = async () => {
     try {
-      const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-      setChainId(parseInt(chainId, 16));
+      if (!window.ethereum) return;
+      const chainIdRaw = await window.ethereum.request({ method: 'eth_chainId' });
+      const chainIdHex = typeof chainIdRaw === 'string' ? chainIdRaw : '0x0';
+      setChainId(parseInt(chainIdHex, 16));
     } catch (error) {
       console.error('Error getting chain ID:', error);
     }
@@ -129,12 +148,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const getBalance = async (address: string) => {
     try {
-      const balance = await window.ethereum.request({
+      if (!window.ethereum) return;
+      const balanceRaw = await window.ethereum.request({
         method: 'eth_getBalance',
         params: [address, 'latest'],
       });
       // Convert from wei to ETH
-      const ethBalance = (parseInt(balance, 16) / Math.pow(10, 18)).toFixed(4);
+      const balanceHex = typeof balanceRaw === 'string' ? balanceRaw : '0x0';
+      const ethBalance = (parseInt(balanceHex, 16) / Math.pow(10, 18)).toFixed(4);
       setBalance(ethBalance);
     } catch (error) {
       console.error('Error getting balance:', error);
@@ -143,12 +164,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const switchNetwork = async (targetChainId: string) => {
     try {
+      if (!window.ethereum) throw new Error('MetaMask not detected');
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: targetChainId }],
       });
-    } catch (error: any) {
-      if (error.code === 4902) {
+    } catch (error) {
+      const err = error as { code?: number; message?: string };
+      if (err.code === 4902) {
         // Network not added to MetaMask
         toast.error('Please add this network to MetaMask first');
       } else {
@@ -160,9 +183,10 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const sendTransaction = async (to: string, value: string): Promise<string> => {
     if (!account) throw new Error('No account connected');
+    if (!window.ethereum) throw new Error('MetaMask not detected');
 
     try {
-      const txHash = await window.ethereum.request({
+      const txHashRaw = await window.ethereum.request({
         method: 'eth_sendTransaction',
         params: [{
           from: account,
@@ -170,7 +194,8 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           value: `0x${(parseFloat(value) * Math.pow(10, 18)).toString(16)}`, // Convert ETH to wei
         }],
       });
-      return txHash;
+      if (typeof txHashRaw !== 'string') throw new Error('Transaction hash missing');
+      return txHashRaw;
     } catch (error) {
       console.error('Transaction failed:', error);
       throw error;

@@ -1,4 +1,4 @@
-import { User, Project, CreativeRight, Revenue, Milestone, SmartContract, EmailTracking, Contributor, PaymentSplit } from '@/lib/types';
+import { User, Project, CreativeRight, Revenue, Milestone, SmartContract } from '@/lib/types';
 
 // Enhanced Mock Users
 export const mockUsers: User[] = [

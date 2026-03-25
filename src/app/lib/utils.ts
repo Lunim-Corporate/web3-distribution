@@ -18,8 +18,25 @@ export function formatPercentage(value: number, decimals = 1): string {
   return `${value.toFixed(decimals)}%`;
 }
 
-export function formatDate(date: string | Date, format: 'short' | 'long' | 'relative' = 'short'): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
+export function formatDate(date: string | Date | null | undefined, format: 'short' | 'long' | 'relative' = 'short'): string {
+  if (!date) return '';
+  
+  let dateObj: Date;
+  if (typeof date === 'string') {
+    // Handle YYYY-MM-DD format (add time if missing)
+    if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      dateObj = new Date(`${date}T00:00:00Z`);
+    } else {
+      dateObj = new Date(date);
+    }
+  } else {
+    dateObj = date;
+  }
+  
+  // Validate date
+  if (isNaN(dateObj.getTime())) {
+    return '';
+  }
   
   const options: Intl.DateTimeFormatOptions = 
     format === 'long' 
@@ -52,7 +69,10 @@ export function calculateGrowth(current: number, previous: number): number {
   return ((current - previous) / previous) * 100;
 }
 
-export function calculatePaymentSplit(totalAmount: number, contributors: any[]): any[] {
+export function calculatePaymentSplit(
+  totalAmount: number,
+  contributors: Array<{ id: string; name: string; revenueShare: number }>
+): Array<{ contributorId: string; contributorName: string; percentage: number; amount: number; status: 'Pending' }> {
   return contributors.map(contributor => ({
     contributorId: contributor.id,
     contributorName: contributor.name,
@@ -60,6 +80,18 @@ export function calculatePaymentSplit(totalAmount: number, contributors: any[]):
     amount: (totalAmount * contributor.revenueShare) / 100,
     status: 'Pending' as const
   }));
+}
+
+export type PaymentUIStatus = 'Paid' | 'Pending';
+
+/**
+ * Normalizes payment status coming from Supabase (case-insensitive) into
+ * UI-friendly values used by dashboard components.
+ */
+export function normalizePaymentStatus(status: unknown): PaymentUIStatus {
+  const raw = typeof status === 'string' ? status.toLowerCase() : '';
+  if (raw === 'completed' || raw === 'paid' || raw === 'success') return 'Paid';
+  return 'Pending';
 }
 
 export function truncateAddress(address: string): string {

@@ -1,140 +1,79 @@
-// Admin setup utilities for the Creative Rights Tracker
+// Supabase Auth demo utilities for the Creative Rights Tracker.
+// This replaces the previous localStorage-only “auth”, so your dashboard can safely
+// interact with Supabase data under RLS (when enabled).
 
-export const createAdminUser = () => {
-  const adminUser = {
-    id: 'admin_001',
-    name: 'Admin User',
-    email: 'admin@risidio.com',
-    role: 'admin' as const
-  };
+import { supabase } from '@/lib/supabaseClient';
 
-  try {
-    // Add to users list
-    const existingUsers = JSON.parse(localStorage.getItem('crt_users') || '[]');
-    const userExists = existingUsers.find((u: any) => u.email === adminUser.email);
-    
-    if (!userExists) {
-      localStorage.setItem('crt_users', JSON.stringify([adminUser, ...existingUsers]));
-    }
+type Role = 'admin' | 'creator' | 'contributor';
 
-    // Set as current user
-    localStorage.setItem('crt_user', JSON.stringify(adminUser));
-    
-    // Set cookie for middleware
-    document.cookie = `crt_user=${encodeURIComponent(JSON.stringify(adminUser))}; path=/`;
-    
-    return adminUser;
-  } catch (error) {
-    console.error('Error creating admin user:', error);
-    return null;
+interface SimpleUser {
+  name: string;
+  email: string;
+  role: Role;
+}
+
+const DEMO_PASSWORD = 'demo123';
+
+const admin: SimpleUser = { name: 'Admin User', email: 'admin@risidio.com', role: 'admin' };
+const demoUsers: SimpleUser[] = [
+  { name: 'Alex Johnson', email: 'alex@example.com', role: 'creator' },
+  { name: 'Sarah Chen', email: 'sarah@example.com', role: 'creator' },
+  { name: 'Mike Rodriguez', email: 'mike@example.com', role: 'contributor' },
+  { name: 'Emma Wilson', email: 'emma@example.com', role: 'contributor' },
+  { name: 'David Kim', email: 'david@example.com', role: 'contributor' },
+];
+
+async function ensureAuthUser(user: SimpleUser) {
+  const { error } = await supabase.auth.signUp({
+    email: user.email,
+    password: DEMO_PASSWORD,
+    options: { data: { name: user.name, role: user.role } },
+  });
+
+  // Idempotency: ignore “already exists” errors.
+  if (error) {
+    const message = error && 'message' in error ? String(error.message) : String(error);
+    const alreadyExists =
+      message.toLowerCase().includes('already') || message.toLowerCase().includes('exists');
+    if (!alreadyExists) throw error;
   }
-};
+}
 
-export const createDemoUsers = () => {
-  const demoUsers = [
-    {
-      id: 'creator_001',
-      name: 'Alex Johnson',
-      email: 'alex@example.com',
-      role: 'creator' as const
-    },
-    {
-      id: 'creator_002',
-      name: 'Sarah Chen',
-      email: 'sarah@example.com',
-      role: 'creator' as const
-    },
-    {
-      id: 'contributor_001',
-      name: 'Mike Rodriguez',
-      email: 'mike@example.com',
-      role: 'contributor' as const
-    },
-    {
-      id: 'contributor_002',
-      name: 'Emma Wilson',
-      email: 'emma@example.com',
-      role: 'contributor' as const
-    },
-    {
-      id: 'contributor_003',
-      name: 'David Kim',
-      email: 'david@example.com',
-      role: 'contributor' as const
-    }
-  ];
-
-  try {
-    const existingUsers = JSON.parse(localStorage.getItem('crt_users') || '[]');
-    const newUsers = demoUsers.filter(demo => 
-      !existingUsers.find((existing: any) => existing.email === demo.email)
-    );
-    
-    if (newUsers.length > 0) {
-      localStorage.setItem('crt_users', JSON.stringify([...existingUsers, ...newUsers]));
-    }
-    
-    return newUsers;
-  } catch (error) {
-    console.error('Error creating demo users:', error);
-    return [];
+export const setupAdminDemo = async () => {
+  await ensureAuthUser(admin);
+  for (const u of demoUsers) {
+    await ensureAuthUser(u);
   }
-};
 
-export const setupAdminDemo = () => {
-  const admin = createAdminUser();
-  const demoUsers = createDemoUsers();
-  
   return {
     admin,
     demoUsers,
-    totalUsers: demoUsers.length + (admin ? 1 : 0)
+    totalUsers: demoUsers.length + 1,
   };
 };
 
-// Quick login functions for different roles
-export const quickLoginAsAdmin = () => {
-  const adminUser = createAdminUser();
-  if (adminUser) {
-    window.location.reload();
-  }
-  return adminUser;
-};
+export async function quickLoginAsAdmin() {
+  const { error } = await supabase.auth.signInWithPassword({
+    email: admin.email,
+    password: DEMO_PASSWORD,
+  });
+  if (error) throw error;
+}
 
-export const quickLoginAsCreator = () => {
-  const creatorUser = {
-    id: 'creator_demo',
-    name: 'Demo Creator',
-    email: 'creator@demo.com',
-    role: 'creator' as const
-  };
+export async function quickLoginAsCreator() {
+  const firstCreator = demoUsers.find((u) => u.role === 'creator') ?? demoUsers[0];
+  const { error } = await supabase.auth.signInWithPassword({
+    email: firstCreator.email,
+    password: DEMO_PASSWORD,
+  });
+  if (error) throw error;
+}
 
-  try {
-    localStorage.setItem('crt_user', JSON.stringify(creatorUser));
-    document.cookie = `crt_user=${encodeURIComponent(JSON.stringify(creatorUser))}; path=/`;
-    window.location.reload();
-    return creatorUser;
-  } catch (error) {
-    console.error('Error logging in as creator:', error);
-    return null;
-  }
-};
-
-export const quickLoginAsContributor = () => {
-  const contributorUser = {
-    id: 'contributor_demo',
-    name: 'Demo Contributor',
-    email: 'contributor@demo.com',
-    role: 'contributor' as const
-  };
-
-  try {
-    localStorage.setItem('crt_user', JSON.stringify(contributorUser));
-    document.cookie = `crt_user=${encodeURIComponent(JSON.stringify(contributorUser))}; path=/`;
-    window.location.reload();
-    return contributorUser;
-  } catch (error) {
-    console.error('Error logging in as contributor:', error);
-    return null;
-  }
-};
+export async function quickLoginAsContributor() {
+  const firstContributor = demoUsers.find((u) => u.role === 'contributor') ?? demoUsers[0];
+  const { error } = await supabase.auth.signInWithPassword({
+    email: firstContributor.email,
+    password: DEMO_PASSWORD,
+  });
+  if (error) throw error;
+}

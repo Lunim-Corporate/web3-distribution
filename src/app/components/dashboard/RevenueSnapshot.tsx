@@ -15,7 +15,17 @@ export const RevenueSnapshot: React.FC = () => {
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
 
-  const [revenue, setRevenue] = useState<any[]>([]);
+  const [revenue, setRevenue] = useState<
+    Array<{
+      id: string;
+      projectId: string;
+      projectName: string;
+      amount: number;
+      date: string;
+      source: string;
+      status: string;
+    }>
+  >([]);
 
   React.useEffect(() => {
     fetch('/api/revenue').then(r => r.json()).then(setRevenue).catch(() => setRevenue([]));
@@ -45,8 +55,8 @@ export const RevenueSnapshot: React.FC = () => {
       await new Promise(resolve => setTimeout(resolve, 1500));
       
       // Create PDF report using jsPDF
-      const jsPdfModule: any = await import('jspdf');
-      const jsPDF = jsPdfModule.default || jsPdfModule.jsPDF || jsPdfModule;
+      const jsPdfModule = await import('jspdf');
+      const jsPDF = jsPdfModule.default || (jsPdfModule as { jsPDF: typeof jsPdfModule.default }).jsPDF || jsPdfModule;
       
       const doc = new jsPDF();
       

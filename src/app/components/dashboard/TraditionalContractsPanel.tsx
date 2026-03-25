@@ -35,8 +35,8 @@ export const TraditionalContractsPanel: React.FC = () => {
   };
 
   const exportPdf = async (c: Contract) => {
-    const jsPdfModule: any = await import('jspdf');
-    const jsPDF = jsPdfModule.default || jsPdfModule.jsPDF || jsPdfModule;
+    const jsPdfModule = await import('jspdf');
+    const jsPDF = jsPdfModule.default || (jsPdfModule as { jsPDF: typeof jsPdfModule.default }).jsPDF || jsPdfModule;
     const doc = new jsPDF();
     doc.setFontSize(16); doc.text('Contract', 14, 16);
     doc.setFontSize(12);

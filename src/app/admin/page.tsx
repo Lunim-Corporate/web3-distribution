@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Role, useAuth } from '@/lib/auth';
+import { Role, useAuth, type User } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
 
 export default function AdminPage() {
@@ -10,20 +10,34 @@ export default function AdminPage() {
   const router = useRouter();
   const { listUsers, setUserRole, inviteUser } = useAuth();
   
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [invite, setInvite] = useState({ name: '', email: '', role: 'creator' as Role });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) router.replace('/login');
-    else if (user.role !== 'admin') router.replace('/dashboard');
-    else {
-      setUsers(listUsers());
-      setIsLoading(false);
+    if (!user) {
+      router.replace('/login');
+      return;
     }
+    if (user.role !== 'admin') {
+      router.replace('/dashboard');
+      return;
+    }
+
+    void (async () => {
+      try {
+        const next = await listUsers();
+        setUsers(next);
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   }, [user, router, listUsers]);
 
-  const refresh = () => setUsers(listUsers());
+  const refresh = async () => {
+    const next = await listUsers();
+    setUsers(next);
+  };
 
   if (isLoading || !user || user.role !== 'admin') return null;
 
@@ -83,7 +97,12 @@ export default function AdminPage() {
                 <td className="p-3">
                   <select
                     defaultValue={u.role}
-                    onChange={(e) => { setUserRole(u.id, e.target.value as Role); refresh(); }}
+                    onChange={(e) => {
+                      void (async () => {
+                        await setUserRole(u.id, e.target.value as Role);
+                        await refresh();
+                      })();
+                    }}
                     className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900"
                   >
                     <option value="admin">admin</option>

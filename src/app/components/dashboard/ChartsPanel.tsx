@@ -19,8 +19,18 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcEleme
 
 const monthsNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+interface RevenueData {
+  id: string;
+  projectId: string;
+  projectName: string;
+  amount: number;
+  source: string;
+  date: string;
+  status: string;
+}
+
 const ChartsPanel: React.FC = () => {
-  const [revenue, setRevenue] = useState<any[]>([]);
+  const [revenue, setRevenue] = useState<RevenueData[]>([]);
   const [timeframe, setTimeframe] = useState<'6'|'12'|'ytd'>('6');
   const [cumulative, setCumulative] = useState(false);
 
@@ -37,7 +47,7 @@ const ChartsPanel: React.FC = () => {
   const { labels, trendData, sourceSegments } = useMemo(() => {
     const monthly: Record<string, number> = {};
     const sourceMap: Record<string, number> = {};
-    revenue.forEach((r:any) => {
+    revenue.forEach((r: RevenueData) => {
       const d = new Date(r.date);
       if (isNaN(d.getTime())) return;
       const key = `${d.getFullYear()}-${d.getMonth()}`;
@@ -82,7 +92,14 @@ const ChartsPanel: React.FC = () => {
         <CardContent>
           <div className="flex items-center gap-3 mb-4">
             <label className="text-sm text-gray-600">Timeframe:</label>
-            <select value={timeframe} onChange={(e)=>setTimeframe(e.target.value as any)} className="px-2 py-1 rounded border bg-white dark:bg-gray-800">
+            <select
+              value={timeframe}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === '6' || v === '12' || v === 'ytd') setTimeframe(v);
+              }}
+              className="px-2 py-1 rounded border bg-white dark:bg-gray-800"
+            >
               <option value="6">Last 6 months</option>
               <option value="12">Last 12 months</option>
               <option value="ytd">Year to date</option>
@@ -108,13 +125,27 @@ const ChartsPanel: React.FC = () => {
               options={{
                 plugins: {
                   legend: { display: false },
-                  tooltip: { callbacks: { label: (ctx:any) => formatCurrency(Number(ctx.parsed?.y ?? ctx.parsed) || 0) } },
+                  tooltip: {
+                    callbacks: {
+                      label: (ctx: unknown) => {
+                        const c = ctx as { parsed?: { y?: number } | number };
+                        const parsed = c.parsed;
+                        const value =
+                          typeof parsed === 'number'
+                            ? parsed
+                            : parsed && typeof parsed === 'object'
+                              ? (parsed as { y?: number }).y ?? 0
+                              : 0;
+                        return formatCurrency(Number(value) || 0);
+                      },
+                    },
+                  },
                 },
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
                   x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } },
-                  y: { beginAtZero: true, ticks: { callback: (v:any) => formatCurrency(Number(v)) } },
+                  y: { beginAtZero: true, ticks: { callback: (v: string | number) => formatCurrency(Number(v)) } },
                 },
                 elements: { line: { borderWidth: 2 }, point: { hitRadius: 8 } },
               }}
@@ -134,7 +165,21 @@ const ChartsPanel: React.FC = () => {
                 labels: sourceSegments.map(s => s.label),
                 datasets: [{ data: sourceSegments.length ? sourceSegments.map(s=>s.value) : [1], backgroundColor: sourceSegments.length ? sourceSegments.map(s=>s.color) : ['#e5e7eb'], borderWidth: 0 }]
               }}
-              options={{ plugins: { legend: { position: 'bottom' as const, labels: { boxWidth:12 } }, tooltip: { callbacks: { label: (ctx:any) => `${ctx.label}: ${formatCurrency(Number(ctx.raw) || 0)}` } } }, responsive: true, maintainAspectRatio: false }}
+              options={{
+                plugins: {
+                  legend: { position: 'bottom' as const, labels: { boxWidth: 12 } },
+                  tooltip: {
+                    callbacks: {
+                      label: (ctx: { label?: string; raw?: unknown }) => {
+                        const rawValue = typeof ctx.raw === 'number' ? ctx.raw : 0;
+                        return `${ctx.label ?? 'Value'}: ${formatCurrency(rawValue)}`;
+                      },
+                    },
+                  },
+                },
+                responsive: true,
+                maintainAspectRatio: false,
+              }}
             />
           </div>
         </CardContent>

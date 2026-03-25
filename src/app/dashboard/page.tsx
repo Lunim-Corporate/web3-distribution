@@ -18,14 +18,6 @@ import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { AddProjectModal } from '@/components/dashboard/AddProjectModal';
 import { TraditionalContractsPanel } from '@/components/dashboard/TraditionalContractsPanel';
 import { formatCurrency, formatPercentage, formatDate, getStatusColor } from '@/lib/utils';
-import { 
-  getTotalRevenue, 
-  getPendingPayments, 
-  getActiveProjects, 
-  getTotalContributors,
-  mockProjects,
-  mockRights,
-} from '@/data/mockData';
 import { toast } from 'react-hot-toast';
 
 // Simple Dashboard Layout
@@ -107,7 +99,16 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                   Manage Users
                 </Link>
               )}
-              {user && (<Button variant="ghost" size="sm" onClick={logout} className="ml-1">Logout</Button>)}
+              {user && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => void logout()}
+                  className="ml-1"
+                >
+                  Logout
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -125,36 +126,87 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
 // Revenue Metrics Component
 const RevenueMetrics: React.FC = () => {
-  const totalRevenue = getTotalRevenue();
-  const pendingPayments = getPendingPayments();
-  const activeProjects = getActiveProjects();
-  const totalContributors = getTotalContributors();
+  const [metrics, setMetrics] = useState<{
+    totalRevenue: number;
+    pendingPayments: number;
+    activeProjects: number;
+    contributors: number;
+  } | null>(null);
 
-  const metrics = [
+  useEffect(() => {
+    void (async () => {
+      try {
+        const [revenueRes, projectsRes, usersRes] = await Promise.all([
+          fetch('/api/revenue').then((r) => r.json()),
+          fetch('/api/projects').then((r) => r.json()),
+          fetch('/api/users').then((r) => r.json()),
+        ]);
+
+        const totalRevenue = (revenueRes || []).reduce((sum: number, r: unknown) => {
+          const row = r as Record<string, unknown>;
+          if (row && typeof row.amount === 'number') return sum + row.amount;
+          return sum;
+        }, 0);
+
+        const pendingPayments = (revenueRes || []).reduce((sum: number, r: unknown) => {
+          const row = r as Record<string, unknown>;
+          if (row && row.status !== 'Paid' && typeof row.amount === 'number') return sum + row.amount;
+          return sum;
+        }, 0);
+
+        const activeProjects = (projectsRes || []).filter((p: unknown) => {
+          const row = p as Record<string, unknown>;
+          const s = String(row?.status ?? '').toLowerCase();
+          return s === 'active' || s === 'in progress' || s === 'in_progress' || s === 'in-progress';
+        }).length;
+
+        const contributors = (usersRes || []).length;
+
+        setMetrics({
+          totalRevenue,
+          pendingPayments,
+          activeProjects,
+          contributors,
+        });
+      } catch {
+        // If metrics fail, keep UI readable.
+        setMetrics({
+          totalRevenue: 0,
+          pendingPayments: 0,
+          activeProjects: 0,
+          contributors: 0,
+        });
+      }
+    })();
+  }, []);
+
+  if (!metrics) return null;
+
+  const cards = [
     {
       title: 'Total Revenue',
-      value: formatCurrency(totalRevenue),
+      value: formatCurrency(metrics.totalRevenue),
       change: 23.1,
       icon: '💰',
       color: 'bg-blue-500',
     },
     {
       title: 'Pending Payments',
-      value: formatCurrency(pendingPayments),
+      value: formatCurrency(metrics.pendingPayments),
       change: -8.2,
       icon: '⏳',
       color: 'bg-yellow-500',
     },
     {
       title: 'Active Projects',
-      value: activeProjects.toString(),
+      value: metrics.activeProjects.toString(),
       change: 15.8,
       icon: '📁',
       color: 'bg-green-500',
     },
     {
       title: 'Contributors',
-      value: totalContributors.toString(),
+      value: metrics.contributors.toString(),
       icon: '👥',
       color: 'bg-purple-500',
     },
@@ -162,7 +214,7 @@ const RevenueMetrics: React.FC = () => {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      {metrics.map((metric, index) => (
+      {cards.map((metric, index) => (
         <Card key={index} className="relative overflow-hidden">
           <div className={`absolute top-0 left-0 w-full h-1 ${metric.color}`} />
           <CardContent>
@@ -197,6 +249,95 @@ const RevenueMetrics: React.FC = () => {
 // Projects Overview Component with Revenue Sharing Dropdown
 const ProjectsOverview: React.FC = () => {
   const [selectedProject, setSelectedProject] = useState<string>('');
+  const [projects, setProjects] = useState<
+    Array<{
+      id: string;
+      name: string;
+      type: string;
+      status: string;
+      progress: number;
+      totalRevenue: number; // GBP
+      coverImage?: string;
+      contributors: Array<{
+        id: string;
+        name: string;
+        avatar?: string;
+        role: string;
+        revenueShare: number;
+        totalEarned: number; // GBP
+      }>;
+    }>
+  >([]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const list = await fetch('/api/projects').then((r) => r.json());
+        const projectRows = Array.isArray(list) ? list : [];
+        const ids = projectRows.slice(0, 5).map((p) => String(p.id ?? ''));
+
+        const details = await Promise.all(
+          ids.map(async (id) => {
+            const res = await fetch(`/api/projects/${id}`);
+            const json = await res.json();
+            return json?.data;
+          })
+        );
+
+        const mapped = details
+          .filter((p) => p)
+          .map((p) => {
+            const pr = p as Record<string, unknown>;
+            const coverImage =
+              typeof pr.cover_image_url === 'string'
+                ? pr.cover_image_url
+                : typeof pr.cover_image === 'string'
+                  ? pr.cover_image
+                  : undefined;
+
+            const totalRevenue =
+              Number(pr.total_revenue ?? pr.totalRevenue ?? 0) / 100;
+
+            const contributorsRaw = (pr.project_contributors ??
+              []) as Array<Record<string, unknown>>;
+
+            const contributors = contributorsRaw.map((pc) => {
+              const usersRow = pc.users as Record<string, unknown> | undefined;
+              const avatar =
+                (usersRow && typeof usersRow.avatar_url === 'string' ? usersRow.avatar_url : undefined) ??
+                (usersRow && typeof usersRow.avatar === 'string' ? usersRow.avatar : undefined);
+
+              return {
+                id: String(pc.id ?? pc.user_id ?? ''),
+                name:
+                  (usersRow && typeof usersRow.name === 'string' ? usersRow.name : undefined) ??
+                  (usersRow && typeof usersRow.email === 'string' ? usersRow.email : undefined) ??
+                  'Unknown',
+                avatar,
+                role: String(pc.role ?? ''),
+                revenueShare: Number(pc.revenue_share ?? 0),
+                totalEarned: Number(pc.total_earned ?? 0) / 100,
+              };
+            });
+
+            return {
+              id: String(pr.id ?? ''),
+              name: String(pr.name ?? ''),
+              type: String(pr.type ?? 'Project'),
+              status: String(pr.status ?? 'active'),
+              progress: Number(pr.progress ?? 0),
+              totalRevenue,
+              coverImage,
+              contributors,
+            };
+          });
+
+        setProjects(mapped);
+      } catch {
+        setProjects([]);
+      }
+    })();
+  }, []);
 
   return (
     <Card className="mb-8">
@@ -209,7 +350,7 @@ const ProjectsOverview: React.FC = () => {
             className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="">All Projects</option>
-            {mockProjects.map((project) => (
+            {projects.map((project) => (
               <option key={project.id} value={project.id}>
                 {project.name}
               </option>
@@ -220,8 +361,8 @@ const ProjectsOverview: React.FC = () => {
       
       <CardContent>
         <div className="space-y-6">
-          {mockProjects
-            .filter(project => !selectedProject || project.id === selectedProject)
+          {projects
+            .filter((project) => !selectedProject || project.id === selectedProject)
             .map((project) => (
             <div key={project.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-6">
               {/* Project Header */}
@@ -322,6 +463,30 @@ const ProjectsOverview: React.FC = () => {
 
 // Rights Ledger Component
 const RightsLedger: React.FC = () => {
+  const [rights, setRights] = useState<
+    Array<{
+      id: string;
+      projectName: string;
+      rightsType: string;
+      owner: string;
+      revenueShare: number;
+      status: string;
+      expirationDate: string;
+    }>
+  >([]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch('/api/rights');
+        const json = await res.json();
+        setRights(Array.isArray(json) ? json : []);
+      } catch {
+        setRights([]);
+      }
+    })();
+  }, []);
+
   return (
     <Card className="mb-8">
       <CardHeader>
@@ -344,7 +509,14 @@ const RightsLedger: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {mockRights.map((right) => (
+              {rights.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-6 text-center text-sm text-gray-600 dark:text-gray-400">
+                    No creative rights found.
+                  </td>
+                </tr>
+              ) : (
+                rights.map((right) => (
                 <tr
                   key={right.id}
                   className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50"
@@ -370,7 +542,8 @@ const RightsLedger: React.FC = () => {
                     {formatDate(right.expirationDate)}
                   </td>
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -402,7 +575,7 @@ export default function DashboardPage() {
             Welcome back! 👋
           </h2>
           <p className="text-gray-600 dark:text-gray-400">
-            Here's your creative rights and revenue overview. Manage payments, track rights, and interact with smart contracts.
+            Here&apos;s your creative rights and revenue overview. Manage payments, track rights, and interact with smart contracts.
           </p>
           
           {/* Revenue Metrics */}
@@ -451,17 +624,35 @@ export default function DashboardPage() {
               variant="ghost" 
               onClick={async () => {
                 try {
-                  const jsPdfModule: any = await import('jspdf');
-                  const jsPDF = jsPdfModule.default || jsPdfModule.jsPDF || jsPdfModule;
+                  const jsPdfModule: unknown = await import('jspdf');
+                  type JsPDFConstructor = new () => {
+                    setFontSize: (n: number) => void;
+                    text: (t: string, x: number, y: number) => void;
+                    addPage: () => void;
+                    save: (name: string) => void;
+                  };
+
+                  const mod = jsPdfModule as {
+                    default?: JsPDFConstructor;
+                    jsPDF?: JsPDFConstructor;
+                  };
+                  const jsPDFCtor = mod.default ?? mod.jsPDF;
+                  if (!jsPDFCtor) throw new Error('Failed to load jsPDF');
                   const res = await fetch('/api/revenue');
-                  const data = await res.json();
-                  const doc = new jsPDF();
+                  const data: unknown = await res.json();
+                  const doc = new jsPDFCtor();
                   doc.setFontSize(16);
                   doc.text('Revenue Report', 14, 16);
                   doc.setFontSize(11);
                   let y = 26;
-                  data.forEach((r: any, idx: number) => {
-                    const line = `${idx + 1}. ${new Date(r.date).toLocaleDateString()}  ${r.projectName}  ${formatCurrency(r.amount)}  (${r.source})`;
+                  const rows = Array.isArray(data) ? data : [];
+                  rows.forEach((r, idx) => {
+                    const row = r as Record<string, unknown>;
+                    const date = row.date ? new Date(String(row.date)).toLocaleDateString() : '-';
+                    const projectName = typeof row.projectName === 'string' ? row.projectName : 'Project';
+                    const amount = typeof row.amount === 'number' ? row.amount : Number(row.amount) || 0;
+                    const source = typeof row.source === 'string' ? row.source : 'Direct Payment';
+                    const line = `${idx + 1}. ${date}  ${projectName}  ${formatCurrency(amount)}  (${source})`;
                     doc.text(line, 14, y);
                     y += 8;
                     if (y > 280) {
