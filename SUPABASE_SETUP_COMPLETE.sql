@@ -1,33 +1,8 @@
 -- ============================================================================
--- CREATIVE RIGHTS TRACKER - COMPLETE SUPABASE DATABASE SETUP
--- ============================================================================
--- 
--- INSTRUCTIONS:
--- 1. Go to your Supabase project dashboard
--- 2. Click "SQL Editor" on the left sidebar
--- 3. Click "+ New Query"
--- 4. Copy and paste ALL the SQL code below
--- 5. Click "RUN" button
--- 6. Done! Your database is ready with schema + demo data
---
--- SAFE TO RUN MULTIPLE TIMES:
--- - Uses "CREATE TABLE IF NOT EXISTS" (won't error if tables exist)
--- - Uses "ADD COLUMN IF NOT EXISTS" (won't error if columns exist)
--- - Uses "ON CONFLICT DO NOTHING" (won't duplicate data)
--- - Can be run again without losing data
---
--- NO NEED TO DROP TABLES:
--- - This script preserves existing data
--- - Only adds missing tables/columns
--- - Updates existing records if needed
---
+-- CREATIVE RIGHTS TRACKER - COMPLETE SUPABASE DATABASE SETUP (FINAL ROBUST)
 -- ============================================================================
 
--- ============================================================================
--- PART 1: ENSURE BASE TABLES EXIST (Core schema)
--- ============================================================================
-
--- 1.1 Users Table (if your Supabase auth doesn't auto-create it)
+-- PART 1: ENSURE BASE TABLES EXIST
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email VARCHAR(255) NOT NULL UNIQUE,
@@ -46,14 +21,13 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 1.2 Projects Table
 CREATE TABLE IF NOT EXISTS projects (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(255) NOT NULL,
   type VARCHAR(100),
   description TEXT,
   status VARCHAR(50) DEFAULT 'Active' CHECK (status IN ('Active', 'Completed', 'In Progress', 'Paused')),
-  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  owner_id UUID REFERENCES users(id) ON DELETE SET NULL,
   total_revenue DECIMAL(15,2) DEFAULT 0,
   pending_payments DECIMAL(15,2) DEFAULT 0,
   progress INTEGER DEFAULT 0,
@@ -65,7 +39,6 @@ CREATE TABLE IF NOT EXISTS projects (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 1.3 Project Contributors Table
 CREATE TABLE IF NOT EXISTS project_contributors (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -78,24 +51,22 @@ CREATE TABLE IF NOT EXISTS project_contributors (
   UNIQUE(project_id, user_id)
 );
 
--- 1.4 Payments Table
 CREATE TABLE IF NOT EXISTS payments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
   amount DECIMAL(15,2) NOT NULL,
-  date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   source VARCHAR(255),
-  contributor_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  user_id UUID REFERENCES users(id) ON DELETE SET NULL,
   status VARCHAR(50) DEFAULT 'Processing' CHECK (status IN ('Pending', 'Processing', 'Completed', 'Failed')),
   split_percentage DECIMAL(5,2) DEFAULT 100,
   recipient_id UUID REFERENCES users(id),
-  transaction_hash VARCHAR(255),
+  tx_hash VARCHAR(255),
   email_tracked BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 1.5 Creative Rights Table
 CREATE TABLE IF NOT EXISTS creative_rights (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -108,7 +79,6 @@ CREATE TABLE IF NOT EXISTS creative_rights (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 1.6 Milestones Table
 CREATE TABLE IF NOT EXISTS milestones (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   project_id UUID NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -121,7 +91,6 @@ CREATE TABLE IF NOT EXISTS milestones (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 1.7 Activities Table (Audit Log)
 CREATE TABLE IF NOT EXISTS activities (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -131,36 +100,47 @@ CREATE TABLE IF NOT EXISTS activities (
   timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- ============================================================================
--- PART 2: ADD MISSING COLUMNS (Safe updates to existing tables)
--- ============================================================================
+-- PART 2: ENSURE ALL COLUMNS EXIST (Add if missing)
+DO $$
+BEGIN
+    -- Users table
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar VARCHAR(500);
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_address VARCHAR(255);
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_connected BOOLEAN DEFAULT FALSE;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_connected_at TIMESTAMP;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS preferred_payment_method VARCHAR(50) DEFAULT 'traditional';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS active_projects INTEGER DEFAULT 0;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS join_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT FALSE;
 
-ALTER TABLE projects
-ADD COLUMN IF NOT EXISTS progress INTEGER DEFAULT 0,
-ADD COLUMN IF NOT EXISTS total_revenue DECIMAL(15,2) DEFAULT 0,
-ADD COLUMN IF NOT EXISTS cover_image VARCHAR(500);
+    -- Projects table
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES users(id);
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS type VARCHAR(100);
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS pending_payments DECIMAL(15,2) DEFAULT 0;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS contract_address VARCHAR(255);
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS cover_image VARCHAR(500);
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS progress INTEGER DEFAULT 0;
+    ALTER TABLE projects ADD COLUMN IF NOT EXISTS total_revenue DECIMAL(15,2) DEFAULT 0;
 
-ALTER TABLE payments
-ADD COLUMN IF NOT EXISTS split_percentage DECIMAL(5,2) DEFAULT 100,
-ADD COLUMN IF NOT EXISTS recipient_id UUID REFERENCES users(id);
+    -- Payments table
+    ALTER TABLE payments ADD COLUMN IF NOT EXISTS payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+    ALTER TABLE payments ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES users(id);
+    ALTER TABLE payments ADD COLUMN IF NOT EXISTS tx_hash VARCHAR(255);
+    ALTER TABLE payments ADD COLUMN IF NOT EXISTS split_percentage DECIMAL(5,2) DEFAULT 100;
+    ALTER TABLE payments ADD COLUMN IF NOT EXISTS recipient_id UUID REFERENCES users(id);
+    ALTER TABLE payments ADD COLUMN IF NOT EXISTS email_tracked BOOLEAN DEFAULT FALSE;
+END $$;
 
-ALTER TABLE users
-ADD COLUMN IF NOT EXISTS wallet_address VARCHAR(255),
-ADD COLUMN IF NOT EXISTS wallet_connected BOOLEAN DEFAULT FALSE,
-ADD COLUMN IF NOT EXISTS wallet_connected_at TIMESTAMP,
-ADD COLUMN IF NOT EXISTS preferred_payment_method VARCHAR(50) DEFAULT 'traditional';
-
--- ============================================================================
--- PART 3: CREATE INDEXES (For better query performance)
--- ============================================================================
-
-CREATE INDEX IF NOT EXISTS idx_projects_created_by ON projects(created_by);
+-- PART 3: CREATE INDEXES
+CREATE INDEX IF NOT EXISTS idx_projects_owner_id ON projects(owner_id);
 CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
 CREATE INDEX IF NOT EXISTS idx_project_contributors_project_id ON project_contributors(project_id);
 CREATE INDEX IF NOT EXISTS idx_project_contributors_user_id ON project_contributors(user_id);
 CREATE INDEX IF NOT EXISTS idx_payments_project_id ON payments(project_id);
-CREATE INDEX IF NOT EXISTS idx_payments_contributor_id ON payments(contributor_id);
-CREATE INDEX IF NOT EXISTS idx_payments_date ON payments(date);
+CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
+CREATE INDEX IF NOT EXISTS idx_payments_payment_date ON payments(payment_date);
 CREATE INDEX IF NOT EXISTS idx_creative_rights_project_id ON creative_rights(project_id);
 CREATE INDEX IF NOT EXISTS idx_creative_rights_owner_id ON creative_rights(owner_id);
 CREATE INDEX IF NOT EXISTS idx_milestones_project_id ON milestones(project_id);
@@ -169,11 +149,7 @@ CREATE INDEX IF NOT EXISTS idx_activities_user_id ON activities(user_id);
 CREATE INDEX IF NOT EXISTS idx_activities_project_id ON activities(project_id);
 CREATE INDEX IF NOT EXISTS idx_activities_timestamp ON activities(timestamp DESC);
 
--- ============================================================================
--- PART 4: CREATE DEMO DATA (Safe insertion with conflict handling)
--- ============================================================================
-
--- 4.1 Demo Users
+-- PART 4: CREATE DEMO DATA
 INSERT INTO users (id, email, name, avatar, role, total_earnings, active_projects, join_date)
 VALUES 
   ('550e8400-e29b-41d4-a716-446655440001', 'admin@creative.com', 'Admin User', 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face', 'admin', 125000.00, 3, NOW() - INTERVAL '6 months'),
@@ -183,8 +159,7 @@ VALUES
   ('550e8400-e29b-41d4-a716-446655440005', 'david@creative.com', 'David Park', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face', 'contributor', 32100.00, 2, NOW() - INTERVAL '2 months')
 ON CONFLICT (id) DO NOTHING;
 
--- 4.2 Demo Projects
-INSERT INTO projects (id, name, type, description, status, created_by, total_revenue, progress, cover_image)
+INSERT INTO projects (id, name, type, description, status, owner_id, total_revenue, progress, cover_image)
 VALUES
   ('650e8400-e29b-41d4-a716-446655440001', 'Music Album Production', 'Music', 'Professional indie album with 12 tracks featuring diverse artists', 'Active', '550e8400-e29b-41d4-a716-446655440002', 150000.00, 65, 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=400&h=250&fit=crop'),
   ('650e8400-e29b-41d4-a716-446655440002', 'Documentary Film', 'Film', 'Award-winning short documentary about environmental conservation', 'In Progress', '550e8400-e29b-41d4-a716-446655440003', 95000.00, 45, 'https://images.unsplash.com/photo-1485095046884-e64ffc17175d?w=400&h=250&fit=crop'),
@@ -193,7 +168,6 @@ VALUES
   ('650e8400-e29b-41d4-a716-446655440005', 'Art Exhibition', 'Art', 'Contemporary digital art exhibition across multiple galleries', 'Active', '550e8400-e29b-41d4-a716-446655440002', 60000.00, 55, 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=400&h=250&fit=crop')
 ON CONFLICT (id) DO NOTHING;
 
--- 4.3 Demo Project Contributors
 INSERT INTO project_contributors (project_id, user_id, role, revenue_share)
 VALUES
   ('650e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002', 'Producer', 40.0),
@@ -210,8 +184,7 @@ VALUES
   ('650e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440004', 'Artist', 55.0)
 ON CONFLICT (project_id, user_id) DO NOTHING;
 
--- 4.4 Demo Payments
-INSERT INTO payments (id, project_id, amount, date, source, contributor_id, status, transaction_hash)
+INSERT INTO payments (id, project_id, amount, payment_date, source, user_id, status, tx_hash)
 VALUES
   ('750e8400-e29b-41d4-a716-446655440001', '650e8400-e29b-41d4-a716-446655440001', 50000.00, NOW() - INTERVAL '2 months', 'Spotify Revenue', '550e8400-e29b-41d4-a716-446655440002', 'Completed', '0x1234567890'),
   ('750e8400-e29b-41d4-a716-446655440002', '650e8400-e29b-41d4-a716-446655440001', 35000.00, NOW() - INTERVAL '1 month', 'Apple Music', '550e8400-e29b-41d4-a716-446655440003', 'Completed', '0x2234567890'),
@@ -226,7 +199,6 @@ VALUES
   ('750e8400-e29b-41d4-a716-446655440011', '650e8400-e29b-41d4-a716-446655440005', 30000.00, NOW() - INTERVAL '1 day', 'Print Sales', '550e8400-e29b-41d4-a716-446655440004', 'Processing', '0x1134567890')
 ON CONFLICT (id) DO NOTHING;
 
--- 4.5 Demo Creative Rights
 INSERT INTO creative_rights (id, project_id, owner_id, rights_type, revenue_share, status, expiration_date)
 VALUES
   ('850e8400-e29b-41d4-a716-446655440001', '650e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002', 'Master Recording', 40.0, 'active', NOW() + INTERVAL '2 years'),
@@ -239,7 +211,6 @@ VALUES
   ('850e8400-e29b-41d4-a716-446655440008', '650e8400-e29b-41d4-a716-446655440005', '550e8400-e29b-41d4-a716-446655440002', 'Art Copyright', 45.0, 'active', NOW() + INTERVAL '10 years')
 ON CONFLICT (id) DO NOTHING;
 
--- 4.6 Demo Milestones
 INSERT INTO milestones (id, project_id, title, description, date, status, priority)
 VALUES
   ('950e8400-e29b-41d4-a716-446655440001', '650e8400-e29b-41d4-a716-446655440001', 'Recording Complete', 'All 12 tracks recorded and initial mixing done', NOW() - INTERVAL '2 months', 'Completed', 'high'),
@@ -255,7 +226,6 @@ VALUES
   ('950e8400-e29b-41d4-a716-446655440011', '650e8400-e29b-41d4-a716-446655440005', 'Gallery Exhibition', 'Physical and digital exhibition launch', NOW() + INTERVAL '2 weeks', 'Upcoming', 'critical')
 ON CONFLICT (id) DO NOTHING;
 
--- 4.7 Demo Activities (Audit Log)
 INSERT INTO activities (id, user_id, project_id, action, description, timestamp)
 VALUES
   ('a50e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002', '650e8400-e29b-41d4-a716-446655440001', 'project_created', 'Created project "Music Album Production"', NOW() - INTERVAL '6 months'),
@@ -270,11 +240,7 @@ VALUES
   ('a50e8400-e29b-41d4-a716-446655440010', '550e8400-e29b-41d4-a716-446655440003', '650e8400-e29b-41d4-a716-446655440004', 'project_status_changed', 'Project marked as Completed', NOW() - INTERVAL '2 weeks')
 ON CONFLICT (id) DO NOTHING;
 
--- ============================================================================
--- PART 5: CREATE VIEWS (For analytics and reporting)
--- ============================================================================
-
--- 5.1 Project Revenue Summary View
+-- PART 5: CREATE VIEWS
 CREATE OR REPLACE VIEW project_revenue_summary AS
 SELECT 
   p.id,
@@ -295,7 +261,6 @@ LEFT JOIN creative_rights cr ON p.id = cr.project_id
 LEFT JOIN milestones m ON p.id = m.project_id
 GROUP BY p.id, p.name, p.status, p.progress, p.created_date, p.last_updated;
 
--- 5.2 Contributor Earnings View
 CREATE OR REPLACE VIEW contributor_earnings AS
 SELECT 
   u.id,
@@ -313,7 +278,6 @@ LEFT JOIN payments pay ON pc.project_id = pay.project_id
 LEFT JOIN projects p ON pc.project_id = p.id
 GROUP BY u.id, u.name, u.email, u.role, u.total_earnings, u.join_date;
 
--- 5.3 Project Performance View
 CREATE OR REPLACE VIEW project_performance AS
 SELECT 
   p.id,
@@ -337,79 +301,18 @@ LEFT JOIN payments pay ON p.id = pay.project_id
 LEFT JOIN project_contributors pc ON p.id = pc.project_id
 GROUP BY p.id, p.name, p.type, p.status, p.progress, p.created_date;
 
--- ============================================================================
--- PART 6: SET UP ROW LEVEL SECURITY (Optional but recommended)
--- ============================================================================
-
--- Enable RLS on sensitive tables
+-- PART 6: ROW LEVEL SECURITY
 ALTER TABLE creative_rights ENABLE ROW LEVEL SECURITY;
 ALTER TABLE activities ENABLE ROW LEVEL SECURITY;
 ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policy for projects
-CREATE POLICY IF NOT EXISTS "Users can view all projects"
-  ON projects FOR SELECT
-  USING (true);
-
-CREATE POLICY IF NOT EXISTS "Admins can update any project, creators can update their own"
-  ON projects FOR UPDATE
-  USING (
-    (SELECT role FROM users WHERE id = auth.uid()) = 'admin'
-    OR created_by = auth.uid()
-  );
-
--- Create RLS policy for creative_rights
-CREATE POLICY IF NOT EXISTS "Users can view rights for their projects"
-  ON creative_rights FOR SELECT
-  USING (
-    project_id IN (
-      SELECT id FROM projects WHERE created_by = auth.uid()
-    ) OR owner_id = auth.uid()
-  );
-
-CREATE POLICY IF NOT EXISTS "Project creators can insert rights"
-  ON creative_rights FOR INSERT
-  WITH CHECK (
-    project_id IN (
-      SELECT id FROM projects WHERE created_by = auth.uid()
-    )
-  );
-
--- Create RLS policy for activities
-CREATE POLICY IF NOT EXISTS "Users can view activities"
-  ON activities FOR SELECT
-  USING (true);
-
-CREATE POLICY IF NOT EXISTS "System can insert activities"
-  ON activities FOR INSERT
-  WITH CHECK (true);
-
--- ============================================================================
--- PART 7: FINAL VERIFICATION
--- ============================================================================
-
--- Check table counts
-SELECT 'Tables Created' as status, 
-  (SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public') as table_count;
-
--- Check user count
-SELECT 'Demo Users' as status, COUNT(*) as count FROM users;
-
--- Check project count
-SELECT 'Demo Projects' as status, COUNT(*) as count FROM projects;
-
--- Check total revenue
-SELECT 'Total Revenue' as status, SUM(amount)::DECIMAL(15,2) as total_revenue FROM payments;
-
--- Check sample data
-SELECT 'Sample Revenue Data' as status, COUNT(*) as payment_records FROM payments;
-
--- ============================================================================
--- DONE! Your database is now fully set up with schema and demo data
--- ============================================================================
-
--- You can now use the application with real data!
--- All views are available:
---   SELECT * FROM project_revenue_summary;
---   SELECT * FROM contributor_earnings;
---   SELECT * FROM project_performance;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can view all projects') THEN
+        CREATE POLICY "Users can view all projects" ON projects FOR SELECT USING (true);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can view their own rights') THEN
+        CREATE POLICY "Users can view their own rights" ON creative_rights FOR SELECT USING (owner_id = auth.uid());
+    END IF;
+END $$;

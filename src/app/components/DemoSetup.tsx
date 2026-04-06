@@ -59,8 +59,8 @@ export const DemoSetup: React.FC = () => {
       </CardHeader>
       
       <CardContent className="space-y-4">
-        {!isSetupComplete ? (
-          <div className="space-y-4">
+        <div className="space-y-4">
+          {!isSetupComplete ? (
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
               <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
                 What this will create:
@@ -72,13 +72,7 @@ export const DemoSetup: React.FC = () => {
                 <li>• Sample project data</li>
               </ul>
             </div>
-            
-            <Button onClick={handleSetupDemo} className="w-full">
-              Setup Demo Data
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-4">
+          ) : (
             <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
               <h4 className="font-medium text-green-900 dark:text-green-100 mb-2">
                 ✅ Setup Complete!
@@ -87,51 +81,55 @@ export const DemoSetup: React.FC = () => {
                 Created {setupResults?.totalUsers} demo users
               </p>
             </div>
+          )}
+          
+          <Button onClick={handleSetupDemo} className="w-full" variant={isSetupComplete ? "secondary" : "primary"}>
+            {isSetupComplete ? "Run Setup Again" : "Setup Demo Data"}
+          </Button>
 
-            <div className="space-y-3">
-              <h4 className="font-medium text-gray-900 dark:text-white">
-                Quick Login As:
-              </h4>
+          <div className="space-y-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <h4 className="font-medium text-gray-900 dark:text-white">
+              Quick Login As:
+            </h4>
+            
+            <div className="grid grid-cols-1 gap-2">
+              <Button
+                onClick={() => handleQuickLogin('admin')}
+                variant="primary"
+                className="w-full justify-between"
+              >
+                <span>Admin User</span>
+                <Badge variant="default">Full Access</Badge>
+              </Button>
               
-              <div className="grid grid-cols-1 gap-2">
-                <Button
-                  onClick={() => handleQuickLogin('admin')}
-                  variant="primary"
-                  className="w-full justify-between"
-                >
-                  <span>Admin User</span>
-                  <Badge variant="default">Full Access</Badge>
-                </Button>
-                
-                <Button
-                  onClick={() => handleQuickLogin('creator')}
-                  variant="secondary"
-                  className="w-full justify-between"
-                >
-                  <span>Creator User</span>
-                  <Badge variant="info">Project Management</Badge>
-                </Button>
-                
-                <Button
-                  onClick={() => handleQuickLogin('contributor')}
-                  variant="ghost"
-                  className="w-full justify-between"
-                >
-                  <span>Contributor User</span>
-                  <Badge variant="warning">Limited Access</Badge>
-                </Button>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg">
-                <p className="text-xs text-amber-800 dark:text-amber-200">
-                  💡 <strong>Admin Features:</strong> User management, role assignment, payment processing, full dashboard access
-                </p>
-              </div>
+              <Button
+                onClick={() => handleQuickLogin('creator')}
+                variant="secondary"
+                className="w-full justify-between"
+              >
+                <span>Creator User</span>
+                <Badge variant="info">Project Management</Badge>
+              </Button>
+              
+              <Button
+                onClick={() => handleQuickLogin('contributor')}
+                variant="ghost"
+                className="w-full justify-between"
+              >
+                <span>Contributor User</span>
+                <Badge variant="warning">Limited Access</Badge>
+              </Button>
             </div>
           </div>
-        )}
+
+          <div className="pt-2">
+            <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg">
+              <p className="text-xs text-amber-800 dark:text-amber-200">
+                💡 <strong>Admin Features:</strong> User management, role assignment, payment processing, full dashboard access
+              </p>
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );

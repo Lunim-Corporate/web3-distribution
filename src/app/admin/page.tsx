@@ -13,6 +13,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [invite, setInvite] = useState({ name: '', email: '', role: 'creator' as Role });
   const [isLoading, setIsLoading] = useState(true);
+  const [isInviting, setIsInviting] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -57,22 +58,35 @@ export default function AdminPage() {
             <option value="contributor">contributor</option>
           </select>
           <button
-            className="px-3 py-2 rounded bg-blue-600 text-white"
+            className="px-3 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
+            disabled={isInviting}
             onClick={()=>{
-              const email = invite.email.trim();
-              const name = (invite.name || email.split('@')[0]).trim();
-              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-              if(!emailRegex.test(email)) {
-                toast.error('Please enter a valid email address.');
-                return;
-              }
-              inviteUser(email, name, invite.role);
-              toast.success(`Invite sent to ${email} as ${invite.role}.`);
-              setInvite({ name:'', email:'', role:'creator' });
-              refresh();
+              void (async () => {
+                const email = invite.email.trim();
+                const name = (invite.name || email.split('@')[0]).trim();
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if(!emailRegex.test(email)) {
+                  toast.error('Please enter a valid email address.');
+                  return;
+                }
+                
+                setIsInviting(true);
+                toast.loading('Sending invite...', { id: 'invite' });
+                try {
+                  await inviteUser(email, name, invite.role);
+                  toast.success(`Invite sent to ${email} as ${invite.role}.`, { id: 'invite' });
+                  setInvite({ name:'', email:'', role:'creator' });
+                  await refresh();
+                } catch (e: unknown) {
+                  const msg = e instanceof Error ? e.message : 'Failed to send invite';
+                  toast.error(msg, { id: 'invite' });
+                } finally {
+                  setIsInviting(false);
+                }
+              })();
             }}
           >
-            Send Invite
+            {isInviting ? "Sending..." : "Send Invite"}
           </button>
         </div>
       </div>

@@ -269,42 +269,67 @@ export async function getActivities(userId: string) {
 // Reports
 export async function generateRevenueReport(startDate: string, endDate: string, projectId?: string) {
   try {
-    let query = supabase
+    // Step 1: Fetch payments with projects
+    let paymentQuery = supabase
       .from('payments')
-      .select('*, projects(id, name), project_contributors(user_id, revenue_share, total_earned)')
-      .gte('created_at', startDate)
-      .lte('created_at', endDate);
+      .select('*, projects(id, name)')
+      .gte('payment_date', startDate)
+      .lte('payment_date', endDate);
 
     if (projectId) {
-      query = query.eq('project_id', projectId);
+      paymentQuery = paymentQuery.eq('project_id', projectId);
     }
 
-    const { data: payments, error } = await query;
-    if (error) throw error;
+    const { data: payments, error: paymentError } = await paymentQuery;
+    if (paymentError) throw paymentError;
+
+    // Step 2: Fetch contributors if we have projects
+    const projectIds = Array.from(new Set(payments?.map(p => p.project_id) || []));
+    let contributors: any[] = [];
+    if (projectIds.length > 0) {
+      const { data: contribs, error: contribError } = await supabase
+        .from('project_contributors')
+        .select('project_id, user_id, revenue_share')
+        .in('project_id', projectIds);
+      if (!contribError) contributors = contribs || [];
+    }
 
     // Aggregate data
     const sourceMap = new Map<string, { amount: number; count: number }>();
-    const projectMap = new Map<string, { revenue: number; paid: number; contributors: Set<string> }>();
+    const projectMap = new Map<string, { revenue: number; paid: number; contributors: Set<string>; name: string }>();
     let totalRevenue = 0;
 
     payments?.forEach((payment) => {
-      totalRevenue += payment.amount || 0;
+      // HANDLE CENTS -> GBP/USD (divide by 100)
+      const amount = (Number(payment.amount) || 0) / 100;
+      totalRevenue += amount;
 
       // By source
       const source = payment.source || 'Unknown';
       sourceMap.set(source, {
-        amount: (sourceMap.get(source)?.amount || 0) + (payment.amount || 0),
+        amount: (sourceMap.get(source)?.amount || 0) + amount,
         count: (sourceMap.get(source)?.count || 0) + 1,
       });
 
       // By project
       if (payment.projects) {
         const projId = payment.projects.id;
-        projectMap.set(projId, {
-          revenue: (projectMap.get(projId)?.revenue || 0) + (payment.amount || 0),
-          paid: (projectMap.get(projId)?.paid || 0) + (payment.amount || 0),
-          contributors: projectMap.get(projId)?.contributors || new Set(),
+        const current = projectMap.get(projId) || { 
+          revenue: 0, 
+          paid: 0, 
+          contributors: new Set<string>(),
+          name: payment.projects.name || 'Unknown'
+        };
+        
+        current.revenue += amount;
+        current.paid += amount;
+        
+        // Find contributors for this project
+        contributors.filter(c => c.project_id === projId).forEach(c => {
+          current.contributors.add(c.user_id);
         });
+
+        projectMap.set(projId, current);
       }
     });
 
@@ -323,9 +348,9 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
         percentage: totalRevenue > 0 ? (data.amount / totalRevenue) * 100 : 0,
         paymentCount: data.count,
       })),
-      projects: Array.from(projectMap.entries()).map(([projId, data]) => ({
-        projectId: projId as string,
-        projectName: 'Project',
+      projects: Array.from(projectMap.entries()).map(([projId, data]: [string, any]) => ({
+        projectId: projId,
+        projectName: data.name,
         totalRevenue: data.revenue,
         paidRevenue: data.paid,
         pendingRevenue: 0,
@@ -333,8 +358,8 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
       })),
       topContributors: [],
       trends: payments?.map((p) => ({
-        date: p.created_at,
-        amount: p.amount,
+        date: p.payment_date,
+        amount: (Number(p.amount) || 0) / 100,
         source: p.source,
         projectName: p.projects?.name || 'Unknown',
       })) || [],

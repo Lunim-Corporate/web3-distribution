@@ -44,7 +44,7 @@ const ChartsPanel: React.FC = () => {
   }, []);
 
   // Build month buckets by year-month key
-  const { labels, trendData, sourceSegments } = useMemo(() => {
+  const { labels, trendData, projectedData, sourceSegments } = useMemo(() => {
     const monthly: Record<string, number> = {};
     const sourceMap: Record<string, number> = {};
     revenue.forEach((r: RevenueData) => {
@@ -60,18 +60,29 @@ const ChartsPanel: React.FC = () => {
     const monthsCount = timeframe === '6' ? 6 : timeframe === '12' ? 12 : (now.getMonth() + 1);
     const lbls: string[] = [];
     const vals: number[] = [];
-    for (let i = monthsCount - 1; i >= 0; i--) {
+    const projVals: (number | null)[] = [];
+    for (let i = monthsCount - 1; i >= -3; i--) { // Project 3 months into future
       const dt = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${dt.getFullYear()}-${dt.getMonth()}`;
       lbls.push(`${monthsNames[dt.getMonth()]} '${String(dt.getFullYear()).slice(-2)}`);
-      vals.push(monthly[key] || 0);
+      if (i >= 0) {
+        vals.push(monthly[key] || 0);
+        projVals.push(i === 0 ? (monthly[key] || 0) : null); // Connect last point to projection
+      } else {
+        vals.push(0); // Fill empty spaces for array parity
+        const average = vals.filter(v => v > 0).reduce((a, b) => a + b, 0) / (vals.filter(v => v > 0).length || 1);
+        projVals.push(average * (1.1 ** Math.abs(i))); // Assume 10% month-over-month growth for projection
+      }
     }
 
     // demo fallback when empty
     const hasRevenue = revenue && revenue.length > 0;
     const demo = [0,12000,8000,20000,4000,65000,5000,12000,25000,8000,15000,10000];
-    const trimmed = hasRevenue ? vals : demo.slice(-monthsCount);
+    const trimmed = hasRevenue ? vals.slice(0, monthsCount) : demo.slice(-monthsCount);
     const trend = cumulative ? trimmed.reduce((acc, v, i) => { acc.push((acc[i-1]||0) + v); return acc; }, [] as number[]) : trimmed;
+    
+    // Add projection paddings to trend array so it aligns with labels
+    const displayTrend = [...trend, null, null, null];
 
     // top sources + other
     const colors = ['#06b6d4','#f59e0b','#84cc16','#8b5cf6','#ef4444','#3b82f6'];
@@ -80,7 +91,7 @@ const ChartsPanel: React.FC = () => {
     const otherTotal = sources.slice(5).reduce((s,a)=>s+a[1],0);
     if (otherTotal > 0) top.push({ label: 'Other', value: otherTotal, color: colors[top.length%colors.length] });
 
-    return { labels: lbls, trendData: trend, sourceSegments: top };
+    return { labels: lbls, trendData: displayTrend, projectedData: projVals, sourceSegments: top };
   }, [revenue, timeframe, cumulative]);
 
   return (
@@ -111,16 +122,28 @@ const ChartsPanel: React.FC = () => {
             <Line
               data={{
                 labels,
-                datasets: [{
-                  label: 'Revenue',
-                  data: trendData,
-                  borderColor: '#22c55e',
-                  backgroundColor: 'rgba(34,197,94,0.12)',
-                  fill: true,
-                  tension: 0.3,
-                  pointRadius: 3,
-                  pointHoverRadius: 6,
-                }],
+                datasets: [
+                  {
+                    label: 'Actual Revenue',
+                    data: trendData,
+                    borderColor: '#22c55e',
+                    backgroundColor: 'rgba(34,197,94,0.12)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                  },
+                  {
+                    label: 'Projected',
+                    data: projectedData,
+                    borderColor: '#f59e0b',
+                    borderDash: [5, 5],
+                    fill: false,
+                    tension: 0.3,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                  }
+                ],
               }}
               options={{
                 plugins: {
@@ -144,8 +167,15 @@ const ChartsPanel: React.FC = () => {
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                  x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true } },
-                  y: { beginAtZero: true, ticks: { callback: (v: string | number) => formatCurrency(Number(v)) } },
+                  x: { 
+                    grid: { display: false }, 
+                    ticks: { maxRotation: 0, autoSkip: true, color: 'rgba(156, 163, 175, 1)' } 
+                  },
+                  y: { 
+                    beginAtZero: true, 
+                    grid: { color: 'rgba(156, 163, 175, 0.1)' },
+                    ticks: { color: 'rgba(156, 163, 175, 1)', callback: (v: string | number) => formatCurrency(Number(v)) } 
+                  },
                 },
                 elements: { line: { borderWidth: 2 }, point: { hitRadius: 8 } },
               }}

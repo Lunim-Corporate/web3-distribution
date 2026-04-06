@@ -68,7 +68,8 @@ export const PaymentSplitter: React.FC = () => {
 
   const handleCalculateSplits = async () => {
     if (!selectedProject || !paymentAmount) return;
-    const amount = parseFloat(paymentAmount);
+    const cleanAmountStr = paymentAmount.replace(/,/g, '');
+    const amount = parseFloat(cleanAmountStr);
     if (!Number.isFinite(amount)) return;
 
     try {
@@ -105,7 +106,8 @@ export const PaymentSplitter: React.FC = () => {
     }
 
     try {
-      const amountGBP = parseFloat(paymentAmount);
+      const cleanAmountStr = paymentAmount.replace(/,/g, '');
+      const amountGBP = parseFloat(cleanAmountStr);
       if (!Number.isFinite(amountGBP) || !selectedProject) return;
 
       const amountCents = gbpToCents(amountGBP);
@@ -285,10 +287,10 @@ export const PaymentSplitter: React.FC = () => {
                   Payment Amount
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
-                  placeholder="Enter amount in USD"
+                  placeholder="Enter amount in GBP"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
@@ -334,7 +336,7 @@ export const PaymentSplitter: React.FC = () => {
                     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between font-semibold">
                         <span>Total:</span>
-                        <span>{formatCurrency(parseFloat(paymentAmount))}</span>
+                        <span>{formatCurrency(parseFloat(paymentAmount.replace(/,/g, '')))}</span>
                       </div>
                     </div>
                   </div>

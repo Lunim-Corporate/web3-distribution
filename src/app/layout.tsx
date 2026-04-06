@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { AuthProvider } from '@/lib/auth';
 import { WalletProvider } from '@/lib/wallet';
+import { Toaster } from 'react-hot-toast';
+import { Navbar } from '@/components/Navbar';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -15,10 +17,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
+      <body className="pt-16">
         <AuthProvider>
           <WalletProvider>
+            <Navbar />
             {children}
+            <Toaster position="top-right" />
           </WalletProvider>
         </AuthProvider>
       </body>

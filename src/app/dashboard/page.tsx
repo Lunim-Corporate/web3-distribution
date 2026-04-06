@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -12,7 +13,6 @@ import { RevenueSnapshot } from '@/components/dashboard/RevenueSnapshot';
 import { UpcomingMilestones } from '@/components/dashboard/UpcomingMilestones';
 import { NotifyWidget } from '@/components/dashboard/NotifyWidget';
 import { useAuth } from '@/lib/auth';
-import { SidebarNav } from '@/components/dashboard/SidebarNav';
 import { ChartsPanel } from '@/components/dashboard/ChartsPanel';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { AddProjectModal } from '@/components/dashboard/AddProjectModal';
@@ -23,7 +23,7 @@ import { toast } from 'react-hot-toast';
 // Simple Dashboard Layout
 const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isDark, setIsDark] = useState(false);
-  const { user, logout, settings, setNotifyResurfacingHours } = useAuth();
+  const { user, settings, setNotifyResurfacingHours } = useAuth();
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('crt_theme');
@@ -43,19 +43,15 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 sticky top-0 z-40">
-        <div className="flex items-center justify-between">
+      {/* Dashboard Toolbar */}
+      <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border-b border-gray-200/50 dark:border-gray-700/50 px-6 py-3">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Creative Rights & Revenue Tracker
-            </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              RISIDIO Capstone Project Dashboard
-            </p>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Dashboard</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Moonstone • Revenue & Rights Overview</p>
           </div>
-          
-          <div className="flex items-center space-x-4">
+
+          <div className="flex items-center space-x-3">
             {/* Theme toggle */}
             <Button variant="ghost" size="sm" onClick={toggleTheme} className="p-2">
               {isDark ? '☀️' : '🌙'}
@@ -65,7 +61,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
             <select
               value={settings?.notifyResurfacingHours || 24}
               onChange={(e) => setNotifyResurfacingHours(Number(e.target.value))}
-              className="px-2 py-1 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100"
+              className="px-2 py-1 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100 hidden sm:block"
               title="Notification resurface interval"
             >
               <option value={2}>2h</option>
@@ -73,7 +69,7 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
               <option value={12}>12h</option>
               <option value={24}>24h</option>
             </select>
-            
+
             {/* Notifications */}
             <div className="relative">
               <Button variant="ghost" size="sm" className="p-2 relative">
@@ -83,42 +79,23 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
                 </span>
               </Button>
             </div>
-
-            {/* User info */}
-            <div className="flex items-center space-x-2">
-              <img
-                src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face"
-                alt="User"
-                className="w-8 h-8 rounded-full"
-              />
-              <span className="text-sm font-medium text-gray-900 dark:text-white">
-                {user?.name || 'Guest'}
-              </span>
-              {user?.role === 'admin' && (
-                <Link href="/admin" className="text-xs px-2 py-1 rounded bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 ml-2 hover:bg-purple-200 dark:hover:bg-purple-800 transition-colors">
-                  Manage Users
-                </Link>
-              )}
-              {user && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => void logout()}
-                  className="ml-1"
-                >
-                  Logout
-                </Button>
-              )}
-            </div>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
       <main className="p-6">
-        <div className="max-w-7xl mx-auto">
-          {children}
-        </div>
+        <AnimatePresence mode="wait">
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="max-w-7xl mx-auto"
+          >
+            {children}
+          </motion.div>
+        </AnimatePresence>
       </main>
     </div>
   );
@@ -212,10 +189,31 @@ const RevenueMetrics: React.FC = () => {
     },
   ];
 
+  const container = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const item = {
+    hidden: { opacity: 0, scale: 0.95 },
+    show: { opacity: 1, scale: 1 }
+  };
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <motion.div 
+      variants={container} 
+      initial="hidden" 
+      animate="show" 
+      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+    >
       {cards.map((metric, index) => (
-        <Card key={index} className="relative overflow-hidden">
+        <motion.div key={index} variants={item} whileHover={{ scale: 1.02 }} className="cursor-pointer">
+          <Card className="relative overflow-hidden h-full shadow-sm hover:shadow-md transition-shadow">
           <div className={`absolute top-0 left-0 w-full h-1 ${metric.color}`} />
           <CardContent>
             <div className="flex items-center justify-between">
@@ -240,9 +238,10 @@ const RevenueMetrics: React.FC = () => {
               <div className="text-2xl">{metric.icon}</div>
             </div>
           </CardContent>
-        </Card>
+          </Card>
+        </motion.div>
       ))}
-    </div>
+    </motion.div>
   );
 };
 
@@ -568,9 +567,8 @@ export default function DashboardPage() {
     <DashboardLayout>
       <NotifyWidget resurfacingHours={settings?.notifyResurfacingHours || 24} />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <SidebarNav />
-        {/* Welcome Section */}
-        <div className="lg:col-span-7 space-y-8">
+        {/* Main Section */}
+        <div className="lg:col-span-9 space-y-8">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
             Welcome back! 👋
           </h2>
@@ -605,72 +603,44 @@ export default function DashboardPage() {
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap gap-4">
-            <Button 
-              variant="primary" 
-              onClick={() => setIsAddProjectOpen(true)}
-              className="px-6 py-3"
-            >
-              Add Project
-            </Button>
-            <Button 
-              variant="secondary" 
-              onClick={() => { document.getElementById('payment-splitter')?.scrollIntoView({ behavior: 'smooth' }); }}
-              className="px-6 py-3"
-            >
-              Record Payment
-            </Button>
-            <Button 
-              variant="ghost" 
-              onClick={async () => {
-                try {
-                  const jsPdfModule: unknown = await import('jspdf');
-                  type JsPDFConstructor = new () => {
-                    setFontSize: (n: number) => void;
-                    text: (t: string, x: number, y: number) => void;
-                    addPage: () => void;
-                    save: (name: string) => void;
-                  };
-
-                  const mod = jsPdfModule as {
-                    default?: JsPDFConstructor;
-                    jsPDF?: JsPDFConstructor;
-                  };
-                  const jsPDFCtor = mod.default ?? mod.jsPDF;
-                  if (!jsPDFCtor) throw new Error('Failed to load jsPDF');
-                  const res = await fetch('/api/revenue');
-                  const data: unknown = await res.json();
-                  const doc = new jsPDFCtor();
-                  doc.setFontSize(16);
-                  doc.text('Revenue Report', 14, 16);
-                  doc.setFontSize(11);
-                  let y = 26;
-                  const rows = Array.isArray(data) ? data : [];
-                  rows.forEach((r, idx) => {
-                    const row = r as Record<string, unknown>;
-                    const date = row.date ? new Date(String(row.date)).toLocaleDateString() : '-';
-                    const projectName = typeof row.projectName === 'string' ? row.projectName : 'Project';
-                    const amount = typeof row.amount === 'number' ? row.amount : Number(row.amount) || 0;
-                    const source = typeof row.source === 'string' ? row.source : 'Direct Payment';
-                    const line = `${idx + 1}. ${date}  ${projectName}  ${formatCurrency(amount)}  (${source})`;
-                    doc.text(line, 14, y);
-                    y += 8;
-                    if (y > 280) {
-                      doc.addPage();
-                      y = 20;
-                    }
-                  });
-                  doc.save('revenue_report.pdf');
-                  toast.success('Report generated successfully!');
-                } catch (error) {
-                  console.error('Error generating PDF:', error);
-                  toast.error('Failed to generate report');
-                }
-              }}
+          <div className="flex flex-wrap gap-4 pt-4">
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button 
+                variant="primary" 
+                onClick={() => setIsAddProjectOpen(true)}
+                className="px-6 py-3 shadow-sm"
+              >
+                Add Project
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button 
+                variant="secondary" 
+                onClick={() => { document.getElementById('payment-splitter')?.scrollIntoView({ behavior: 'smooth' }); }}
+                className="px-6 py-3 shadow-sm"
+              >
+                Record Payment
+              </Button>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Button 
+                variant="ghost" 
+                onClick={(e) => {
+                  e.preventDefault(); e.stopPropagation();
+                  toast.loading('Preparing Year-to-Date (YTD) report...', { id: 'pdf' });
+                  try {
+                    window.open('/api/reports/export?period=ytd', '_blank');
+                    toast.success('YTD Report started!', { id: 'pdf' });
+                  } catch (error) {
+                    console.error('Export error:', error);
+                    toast.error('Could not trigger server report', { id: 'pdf' });
+                  }
+                }}
               className="px-6 py-3"
             >
               Generate Report (PDF)
-            </Button>
+              </Button>
+            </motion.div>
           </div>
         </div>
 

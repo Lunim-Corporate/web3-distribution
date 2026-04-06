@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Input } from '@/components/ui/Input';
 import { formatCurrency, formatPercentage } from '@/lib/utils';
-import { mockProjects } from '@/data/mockData';
 import { toast } from 'react-hot-toast';
 
 export const RevenueSnapshot: React.FC = () => {
@@ -47,105 +46,55 @@ export const RevenueSnapshot: React.FC = () => {
     return { total, paid, pending, count };
   }, [filtered]);
 
-  const handleGenerateReport = async () => {
+  const handleGenerateReport = (period?: string) => {
+    toast.loading(`Preparing ${period || 'custom'} report...`, { id: 'pdf-snap' });
+    
     try {
-      toast.loading('Generating revenue report...');
-      
-      // Simulate report generation delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Create PDF report using jsPDF
-      const jsPdfModule = await import('jspdf');
-      const jsPDF = jsPdfModule.default || (jsPdfModule as { jsPDF: typeof jsPdfModule.default }).jsPDF || jsPdfModule;
-      
-      const doc = new jsPDF();
-      
-      // Header
-      doc.setFontSize(20);
-      doc.text('Revenue Report', 14, 20);
-      doc.setFontSize(12);
-      doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
-      
-      // Summary
-      doc.setFontSize(14);
-      doc.text('Summary', 14, 45);
-      doc.setFontSize(10);
-      doc.text(`Total Revenue: ${formatCurrency(totals.total)}`, 14, 55);
-      doc.text(`Paid: ${formatCurrency(totals.paid)}`, 14, 62);
-      doc.text(`Pending: ${formatCurrency(totals.pending)}`, 14, 69);
-      doc.text(`Total Transactions: ${totals.count}`, 14, 76);
-      
-      // Filters applied
-      if (projectFilter || search || fromDate || toDate) {
-        doc.text('Filters Applied:', 14, 86);
-        let yPos = 93;
-        if (projectFilter) {
-          const project = mockProjects.find(p => p.id === projectFilter);
-          doc.text(`Project: ${project?.name || 'Unknown'}`, 14, yPos);
-          yPos += 7;
-        }
-        if (search) {
-          doc.text(`Search: ${search}`, 14, yPos);
-          yPos += 7;
-        }
-        if (fromDate) {
-          doc.text(`From: ${fromDate}`, 14, yPos);
-          yPos += 7;
-        }
-        if (toDate) {
-          doc.text(`To: ${toDate}`, 14, yPos);
-          yPos += 7;
-        }
+      const params = new URLSearchParams();
+      if (period) {
+        params.append('period', period);
+      } else {
+        if (fromDate) params.append('startDate', fromDate);
+        if (toDate) params.append('endDate', toDate);
       }
+      if (projectFilter) params.append('projectId', projectFilter);
+
+      const exportUrl = `/api/reports/export?${params.toString()}`;
+      window.open(exportUrl, '_blank');
       
-      // Revenue details
-      doc.setFontSize(14);
-      doc.text('Revenue Details', 14, 110);
-      doc.setFontSize(8);
-      
-      let y = 120;
-      filtered.forEach((r, idx) => {
-        if (y > 280) {
-          doc.addPage();
-          y = 20;
-        }
-        const line = `${idx + 1}. ${new Date(r.date).toLocaleDateString()} | ${r.projectName} | ${r.source} | ${formatCurrency(r.amount)} | ${r.status}`;
-        doc.text(line, 14, y);
-        y += 6;
-      });
-      
-      // Save the PDF
-      const fileName = `revenue_report_${new Date().toISOString().split('T')[0]}.pdf`;
-      doc.save(fileName);
-      
-      toast.dismiss();
-      toast.success(`Report generated successfully! Downloaded as ${fileName}`);
-      
+      toast.success('Report generation started!', { id: 'pdf-snap' });
     } catch (error) {
-      toast.dismiss();
-      toast.error('Failed to generate report. Please try again.');
-      console.error('Report generation error:', error);
+      console.error('Export error:', error);
+      toast.error('Could not trigger server report', { id: 'pdf-snap' });
     }
   };
 
   return (
     <Card className="mb-8">
       <CardHeader>
-        <CardTitle>Revenue Snapshot</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>Revenue Snapshot</CardTitle>
+          <div className="flex gap-2">
+            <Button variant="ghost" size="sm" onClick={() => handleGenerateReport('ytd')}>YTD Report</Button>
+            <Button variant="ghost" size="sm" onClick={() => handleGenerateReport('4months')}>Quarterly Report</Button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
+        {/* ... existing filter inputs ... */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-6">
           <Select
             label="Project"
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
-            options={[{ value: '', label: 'All Projects' }, ...mockProjects.map(p => ({ value: p.id, label: p.name }))]}
+            options={[{ value: '', label: 'All Projects' }, ...Array.from(new Map(revenue.map(r => [r.projectId, r.projectName])).entries()).map(([id, name]) => ({ value: id, label: name }))]}
           />
           <Input label="Search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Source or project" />
           <Input label="From" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
           <Input label="To" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
         </div>
 
+        {/* ... existing summary cards ... */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="p-5 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
             <p className="text-sm text-gray-600 dark:text-gray-400">Total Revenue</p>
@@ -165,6 +114,7 @@ export const RevenueSnapshot: React.FC = () => {
           </div>
         </div>
 
+        {/* ... table ... */}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -173,7 +123,7 @@ export const RevenueSnapshot: React.FC = () => {
                 <th className="text-left py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Project</th>
                 <th className="text-left py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Source</th>
                 <th className="text-left py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Amount</th>
-                <th className="text-left py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Paid%</th>
+                <th className="text-left py-3 text-sm font-medium text-gray-700 dark:text-gray-300">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -183,7 +133,11 @@ export const RevenueSnapshot: React.FC = () => {
                   <td className="py-3 text-gray-900 dark:text-white">{r.projectName}</td>
                   <td className="py-3 text-gray-600 dark:text-gray-400">{r.source}</td>
                   <td className="py-3 font-medium text-gray-900 dark:text-white">{formatCurrency(r.amount)}</td>
-                  <td className="py-3 text-gray-600 dark:text-gray-400">{formatPercentage(r.status === 'Paid' ? 100 : 0)}</td>
+                  <td className="py-3 text-gray-600 dark:text-gray-400">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${r.status === 'Paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                      {r.status}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -192,11 +146,10 @@ export const RevenueSnapshot: React.FC = () => {
 
         <div className="mt-6 flex gap-3">
           <Button variant="secondary" onClick={() => { setProjectFilter(''); setSearch(''); setFromDate(''); setToDate(''); }}>Clear Filters</Button>
-          <Button onClick={handleGenerateReport}>Generate PDF Report</Button>
+          <Button onClick={() => handleGenerateReport()}>Generate Custom PDF</Button>
           <Button 
             variant="success" 
             onClick={() => {
-              // Scroll to payment splitter
               document.getElementById('payment-splitter')?.scrollIntoView({ behavior: 'smooth' });
               toast.success('Navigate to Payment Splitter below to split revenue!');
             }}

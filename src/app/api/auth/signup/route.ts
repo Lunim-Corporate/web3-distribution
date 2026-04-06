@@ -58,7 +58,6 @@ export async function POST(request: Request) {
         email,
         name,
         role: role || 'contributor',
-        wallet_connected: false,
       })
       .select()
       .single();

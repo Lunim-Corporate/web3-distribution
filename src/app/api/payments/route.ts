@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseServer';
+import { requireAdmin } from '@/lib/apiSecurity';
 
 export async function POST(request: Request) {
   try {
+    requireAdmin();
     const body = await request.json();
     const amountCents =
       typeof body.amount_cents === 'number'
@@ -71,6 +73,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ data: payment }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    if (msg === 'Unauthorized' || msg === 'Forbidden: Admins only') {
+      return NextResponse.json({ error: msg }, { status: 401 });
+    }
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

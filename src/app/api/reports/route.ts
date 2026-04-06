@@ -109,3 +109,5 @@ function generateReportCSV(report: RevenueReport): string {
 
   return lines.join('\n');
 }
+
+export const dynamic = 'force-dynamic';

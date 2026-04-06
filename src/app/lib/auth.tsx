@@ -85,9 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let dbUser: Record<string, unknown> | null = null;
     const { data: fetchedUser, error } = await supabase
       .from('users')
-      .select(
-        'id,email,name,role,wallet_address,wallet_connected,wallet_connected_at,total_earnings'
-      )
+      .select('*')
       .eq('id', authUserId)
       .maybeSingle();
 
@@ -108,9 +106,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: authUser.email ?? '',
           name: metaName ?? authUser.email ?? '',
           role: metaRole,
-          wallet_connected: false,
         })
-        .select('id,email,name,role,wallet_address,wallet_connected,wallet_connected_at,total_earnings')
+        .select('*')
         .single();
 
       if (createError) {
@@ -238,7 +235,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function listUsers(): Promise<User[]> {
     const { data, error } = await supabase
       .from('users')
-      .select('id,email,name,role,wallet_address,wallet_connected,wallet_connected_at');
+      .select('*');
     if (error) throw error;
     const rows = (data ?? []) as Array<Record<string, unknown>>;
     return rows.map((u) => {
@@ -264,18 +261,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function inviteUser(email: string, name: string, role: Role) {
-    // Create a placeholder row in `users`. When the person signs up via Supabase Auth,
-    // the SQL trigger (to-do) should upsert the row by `email`.
-    const id = crypto.randomUUID();
-    const { error } = await supabase.from('users').insert({
-      id,
-      email,
-      name,
-      role,
-      wallet_connected: false,
-      wallet_address: null,
+    const response = await fetch('/api/auth/invite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, name, role })
     });
-    if (error) throw error;
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.error || 'Failed to send invite.');
+    }
   }
 
   async function connectUserWallet(walletAddress: string) {
