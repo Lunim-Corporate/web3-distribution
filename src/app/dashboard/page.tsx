@@ -1,99 +1,410 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useRouter } from 'next/navigation';
-
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
-import { PaymentSplitter } from '@/components/dashboard/PaymentSplitter';
-import { SmartContractPanel } from '@/components/dashboard/SmartContractPanel';
-import { RevenueSnapshot } from '@/components/dashboard/RevenueSnapshot';
-import { UpcomingMilestones } from '@/components/dashboard/UpcomingMilestones';
-import { NotifyWidget } from '@/components/dashboard/NotifyWidget';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/lib/supabaseClient';
+
+// Smart contract hook
+import { useRevenueContract } from '../../hooks/useRevenueContract';
+
+// Rich existing dashboard components
 import { ChartsPanel } from '@/components/dashboard/ChartsPanel';
+import { RevenueSnapshot } from '@/components/dashboard/RevenueSnapshot';
+import { PaymentSplitter } from '@/components/dashboard/PaymentSplitter';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
-import { AddProjectModal } from '@/components/dashboard/AddProjectModal';
-import { TraditionalContractsPanel } from '@/components/dashboard/TraditionalContractsPanel';
-import { formatCurrency, formatPercentage, formatDate, getStatusColor } from '@/lib/utils';
-import { toast } from 'react-hot-toast';
+import { ReportGenerator } from '@/components/dashboard/ReportGenerator';
 
-// Simple Dashboard Layout
-const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isDark, setIsDark] = useState(false);
-  const { user, settings, setNotifyResurfacingHours } = useAuth();
+// Simple components
+import RightsHolderCard from '../../components/RightsHolderCard';
+import TransactionHistory from '../../components/TransactionHistory';
+import DistributeRevenuePanel from '../../components/DistributeRevenuePanel';
 
+const formatUSD = (amount: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+
+// ─── Loading / Error Screen ────────────────────────────────────────────────
+const LoadingScreen = ({ stage }: { stage: string }) => (
+  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900 flex items-center justify-center p-6">
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
+      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center mx-auto mb-6 shadow-xl shadow-purple-500/40">
+        <span className="text-3xl">💎</span>
+      </div>
+      <h2 className="text-2xl font-black text-white">Initializing Moonstone</h2>
+      <div className="flex items-center justify-center gap-2 mt-3">
+        {[0, 150, 300].map((delay) => (
+          <div key={delay} className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: `${delay}ms` }} />
+        ))}
+      </div>
+      <p className="text-purple-300 mt-4 font-medium">{stage}</p>
+    </motion.div>
+  </div>
+);
+
+const ErrorScreen = ({ onRetry }: { onRetry: () => void }) => (
+  <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-950 to-slate-900 flex items-center justify-center p-6">
+    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+      className="bg-white/10 backdrop-blur-xl p-10 rounded-3xl shadow-2xl border border-white/20 text-center max-w-md">
+      <div className="text-5xl mb-4">⚠️</div>
+      <h2 className="text-2xl font-black text-white mb-3">No Projects Found</h2>
+      <p className="text-purple-200 mb-8 leading-relaxed">
+        We couldn't find any active projects. Please run <code className="bg-white/10 px-2 py-0.5 rounded text-xs">node scripts/manual_seed.js</code> to seed demo data.
+      </p>
+      <button onClick={onRetry}
+        className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-8 py-3 rounded-xl font-bold hover:opacity-90 transition-all shadow-lg shadow-purple-500/30">
+        Retry
+      </button>
+    </motion.div>
+  </div>
+);
+
+// ─── Tab definition ─────────────────────────────────────────────────────────
+const TABS = [
+  { id: 'overview', label: 'Overview', icon: '📊' },
+  { id: 'revenue', label: 'Revenue', icon: '💰' },
+  { id: 'holders', label: 'Rights Holders', icon: '👥' },
+  { id: 'distribute', label: 'Distribute', icon: '⚡' },
+  { id: 'reports', label: 'Reports', icon: '📄' },
+] as const;
+type TabId = typeof TABS[number]['id'];
+
+// ─── Main Dashboard Component ────────────────────────────────────────────────
+const Dashboard = () => {
+  const { isAuthHydrated, user } = useAuth();
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectsList, setProjectsList] = useState<Array<{id: string, name: string}>>([]);
+  const [isError, setIsError] = useState(false);
+  const [initStage, setInitStage] = useState('Checking authentication...');
+  const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const [distributeAmount, setDistributeAmount] = useState('');
+
+  // FIXED: dependency array includes isAuthHydrated + user so this re-runs after auth settles
   useEffect(() => {
-    const savedTheme = localStorage.getItem('crt_theme');
-    if (savedTheme === 'dark') {
-      setIsDark(true);
-      document.documentElement.classList.add('dark');
+    if (!isAuthHydrated) {
+      setInitStage('Checking authentication...');
+      return;
     }
-  }, []);
+    if (!user) {
+      setInitStage('Redirecting to login...');
+      window.location.href = '/login';
+      return;
+    }
 
-  const toggleTheme = () => {
-    const newIsDark = !isDark;
-    setIsDark(newIsDark);
-    const theme = newIsDark ? 'dark' : 'light';
-    localStorage.setItem('crt_theme', theme);
-    document.documentElement.classList.toggle('dark');
-  };
+    const fetchInitialProject = async () => {
+      setInitStage('Connecting to database...');
+      try {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('id, name')
+          .eq('status', 'Active') // Filter to only show the fresh HBO projects
+          .order('created_at', { ascending: false });
+        if (error) { setIsError(true); return; }
+        if (data && data.length > 0) { 
+          setProjectsList(data);
+          setProjectId(data[0].id); 
+          setIsError(false); 
+        }
+        else setIsError(true);
+      } catch { setIsError(true); }
+    };
+    fetchInitialProject();
+  }, [isAuthHydrated, user]);
+
+  // Smart-contract-backed data for the Distribute tab
+  const { project, rightsHolders, transactions, isConnected, walletAddress, connectWallet, sendRevenue, txStatus, lastTxHash, errorMessage, isDemoMode, refreshDashboardData } = useRevenueContract(projectId);
+
+  // Realtime subscription
+  useEffect(() => {
+    if (!projectId) return;
+    const channel = supabase.channel('moonstone-realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'payments', filter: `project_id=eq.${projectId}` }, () => refreshDashboardData()).subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [projectId, refreshDashboardData]);
+
+  // ── Render guards ─────────────────────────────────────────────────────────
+  if (!isAuthHydrated || (!projectId && !isError)) return <LoadingScreen stage={initStage} />;
+  if (isError) return <ErrorScreen onRetry={() => window.location.reload()} />;
+
+  const totalRevenue = Number((project as any)?.total_revenue || 0) / 100;
+
+  // ── Header summary stats ──────────────────────────────────────────────────
+  const statCards = [
+    { label: 'Total Distributed', value: formatUSD(totalRevenue), icon: '💵', color: 'indigo' },
+    { label: 'Rights Holders', value: String(rightsHolders.length), icon: '👥', color: 'purple' },
+    { label: 'Transactions', value: String(transactions.length), icon: '🔁', color: 'blue' },
+    { label: 'Status', value: (project as any)?.status || 'Active', icon: '✅', color: 'green' },
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Dashboard Toolbar */}
-      <div className="bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border-b border-gray-200/50 dark:border-gray-700/50 px-6 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Dashboard</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Moonstone • Revenue & Rights Overview</p>
-          </div>
+    <div className="min-h-screen pb-16">
+      {/* ── Page Header ─────────────────────────────────────────────────── */}
+      <header className="bg-[#0B0C10]/60 backdrop-blur-3xl border-b border-white/5 sticky top-16 z-40">
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            {/* Title */}
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 via-purple-500 to-emerald-400 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.3)]">
+                <span className="text-2xl drop-shadow-md">💎</span>
+              </div>
+              <div>
+                {projectsList.length > 0 ? (
+                  <div className="relative isolate group">
+                    <div className="absolute -inset-2 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 rounded-xl blur-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                    <select 
+                      value={projectId || ''} 
+                      onChange={(e) => setProjectId(e.target.value)}
+                      className="relative text-xl md:text-2xl font-black bg-[#1A1B23] border border-white/10 rounded-xl px-4 py-2 pr-10 text-white shadow-xl outline-none cursor-pointer appearance-none min-w-[280px] hover:border-indigo-500/50 transition-colors focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23818cf8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem top 50%', backgroundSize: '0.65rem auto' }}
+                    >
+                      {projectsList.map(p => (
+                        <option key={p.id} value={p.id} className="bg-gray-900 text-white font-medium">{p.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <h1 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 tracking-tight">
+                    {(project as any)?.name || 'Moonstone Elements'}
+                  </h1>
+                )}
+                <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 mt-0.5">
+                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                  <span className="tracking-widest uppercase">Live Sync</span>
+                  {user && <span>• {user.name || user.email?.split('@')[0]} ({user.role})</span>}
+                </div>
+              </div>
+            </div>
 
-          <div className="flex items-center space-x-3">
-            {/* Theme toggle */}
-            <Button variant="ghost" size="sm" onClick={toggleTheme} className="p-2">
-              {isDark ? '☀️' : '🌙'}
-            </Button>
-
-            {/* Resurfacing Interval */}
-            <select
-              value={settings?.notifyResurfacingHours || 24}
-              onChange={(e) => setNotifyResurfacingHours(Number(e.target.value))}
-              className="px-2 py-1 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-gray-100 hidden sm:block"
-              title="Notification resurface interval"
-            >
-              <option value={2}>2h</option>
-              <option value={6}>6h</option>
-              <option value={12}>12h</option>
-              <option value={24}>24h</option>
-            </select>
-
-            {/* Notifications */}
-            <div className="relative">
-              <Button variant="ghost" size="sm" className="p-2 relative">
-                🔔
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  3
-                </span>
-              </Button>
+            {/* Stat pills */}
+            <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
+              {statCards.map((s) => (
+                <div key={s.label} className="px-5 py-3 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 shadow-lg relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/[0.05] to-white/0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{s.label}</div>
+                  <div className={`text-lg font-black text-transparent bg-clip-text bg-gradient-to-r ${
+                    s.color === 'indigo' ? 'from-indigo-400 to-cyan-400' :
+                    s.color === 'purple' ? 'from-purple-400 to-fuchsia-400' :
+                    s.color === 'blue' ? 'from-blue-400 to-indigo-400' :
+                    'from-emerald-400 to-teal-400'
+                  } font-mono tracking-tight shadow-sm`}>{s.value}</div>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Main Content */}
-      <main className="p-6">
+          {/* ── Tab Bar ─────────────────────────────────────────────────── */}
+          <div className="flex gap-2 mt-6 overflow-x-auto scrollbar-none pb-1">
+            {TABS.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all duration-300 ${
+                  activeTab === tab.id
+                    ? 'bg-gradient-to-r from-indigo-500/20 to-purple-500/20 text-white shadow-[inset_0_0_20px_rgba(99,102,241,0.2)] border border-indigo-500/30'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'
+                }`}
+              >
+                <span className={activeTab === tab.id ? 'opacity-100' : 'opacity-70'}>{tab.icon}</span>
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      {/* ── Tab Content ─────────────────────────────────────────────────── */}
+      <main className="max-w-7xl mx-auto px-6 py-10">
         <AnimatePresence mode="wait">
-          <motion.div 
-            initial={{ opacity: 0, y: 15 }} 
-            animate={{ opacity: 1, y: 0 }} 
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="max-w-7xl mx-auto"
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.18 }}
           >
-            {children}
+
+            {/* ── OVERVIEW TAB ──────────────────────────────────────────── */}
+            {activeTab === 'overview' && (
+              <div className="space-y-8">
+                {/* Charts */}
+                <ChartsPanel />
+
+                {/* Two-column: activity + recent holders */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div className="lg:col-span-2">
+                    <RecentActivity />
+                  </div>
+                  <div className="space-y-4">
+                    <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest">Top Rights Holders</h2>
+                    {rightsHolders.slice(0, 3).map((holder: any, idx: number) => (
+                      <RightsHolderCard key={holder.id || idx} holder={holder} distributeAmount={distributeAmount} />
+                    ))}
+                    {rightsHolders.length === 0 && (
+                      <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-dashed border-white/10 p-8 text-center shadow-lg relative overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 z-0"/>
+                        <div className="text-3xl mb-2 relative z-10">👥</div>
+                        <p className="text-gray-400 text-sm relative z-10">No rights holders yet</p>
+                      </div>
+                    )}
+                    {rightsHolders.length > 3 && (
+                      <button onClick={() => setActiveTab('holders')} className="w-full text-center text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400 text-sm font-bold hover:opacity-80 py-2 transition-all">
+                        View all {rightsHolders.length} holders →
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── REVENUE TAB ───────────────────────────────────────────── */}
+            {activeTab === 'revenue' && (
+              <div className="space-y-8">
+                {/* Revenue Snapshot with filterable table */}
+                <RevenueSnapshot activeProjectId={projectId} projectsList={projectsList} />
+
+                {/* Payment Splitter */}
+                <PaymentSplitter />
+
+                {/* On-chain transaction history */}
+                <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6 shadow-xl">
+                  <h2 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 mb-6 font-mono tracking-tight">On-Chain Transaction History</h2>
+                  <TransactionHistory transactions={transactions} />
+                </div>
+              </div>
+            )}
+
+            {/* ── RIGHTS HOLDERS TAB ──────────────────────────────────── */}
+            {activeTab === 'holders' && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 tracking-tight">Rights Holders</h2>
+                    <p className="text-sm font-medium text-gray-500 mt-1">All contributors and their revenue splits for this project</p>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-widest bg-emerald-400/10 px-3 py-1.5 rounded-full border border-emerald-400/20">
+                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                    LIVE SYNC
+                  </div>
+                </div>
+
+                {rightsHolders.length === 0 ? (
+                  <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-dashed border-white/10 p-16 text-center relative overflow-hidden group">
+                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 group-hover:scale-105 transition-transform duration-700"/>
+                    <div className="text-6xl mb-4 relative z-10 drop-shadow-2xl">👥</div>
+                    <h3 className="font-black text-white text-xl relative z-10 tracking-tight">No rights holders yet</h3>
+                    <p className="text-gray-400 text-sm mt-2 relative z-10 font-medium">Add contributors via the API or seed script to see them here.</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Summary bar */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-5 shadow-lg relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Total Holders</p>
+                        <p className="text-3xl font-black text-white tracking-tighter">{rightsHolders.length}</p>
+                      </div>
+                      <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-5 shadow-lg relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Total Distributed</p>
+                        <p className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-purple-400 to-fuchsia-400 tracking-tighter">{formatUSD(totalRevenue)}</p>
+                      </div>
+                      <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-5 shadow-lg relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Avg. per Holder</p>
+                        <p className="text-3xl font-black text-white tracking-tighter">
+                          {rightsHolders.length > 0 ? formatUSD(totalRevenue / rightsHolders.length) : '$0'}
+                        </p>
+                      </div>
+                      <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-5 shadow-lg relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Total Allocation</p>
+                        <p className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-cyan-400 to-blue-400 tracking-tighter">
+                          {(rightsHolders as any[]).reduce((s, h) => s + Number(h.percentage || 0), 0)}%
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Cards grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <AnimatePresence>
+                        {(rightsHolders as any[]).map((holder, idx) => (
+                          <motion.div key={holder.id || idx} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.06 }}>
+                            <RightsHolderCard holder={holder} distributeAmount={distributeAmount} />
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* ── DISTRIBUTE TAB ────────────────────────────────────────── */}
+            {activeTab === 'distribute' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                {/* Visual context of the project + Main distribute panel */}
+                <div className="lg:col-span-5 space-y-6">
+                  <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-8 shadow-xl relative overflow-hidden group">
+                     <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                     <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 relative z-10">Active Series Distribution</h3>
+                     <h2 className="text-3xl font-black text-white relative z-10 tracking-tight">{(project as any)?.name}</h2>
+                     <p className="text-gray-400 mt-2 text-sm relative z-10 line-clamp-2">{(project as any)?.description}</p>
+                     <div className="mt-6 flex flex-wrap gap-2 relative z-10">
+                       <span className="px-3 py-1 bg-indigo-500/20 rounded-full text-[9px] font-bold text-indigo-400 border border-indigo-500/20 uppercase tracking-widest">HBO Original</span>
+                       <span className="px-3 py-1 bg-purple-500/20 rounded-full text-[9px] font-bold text-purple-400 border border-purple-500/20 uppercase tracking-widest">Web3 Rights Enabled</span>
+                       <span className="px-3 py-1 bg-emerald-500/20 rounded-full text-[9px] font-bold text-emerald-400 border border-emerald-500/20 uppercase tracking-widest">Active Sync</span>
+                     </div>
+                  </div>
+
+                  <DistributeRevenuePanel
+                    isConnected={isConnected}
+                    walletAddress={walletAddress}
+                    connectWallet={connectWallet}
+                    sendRevenue={sendRevenue}
+                    txStatus={txStatus}
+                    lastTxHash={lastTxHash}
+                    errorMessage={errorMessage}
+                    rightsHolders={rightsHolders}
+                    distributeAmount={distributeAmount}
+                    setDistributeAmount={setDistributeAmount}
+                    isDemoMode={isDemoMode}
+                    project={(project as any)}
+                    projectsList={projectsList}
+                    onProjectChange={setProjectId}
+                  />
+                </div>
+
+                {/* Right: holders + transaction history */}
+                <div className="lg:col-span-7 space-y-6">
+                  {/* Rights holders scrollable/grid */}
+                  <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6 shadow-xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-4">
+                      <div className="text-[10px] font-black text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20 animate-pulse">20 PROFILE(S) LOADED</div>
+                    </div>
+                    <h2 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 mb-6 font-mono tracking-tight leading-none">
+                      Series Cast & Crew
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[850px] overflow-y-auto pr-2 custom-scrollbar">
+                      {(rightsHolders as any[]).map((holder, idx) => (
+                        <RightsHolderCard key={holder.id || idx} holder={holder} distributeAmount={distributeAmount} />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* On-chain transaction history */}
+                  <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6 shadow-xl">
+                    <h2 className="text-base font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 mb-4 font-mono">Series Transaction Log</h2>
+                    <TransactionHistory transactions={transactions} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── REPORTS TAB ───────────────────────────────────────────── */}
+            {activeTab === 'reports' && (
+              <div className="space-y-8">
+                <ReportGenerator />
+              </div>
+            )}
+
           </motion.div>
         </AnimatePresence>
       </main>
@@ -101,558 +412,4 @@ const DashboardLayout: React.FC<{ children: React.ReactNode }> = ({ children }) 
   );
 };
 
-// Revenue Metrics Component
-const RevenueMetrics: React.FC = () => {
-  const [metrics, setMetrics] = useState<{
-    totalRevenue: number;
-    pendingPayments: number;
-    activeProjects: number;
-    contributors: number;
-  } | null>(null);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const [revenueRes, projectsRes, usersRes] = await Promise.all([
-          fetch('/api/revenue').then((r) => r.json()),
-          fetch('/api/projects').then((r) => r.json()),
-          fetch('/api/users').then((r) => r.json()),
-        ]);
-
-        const totalRevenue = (revenueRes || []).reduce((sum: number, r: unknown) => {
-          const row = r as Record<string, unknown>;
-          if (row && typeof row.amount === 'number') return sum + row.amount;
-          return sum;
-        }, 0);
-
-        const pendingPayments = (revenueRes || []).reduce((sum: number, r: unknown) => {
-          const row = r as Record<string, unknown>;
-          if (row && row.status !== 'Paid' && typeof row.amount === 'number') return sum + row.amount;
-          return sum;
-        }, 0);
-
-        const activeProjects = (projectsRes || []).filter((p: unknown) => {
-          const row = p as Record<string, unknown>;
-          const s = String(row?.status ?? '').toLowerCase();
-          return s === 'active' || s === 'in progress' || s === 'in_progress' || s === 'in-progress';
-        }).length;
-
-        const contributors = (usersRes || []).length;
-
-        setMetrics({
-          totalRevenue,
-          pendingPayments,
-          activeProjects,
-          contributors,
-        });
-      } catch {
-        // If metrics fail, keep UI readable.
-        setMetrics({
-          totalRevenue: 0,
-          pendingPayments: 0,
-          activeProjects: 0,
-          contributors: 0,
-        });
-      }
-    })();
-  }, []);
-
-  if (!metrics) return null;
-
-  const cards = [
-    {
-      title: 'Total Revenue',
-      value: formatCurrency(metrics.totalRevenue),
-      change: 23.1,
-      icon: '💰',
-      color: 'bg-blue-500',
-    },
-    {
-      title: 'Pending Payments',
-      value: formatCurrency(metrics.pendingPayments),
-      change: -8.2,
-      icon: '⏳',
-      color: 'bg-yellow-500',
-    },
-    {
-      title: 'Active Projects',
-      value: metrics.activeProjects.toString(),
-      change: 15.8,
-      icon: '📁',
-      color: 'bg-green-500',
-    },
-    {
-      title: 'Contributors',
-      value: metrics.contributors.toString(),
-      icon: '👥',
-      color: 'bg-purple-500',
-    },
-  ];
-
-  const container = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
-    }
-  };
-
-  const item = {
-    hidden: { opacity: 0, scale: 0.95 },
-    show: { opacity: 1, scale: 1 }
-  };
-
-  return (
-    <motion.div 
-      variants={container} 
-      initial="hidden" 
-      animate="show" 
-      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
-    >
-      {cards.map((metric, index) => (
-        <motion.div key={index} variants={item} whileHover={{ scale: 1.02 }} className="cursor-pointer">
-          <Card className="relative overflow-hidden h-full shadow-sm hover:shadow-md transition-shadow">
-          <div className={`absolute top-0 left-0 w-full h-1 ${metric.color}`} />
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">
-                  {metric.title}
-                </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {metric.value}
-                </p>
-                {metric.change && (
-                  <div className="flex items-center mt-2">
-                    <span className={`text-sm font-medium ${
-                      metric.change > 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {metric.change > 0 ? '↗' : '↘'} {formatPercentage(Math.abs(metric.change))}
-                    </span>
-                    <span className="text-sm text-gray-500 ml-1">vs last month</span>
-                  </div>
-                )}
-              </div>
-              <div className="text-2xl">{metric.icon}</div>
-            </div>
-          </CardContent>
-          </Card>
-        </motion.div>
-      ))}
-    </motion.div>
-  );
-};
-
-// Projects Overview Component with Revenue Sharing Dropdown
-const ProjectsOverview: React.FC = () => {
-  const [selectedProject, setSelectedProject] = useState<string>('');
-  const [projects, setProjects] = useState<
-    Array<{
-      id: string;
-      name: string;
-      type: string;
-      status: string;
-      progress: number;
-      totalRevenue: number; // GBP
-      coverImage?: string;
-      contributors: Array<{
-        id: string;
-        name: string;
-        avatar?: string;
-        role: string;
-        revenueShare: number;
-        totalEarned: number; // GBP
-      }>;
-    }>
-  >([]);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const list = await fetch('/api/projects').then((r) => r.json());
-        const projectRows = Array.isArray(list) ? list : [];
-        const ids = projectRows.slice(0, 5).map((p) => String(p.id ?? ''));
-
-        const details = await Promise.all(
-          ids.map(async (id) => {
-            const res = await fetch(`/api/projects/${id}`);
-            const json = await res.json();
-            return json?.data;
-          })
-        );
-
-        const mapped = details
-          .filter((p) => p)
-          .map((p) => {
-            const pr = p as Record<string, unknown>;
-            const coverImage =
-              typeof pr.cover_image_url === 'string'
-                ? pr.cover_image_url
-                : typeof pr.cover_image === 'string'
-                  ? pr.cover_image
-                  : undefined;
-
-            const totalRevenue =
-              Number(pr.total_revenue ?? pr.totalRevenue ?? 0) / 100;
-
-            const contributorsRaw = (pr.project_contributors ??
-              []) as Array<Record<string, unknown>>;
-
-            const contributors = contributorsRaw.map((pc) => {
-              const usersRow = pc.users as Record<string, unknown> | undefined;
-              const avatar =
-                (usersRow && typeof usersRow.avatar_url === 'string' ? usersRow.avatar_url : undefined) ??
-                (usersRow && typeof usersRow.avatar === 'string' ? usersRow.avatar : undefined);
-
-              return {
-                id: String(pc.id ?? pc.user_id ?? ''),
-                name:
-                  (usersRow && typeof usersRow.name === 'string' ? usersRow.name : undefined) ??
-                  (usersRow && typeof usersRow.email === 'string' ? usersRow.email : undefined) ??
-                  'Unknown',
-                avatar,
-                role: String(pc.role ?? ''),
-                revenueShare: Number(pc.revenue_share ?? 0),
-                totalEarned: Number(pc.total_earned ?? 0) / 100,
-              };
-            });
-
-            return {
-              id: String(pr.id ?? ''),
-              name: String(pr.name ?? ''),
-              type: String(pr.type ?? 'Project'),
-              status: String(pr.status ?? 'active'),
-              progress: Number(pr.progress ?? 0),
-              totalRevenue,
-              coverImage,
-              contributors,
-            };
-          });
-
-        setProjects(mapped);
-      } catch {
-        setProjects([]);
-      }
-    })();
-  }, []);
-
-  return (
-    <Card className="mb-8">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Projects & Revenue Sharing</CardTitle>
-          <select
-            value={selectedProject}
-            onChange={(e) => setSelectedProject(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">All Projects</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      </CardHeader>
-      
-      <CardContent>
-        <div className="space-y-6">
-          {projects
-            .filter((project) => !selectedProject || project.id === selectedProject)
-            .map((project) => (
-            <div key={project.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-6">
-              {/* Project Header */}
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-4">
-                  <img
-                    src={project.coverImage}
-                    alt={project.name}
-                    className="w-16 h-16 rounded-lg object-cover"
-                  />
-                  <div>
-                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {project.name}
-                    </h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {project.type} • {project.contributors.length} contributors
-                    </p>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <Badge variant={getStatusColor(project.status)}>
-                        {project.status}
-                      </Badge>
-                      <span className="text-sm text-gray-500">
-                        {project.progress}% complete
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="text-right">
-                  <p className="text-xl font-bold text-gray-900 dark:text-white">
-                    {formatCurrency(project.totalRevenue)}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Total Revenue
-                  </p>
-                </div>
-              </div>
-
-              {/* Revenue Sharing Breakdown */}
-              <div>
-                <h5 className="font-medium text-gray-900 dark:text-white mb-3">
-                  Revenue Sharing Breakdown:
-                </h5>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {project.contributors.map((contributor) => (
-                    <div
-                      key={contributor.id}
-                      className="flex items-center space-x-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                    >
-                      <img
-                        src={contributor.avatar}
-                        alt={contributor.name}
-                        className="w-10 h-10 rounded-full"
-                      />
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900 dark:text-white text-sm">
-                          {contributor.name}
-                        </p>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                          {contributor.role}
-                        </p>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-                            {formatPercentage(contributor.revenueShare)}
-                          </span>
-                          <span className="text-xs font-medium text-gray-900 dark:text-white">
-                            {formatCurrency(contributor.totalEarned)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="mt-4">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Progress</span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {project.progress}%
-                  </span>
-                </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                    style={{ width: `${project.progress}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
-// Rights Ledger Component
-const RightsLedger: React.FC = () => {
-  const [rights, setRights] = useState<
-    Array<{
-      id: string;
-      projectName: string;
-      rightsType: string;
-      owner: string;
-      revenueShare: number;
-      status: string;
-      expirationDate: string;
-    }>
-  >([]);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const res = await fetch('/api/rights');
-        const json = await res.json();
-        setRights(Array.isArray(json) ? json : []);
-      } catch {
-        setRights([]);
-      }
-    })();
-  }, []);
-
-  return (
-    <Card className="mb-8">
-      <CardHeader>
-        <CardTitle>Creative Rights Overview</CardTitle>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Track ownership and rights distribution across all projects
-        </p>
-      </CardHeader>
-      <CardContent>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200 dark:border-gray-700">
-                <th className="text-left py-3 font-medium text-gray-700 dark:text-gray-300">Project</th>
-                <th className="text-left py-3 font-medium text-gray-700 dark:text-gray-300">Rights Type</th>
-                <th className="text-left py-3 font-medium text-gray-700 dark:text-gray-300">Owner</th>
-                <th className="text-left py-3 font-medium text-gray-700 dark:text-gray-300">Share</th>
-                <th className="text-left py-3 font-medium text-gray-700 dark:text-gray-300">Status</th>
-                <th className="text-left py-3 font-medium text-gray-700 dark:text-gray-300">Expires</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rights.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-6 text-center text-sm text-gray-600 dark:text-gray-400">
-                    No creative rights found.
-                  </td>
-                </tr>
-              ) : (
-                rights.map((right) => (
-                <tr
-                  key={right.id}
-                  className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                >
-                  <td className="py-4 font-medium text-gray-900 dark:text-white">
-                    {right.projectName}
-                  </td>
-                  <td className="py-4 text-gray-600 dark:text-gray-400">
-                    {right.rightsType}
-                  </td>
-                  <td className="py-4 text-gray-900 dark:text-white">
-                    {right.owner}
-                  </td>
-                  <td className="py-4 font-medium text-gray-900 dark:text-white">
-                    {formatPercentage(right.revenueShare)}
-                  </td>
-                  <td className="py-4">
-                    <Badge variant={getStatusColor(right.status)}>
-                      {right.status}
-                    </Badge>
-                  </td>
-                  <td className="py-4 text-gray-600 dark:text-gray-400">
-                    {formatDate(right.expirationDate)}
-                  </td>
-                </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
-// Main Dashboard Page
-export default function DashboardPage() {
-  const router = useRouter();
-  const { user, settings } = useAuth();
-  const [isAddProjectOpen, setIsAddProjectOpen] = useState(false);
-
-  useEffect(() => {
-    if (!user) {
-      router.replace('/login');
-    }
-  }, [user, router]);
-
-  return (
-    <DashboardLayout>
-      <NotifyWidget resurfacingHours={settings?.notifyResurfacingHours || 24} />
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Main Section */}
-        <div className="lg:col-span-9 space-y-8">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-            Welcome back! 👋
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            Here&apos;s your creative rights and revenue overview. Manage payments, track rights, and interact with smart contracts.
-          </p>
-          
-          {/* Revenue Metrics */}
-          <RevenueMetrics />
-
-          {/* Revenue Snapshot with filters */}
-          <RevenueSnapshot />
-
-          {/* Charts to match screenshots */}
-          <ChartsPanel />
-
-          {/* Projects Overview with Revenue Sharing */}
-          <ProjectsOverview />
-
-          {/* Payment Splitter */}
-          <PaymentSplitter />
-
-          {/* Smart Contract Panel */}
-          <SmartContractPanel />
-
-          {/* Traditional Contracts for non-web3 flows */}
-          <TraditionalContractsPanel />
-
-          {/* Rights Ledger */}
-          <div id="rights-ledger">
-            <RightsLedger />
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-wrap gap-4 pt-4">
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button 
-                variant="primary" 
-                onClick={() => setIsAddProjectOpen(true)}
-                className="px-6 py-3 shadow-sm"
-              >
-                Add Project
-              </Button>
-            </motion.div>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button 
-                variant="secondary" 
-                onClick={() => { document.getElementById('payment-splitter')?.scrollIntoView({ behavior: 'smooth' }); }}
-                className="px-6 py-3 shadow-sm"
-              >
-                Record Payment
-              </Button>
-            </motion.div>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button 
-                variant="ghost" 
-                onClick={(e) => {
-                  e.preventDefault(); e.stopPropagation();
-                  toast.loading('Preparing Year-to-Date (YTD) report...', { id: 'pdf' });
-                  try {
-                    window.open('/api/reports/export?period=ytd', '_blank');
-                    toast.success('YTD Report started!', { id: 'pdf' });
-                  } catch (error) {
-                    console.error('Export error:', error);
-                    toast.error('Could not trigger server report', { id: 'pdf' });
-                  }
-                }}
-              className="px-6 py-3"
-            >
-              Generate Report (PDF)
-              </Button>
-            </motion.div>
-          </div>
-        </div>
-
-        {/* Right Sidebar */}
-        <div className="lg:col-span-3 space-y-6">
-          <div id="upcoming-milestones">
-            <UpcomingMilestones />
-          </div>
-          <RecentActivity />
-        </div>
-      </div>
-      <AddProjectModal isOpen={isAddProjectOpen} onClose={() => setIsAddProjectOpen(false)} />
-    </DashboardLayout>
-  );
-}
+export default Dashboard;

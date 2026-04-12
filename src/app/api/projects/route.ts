@@ -8,6 +8,7 @@ export async function GET() {
     const { data, error } = await supabaseAdmin
       .from('projects')
       .select('*')
+      .eq('status', 'Active')
       .order('created_at', { ascending: false });
 
     if (error) throw error;

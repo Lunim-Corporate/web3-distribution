@@ -1,21 +1,21 @@
 import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/supabaseServer';
 import { supabase } from '@/lib/supabaseClient';
 
 export async function GET(
   _req: Request,
-  { params }: { params: { name: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const name = params.name;
-    if (!name) {
-      return NextResponse.json({ error: 'missing name' }, { status: 400 });
+    const id = params.id;
+    if (!id) {
+      return NextResponse.json({ error: 'missing id' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('projects')
-      .select('id,name,description,total_revenue,created_at,cover_image,status,progress')
-      .ilike('name', `%${name}%`)
-      .limit(1)
+      .select('*, project_contributors(*, users(*))')
+      .eq('id', id)
       .single();
 
     if (error) {
@@ -25,7 +25,7 @@ export async function GET(
       return NextResponse.json({ error: 'not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ project: data });
+    return NextResponse.json({ data });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },

@@ -1,6 +1,18 @@
 // Wallet Utilities and Helpers for Integration with Smart Contracts
 
-import { dummyWallets, DummyWallet, getWalletByAddress, getWalletStats } from '@/data/dummyWallets';
+export interface DummyWallet {
+  address: string;
+  userId: string;
+  balance: string;
+  balanceUSD: number;
+  network: string;
+  isConnected: boolean;
+  lastConnected?: string;
+  transactions: MockWalletTransaction[];
+}
+export const dummyWallets: DummyWallet[] = [];
+export function getWalletByAddress(address: string): DummyWallet | null { return null; }
+export function getWalletStats(address: string) { return { totalIn: 0, totalOut: 0 }; }
 
 /**
  * Mock Wallet Service for development and testing

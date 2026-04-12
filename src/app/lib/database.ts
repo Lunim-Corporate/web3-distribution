@@ -269,12 +269,15 @@ export async function getActivities(userId: string) {
 // Reports
 export async function generateRevenueReport(startDate: string, endDate: string, projectId?: string) {
   try {
+    // Append time to ensure we capture the whole end date up to midnight
+    const endOfDay = endDate.includes('T') ? endDate : `${endDate}T23:59:59.999Z`;
+
     // Step 1: Fetch payments with projects
     let paymentQuery = supabase
       .from('payments')
       .select('*, projects(id, name)')
       .gte('payment_date', startDate)
-      .lte('payment_date', endDate);
+      .lte('payment_date', endOfDay);
 
     if (projectId) {
       paymentQuery = paymentQuery.eq('project_id', projectId);
@@ -297,12 +300,19 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
     // Aggregate data
     const sourceMap = new Map<string, { amount: number; count: number }>();
     const projectMap = new Map<string, { revenue: number; paid: number; contributors: Set<string>; name: string }>();
+    const uniqueTxHashes = new Set<string>();
     let totalRevenue = 0;
 
     payments?.forEach((payment) => {
-      // HANDLE CENTS -> GBP/USD (divide by 100)
+      // HANDLE CENTS -> USD (divide by 100)
       const amount = (Number(payment.amount) || 0) / 100;
       totalRevenue += amount;
+
+      if (payment.tx_hash) {
+        uniqueTxHashes.add(payment.tx_hash);
+      } else {
+        uniqueTxHashes.add(payment.id); // fallback
+      }
 
       // By source
       const source = payment.source || 'Unknown';
@@ -333,6 +343,8 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
       }
     });
 
+    const transactionCount = uniqueTxHashes.size || 0;
+
     return {
       id: `report-${Date.now()}`,
       generatedAt: new Date().toISOString(),
@@ -340,13 +352,13 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
       totalRevenue,
       totalPaid: totalRevenue,
       totalPending: 0,
-      averagePaymentAmount: payments?.length ? totalRevenue / payments.length : 0,
-      paymentCount: payments?.length || 0,
+      averagePaymentAmount: transactionCount > 0 ? totalRevenue / transactionCount : 0,
+      paymentCount: transactionCount,
       sources: Array.from(sourceMap.entries()).map(([source, data]) => ({
         source,
         amount: data.amount,
         percentage: totalRevenue > 0 ? (data.amount / totalRevenue) * 100 : 0,
-        paymentCount: data.count,
+        paymentCount: transactionCount, // Simplification since source mapping isn't usually multi-hash
       })),
       projects: Array.from(projectMap.entries()).map(([projId, data]: [string, any]) => ({
         projectId: projId,

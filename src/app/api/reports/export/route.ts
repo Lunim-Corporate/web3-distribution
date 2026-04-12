@@ -59,9 +59,9 @@ export async function GET(request: Request) {
     doc.text(`Reporting Period: ${startDate} to ${endDate}`, 20, 68);
     
     doc.setFont('helvetica', 'bold');
-    doc.text(`Total Revenue: GBP ${report.totalRevenue.toLocaleString()}`, 20, 78);
-    doc.text(`Total Paid: GBP ${report.totalPaid.toLocaleString()}`, 20, 86);
-    doc.text(`Total Pending: GBP ${report.totalPending.toLocaleString()}`, 20, 94);
+    doc.text(`Total Revenue: USD ${report.totalRevenue.toLocaleString()}`, 20, 78);
+    doc.text(`Total Paid: USD ${report.totalPaid.toLocaleString()}`, 20, 86);
+    doc.text(`Total Pending: USD ${report.totalPending.toLocaleString()}`, 20, 94);
     doc.text(`Payment Count: ${report.paymentCount}`, 20, 102);
 
     // Top Projects Section
@@ -74,7 +74,7 @@ export async function GET(request: Request) {
     if (report.projects && report.projects.length > 0) {
       report.projects.slice(0, 15).forEach((proj: any) => {
         if (y > 270) { doc.addPage(); y = 20; }
-        doc.text(`${proj.projectName}: GBP ${proj.totalRevenue.toLocaleString()}`, 25, y);
+        doc.text(`${proj.projectName}: USD ${proj.totalRevenue.toLocaleString()}`, 25, y);
         y += 8;
       });
     } else {

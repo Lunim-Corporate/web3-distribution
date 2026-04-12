@@ -1,13 +1,12 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
 import { formatCurrency, formatPercentage, calculatePaymentSplit } from '@/lib/utils';
-import { gbpToCents } from '@/lib/currency';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
+
+const formatUSD = (amount: number) =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 
 export const PaymentSplitter: React.FC = () => {
   const { user } = useAuth();
@@ -29,33 +28,39 @@ export const PaymentSplitter: React.FC = () => {
     Array<{ id: string; projectName: string; amount: number; date: string; source: string; status: string }>
   >([]);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const [projectsRes, revenueRes] = await Promise.all([
-          fetch('/api/projects').then((r) => r.json()),
-          fetch('/api/revenue').then((r) => r.json()),
-        ]);
+  const fetchPaymentData = React.useCallback(async () => {
+    try {
+      const ts = Date.now();
+      const [projectsRes, revenueRes] = await Promise.all([
+        fetch(`/api/projects?ts=${ts}`, { cache: 'no-store' }).then((r) => r.json()),
+        fetch(`/api/revenue?ts=${ts}`, { cache: 'no-store' }).then((r) => r.json()),
+      ]);
 
-        const projects = Array.isArray(projectsRes) ? projectsRes : [];
-        setProjectOptions(
-          projects.map((p) => {
-            const row = p as Record<string, unknown>;
-            return {
-              value: String(row.id ?? ''),
-              label: String(row.name ?? 'Project'),
-            };
-          })
-        );
+      const projects = Array.isArray(projectsRes) ? projectsRes : [];
+      setProjectOptions(
+        projects.map((p) => {
+          const row = p as Record<string, unknown>;
+          return {
+            value: String(row.id ?? ''),
+            label: String(row.name ?? 'Project'),
+          };
+        })
+      );
 
-        const revenue = Array.isArray(revenueRes) ? revenueRes : [];
-        setRecentPayments(revenue);
-      } catch {
-        setProjectOptions([]);
-        setRecentPayments([]);
-      }
-    })();
+      const revenue = Array.isArray(revenueRes) ? revenueRes : [];
+      setRecentPayments(revenue);
+    } catch (e) {
+      console.error('Error fetching splitter data:', e);
+      setProjectOptions([]);
+      setRecentPayments([]);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchPaymentData();
+    window.addEventListener('payment-recorded', fetchPaymentData);
+    return () => window.removeEventListener('payment-recorded', fetchPaymentData);
+  }, [fetchPaymentData]);
 
   const revenueSourceOptions = [
     { value: 'streaming', label: 'Streaming Royalties' },
@@ -73,7 +78,7 @@ export const PaymentSplitter: React.FC = () => {
     if (!Number.isFinite(amount)) return;
 
     try {
-      const res = await fetch(`/api/projects/${selectedProject}`);
+      const res = await fetch(`/api/projects/${selectedProject}`, { cache: 'no-store' });
       const json = await res.json();
       const project = json?.data;
       const contributorsRaw = project?.project_contributors ?? [];
@@ -107,10 +112,8 @@ export const PaymentSplitter: React.FC = () => {
 
     try {
       const cleanAmountStr = paymentAmount.replace(/,/g, '');
-      const amountGBP = parseFloat(cleanAmountStr);
-      if (!Number.isFinite(amountGBP) || !selectedProject) return;
-
-      const amountCents = gbpToCents(amountGBP);
+      const amountUSD = parseFloat(cleanAmountStr);
+      if (!Number.isFinite(amountUSD) || !selectedProject) return;
 
       toast.loading('Processing payment...');
 
@@ -119,7 +122,7 @@ export const PaymentSplitter: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           project_id: selectedProject,
-          amount_cents: amountCents,
+          amount_cents: Math.round(amountUSD * 100),
           source: revenueSource || 'Manual',
           tx_hash: null,
         }),
@@ -128,9 +131,7 @@ export const PaymentSplitter: React.FC = () => {
       if (!res.ok) throw new Error('Payment processing failed');
 
       toast.dismiss();
-      toast.success(
-        `Payment of ${formatCurrency(amountGBP)} recorded and split among ${calculatedSplits.length} contributors!`
-      );
+      toast.success(`Payment of ${formatUSD(amountUSD)} recorded and split among ${calculatedSplits.length} contributors!`);
 
       setIsModalOpen(false);
       setSelectedProject('');
@@ -138,10 +139,11 @@ export const PaymentSplitter: React.FC = () => {
       setRevenueSource('');
       setCalculatedSplits([]);
 
-      const revenueRes = await fetch('/api/revenue');
+      const revenueRes = await fetch('/api/revenue', { cache: 'no-store' });
       const revenueJson = await revenueRes.json();
       setRecentPayments(Array.isArray(revenueJson) ? revenueJson : []);
       
+      window.dispatchEvent(new CustomEvent('payment-recorded', { detail: { projectId: selectedProject, amount: amountUSD } }));
     } catch (error) {
       toast.dismiss();
       toast.error('Failed to process payment splits. Please try again.');
@@ -151,210 +153,225 @@ export const PaymentSplitter: React.FC = () => {
 
   return (
     <>
-      <Card id="payment-splitter">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Payment Splitter</CardTitle>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Automatically split payments based on revenue sharing agreements
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={() => {
-                setIsModalOpen(true);
-                toast.success('Opening payment split modal...');
-              }}>
-                New Payment Split
-              </Button>
-              <Button 
-                variant="success" 
-                onClick={() => {
-                  // Quick split with default values
-                  if (projectOptions.length > 0) {
-                    setSelectedProject(projectOptions[0].value);
-                    setPaymentAmount('1000');
-                    setRevenueSource('streaming');
-                    setIsModalOpen(true);
-                    toast.success('Quick split setup ready! Adjust values as needed.');
-                  } else {
-                    toast.error('No projects available for quick split');
-                  }
-                }}
-              >
-                Quick Split
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
+      <div id="payment-splitter" className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-xl overflow-hidden relative">
+        {/* Ambient glow */}
+        <div className="absolute -top-24 -left-24 w-48 h-48 bg-emerald-500/10 rounded-full blur-[80px] pointer-events-none" />
 
-        <CardContent>
-          <div className="space-y-4">
-            <h4 className="font-medium text-gray-900 dark:text-white">Recent Payment Splits</h4>
-            {recentPayments.length === 0 ? (
-              <p className="text-sm text-gray-600 dark:text-gray-400">No payments recorded yet.</p>
-            ) : (
-              recentPayments.slice(0, 5).map((revenue) => (
+        {/* Header */}
+        <div className="p-6 border-b border-white/10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
+          <div>
+            <h2 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-teal-400">
+              Payment Splitter
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5 font-medium">Split payments based on revenue sharing agreements</p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setIsModalOpen(true);
+                toast.success('Opening payment split calculator...');
+              }}
+              className="px-4 py-2 text-xs font-bold rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 transition-all shadow-lg shadow-indigo-500/20"
+            >
+              ✨ New Payment Split
+            </button>
+            <button
+              onClick={() => {
+                if (projectOptions.length > 0) {
+                  setSelectedProject(projectOptions[0].value);
+                  setPaymentAmount('1000');
+                  setRevenueSource('streaming');
+                  setIsModalOpen(true);
+                } else {
+                  toast.error('No projects available');
+                }
+              }}
+              className="px-4 py-2 text-xs font-bold rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 transition-all"
+            >
+              ⚡ Quick Split
+            </button>
+          </div>
+        </div>
+
+        {/* Recent Payments */}
+        <div className="p-6 relative z-10">
+          <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-4">Recent Payment Splits</h4>
+          {recentPayments.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <div className="text-3xl mb-2">💳</div>
+              <p className="text-sm font-medium">No payments recorded yet</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentPayments.slice(0, 5).map((revenue) => (
                 <div
                   key={revenue.id}
-                  className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
+                  className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/[0.07] transition-all group"
                 >
-                  <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <h5 className="font-medium text-gray-900 dark:text-white">
+                      <h5 className="font-bold text-gray-200 group-hover:text-white transition-colors text-sm">
                         {revenue.projectName}
                       </h5>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {revenue.source} •{' '}
-                        {new Date(revenue.date).toLocaleDateString()}
+                      <p className="text-[11px] text-gray-500 mt-0.5">
+                        {revenue.source} • {new Date(revenue.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        {formatCurrency(revenue.amount)}
+                      <p className="font-bold text-white text-sm font-mono">
+                        {formatUSD(revenue.amount)}
                       </p>
-                      <Badge
-                        variant={revenue.status === 'Paid' ? 'success' : 'warning'}
-                      >
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                        revenue.status === 'Paid'
+                          ? 'bg-emerald-500/15 text-emerald-400'
+                          : 'bg-amber-500/15 text-amber-400'
+                      }`}>
                         {revenue.status}
-                      </Badge>
+                      </span>
                     </div>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
-      {/* Payment Split Modal */}
-      
-      {/* Simple test modal */}
+      {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[9999] bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Calculate Payment Split</h2>
-              <button 
+        <div className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}>
+          <div className="bg-[#0d1117] rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-white/10 shadow-2xl shadow-black/50">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-xl font-black text-white">Calculate Payment Split</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Split revenue automatically across contributors</p>
+              </div>
+              <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-gray-500 hover:text-gray-700 text-2xl"
+                className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-all flex items-center justify-center text-lg"
               >
                 ×
               </button>
             </div>
-            
-            <div className="space-y-6">
+
+            <div className="space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Select Project
-                  </label>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Project</label>
                   <select
                     value={selectedProject}
                     onChange={(e) => setSelectedProject(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full bg-white/5 border border-white/10 text-gray-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                   >
-                    <option value="">Choose a project</option>
+                    <option value="" className="bg-gray-900">Choose a project</option>
                     {projectOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
+                      <option key={option.value} value={option.value} className="bg-gray-900">{option.label}</option>
                     ))}
                   </select>
                 </div>
-                
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Revenue Source
-                  </label>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Revenue Source</label>
                   <select
                     value={revenueSource}
                     onChange={(e) => setRevenueSource(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full bg-white/5 border border-white/10 text-gray-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                   >
-                    <option value="">Choose source</option>
+                    <option value="" className="bg-gray-900">Choose source</option>
                     {revenueSourceOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
+                      <option key={option.value} value={option.value} className="bg-gray-900">{option.label}</option>
                     ))}
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Payment Amount
-                </label>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Payment Amount (USD)</label>
                 <input
                   type="text"
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
-                  placeholder="Enter amount in GBP"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder="Enter amount in USD"
+                  className="w-full bg-white/5 border border-white/10 text-gray-200 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 outline-none placeholder-gray-600"
                 />
               </div>
 
-              <Button 
+              <button
                 onClick={handleCalculateSplits}
                 disabled={!selectedProject || !paymentAmount}
-                className="w-full"
+                className={`w-full py-3 rounded-lg text-sm font-bold transition-all ${
+                  !selectedProject || !paymentAmount
+                    ? 'bg-white/5 text-gray-600 cursor-not-allowed'
+                    : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 shadow-lg shadow-indigo-500/20'
+                }`}
               >
                 Calculate Splits
-              </Button>
+              </button>
 
               {calculatedSplits.length > 0 && (
                 <div className="space-y-4">
-                  <h4 className="font-medium text-gray-900 dark:text-white">Calculated Payment Splits:</h4>
-                  
-                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                    <div className="space-y-3">
-                      {calculatedSplits.map((split, index) => (
-                        <div key={index} className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center text-xs font-medium text-blue-600 dark:text-blue-400">
-                              {split.contributorName.split(' ').map((n: string) => n[0]).join('')}
+                  <div className="bg-emerald-500/10 rounded-xl p-4 border border-emerald-500/20">
+                    <h4 className="font-bold text-emerald-400 text-sm mb-1">💰 Automatic Distribution Preview</h4>
+                    <p className="text-[11px] text-emerald-400/60">
+                      This transaction will be split among {calculatedSplits.length} rights holders
+                    </p>
+                  </div>
+
+                  <div className="bg-white/5 rounded-xl p-5 border border-white/10 space-y-3">
+                    {calculatedSplits.map((split, index) => {
+                      const colors = ['from-emerald-500 to-teal-500', 'from-blue-500 to-indigo-500', 'from-purple-500 to-fuchsia-500', 'from-pink-500 to-rose-500', 'from-amber-500 to-orange-500'];
+                      const bgColor = colors[index % colors.length];
+                      return (
+                        <div key={index} className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-8 h-8 bg-gradient-to-br ${bgColor} rounded-lg flex items-center justify-center text-white text-[10px] font-black`}>
+                                {index + 1}
+                              </div>
+                              <div>
+                                <p className="font-bold text-gray-200 text-sm">{split.contributorName}</p>
+                                <p className="text-[10px] text-gray-500">{formatPercentage(split.percentage)} share</p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white">
-                                {split.contributorName}
-                              </p>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">
-                                {formatPercentage(split.percentage)} share
-                              </p>
-                            </div>
+                            <p className="font-bold text-lg text-white font-mono">{formatUSD(split.amount)}</p>
                           </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-gray-900 dark:text-white">
-                              {formatCurrency(split.amount)}
-                            </p>
+                          <div className="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className={`h-full bg-gradient-to-r ${bgColor} rounded-full transition-all duration-500`}
+                              style={{ width: `${split.percentage}%` }}
+                            />
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
 
-                    <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <div className="flex items-center justify-between font-semibold">
-                        <span>Total:</span>
-                        <span>{formatCurrency(parseFloat(paymentAmount.replace(/,/g, '')))}</span>
+                    <div className="mt-4 pt-4 border-t border-white/10 bg-emerald-500/5 rounded-lg p-3">
+                      <div className="flex items-center justify-between font-bold text-lg mb-1">
+                        <span className="text-gray-300">Total:</span>
+                        <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400 font-mono text-xl">
+                          {formatUSD(parseFloat(paymentAmount.replace(/,/g, '')))}
+                        </span>
                       </div>
+                      <p className="text-[10px] text-emerald-400/60 flex items-center gap-1">
+                        <span>✓</span> Each contributor will see earnings updated instantly
+                      </p>
                     </div>
                   </div>
 
-                  <div className="flex space-x-3 items-center">
-                    <Button variant="secondary" onClick={() => setIsModalOpen(false)} className="flex-1">
+                  <div className="flex gap-3">
+                    <button onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 rounded-lg text-sm font-bold bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-all">
                       Cancel
-                    </Button>
-                    <div className="flex-1">
-                      <Button onClick={handleProcessPayment} className="w-full" disabled={user?.role !== 'admin'} title={user?.role !== 'admin' ? 'You need admin access' : undefined}>
-                        Process Payment
-                      </Button>
-                      {user?.role !== 'admin' && (
-                        <div className="mt-1">
-                          <Badge variant="warning">You need admin access</Badge>
-                        </div>
-                      )}
-                    </div>
+                    </button>
+                    <button
+                      onClick={handleProcessPayment}
+                      disabled={user?.role !== 'admin'}
+                      className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                        user?.role !== 'admin'
+                          ? 'bg-white/5 text-gray-600 cursor-not-allowed'
+                          : 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white hover:from-emerald-500 hover:to-teal-500 shadow-lg shadow-emerald-500/20'
+                      }`}
+                    >
+                      {user?.role !== 'admin' ? '🔒 Admin Only' : '✅ Process Payment'}
+                    </button>
                   </div>
                 </div>
               )}
@@ -362,7 +379,6 @@ export const PaymentSplitter: React.FC = () => {
           </div>
         </div>
       )}
-      
     </>
   );
 };

@@ -13,6 +13,37 @@ declare global {
   }
 }
 
+// Network configurations - MOVED TO TOP to avoid hoisting issues
+export const NETWORKS = {
+  ethereum: {
+    chainId: '0x1',
+    chainName: 'Ethereum Mainnet',
+    rpcUrls: ['https://mainnet.infura.io/v3/'],
+    blockExplorerUrls: ['https://etherscan.io/'],
+    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+  },
+  polygon: {
+    chainId: '0x89',
+    chainName: 'Polygon Mainnet',
+    rpcUrls: ['https://polygon-rpc.com/'],
+    blockExplorerUrls: ['https://polygonscan.com/'],
+    nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
+  },
+  mumbai: {
+    chainId: '0x13881',
+    chainName: 'Polygon Mumbai',
+    rpcUrls: ['https://rpc-mumbai.maticvigil.com/'],
+    blockExplorerUrls: ['https://mumbai.polygonscan.com/'],
+    nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
+  },
+  hardhat: {
+    chainId: '0x7a69', // 31337
+    chainName: 'Hardhat Localhost',
+    rpcUrls: ['http://127.0.0.1:8545'],
+    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+  }
+};
+
 interface WalletContextValue {
   account: string | null;
   isConnected: boolean;
@@ -112,6 +143,14 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setIsConnected(true);
         await getChainId();
         await getBalance(accounts[0]);
+        
+        // Force the network connection to localhost/hardhat for development
+        try {
+          await switchNetwork(NETWORKS.hardhat.chainId);
+        } catch (networkError) {
+           console.log("Could not switch to Hardhat chain, maybe it needs to be added.", networkError);
+        }
+
         toast.success('Wallet connected successfully!');
       }
     } catch (error) {
@@ -172,7 +211,18 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } catch (error) {
       const err = error as { code?: number; message?: string };
       if (err.code === 4902) {
-        // Network not added to MetaMask
+        // Network not added to MetaMask, attempt to inject it if it is hardhat
+        if (targetChainId === NETWORKS.hardhat.chainId) {
+            try {
+                await window.ethereum?.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [NETWORKS.hardhat],
+                });
+                return;
+            } catch (addError) {
+                console.error("Failed to add hardhat network to metamask", addError);
+            }
+        }
         toast.error('Please add this network to MetaMask first');
       } else {
         toast.error('Failed to switch network');
@@ -207,6 +257,7 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       case 1: return 'Ethereum Mainnet';
       case 5: return 'Goerli Testnet';
       case 137: return 'Polygon Mainnet';
+      case 31337: return 'Hardhat Localhost';
       case 80001: return 'Polygon Mumbai';
       case 56: return 'BSC Mainnet';
       case 97: return 'BSC Testnet';
@@ -237,28 +288,3 @@ export function useWallet() {
   }
   return context;
 }
-
-// Network configurations
-export const NETWORKS = {
-  ethereum: {
-    chainId: '0x1',
-    chainName: 'Ethereum Mainnet',
-    rpcUrls: ['https://mainnet.infura.io/v3/'],
-    blockExplorerUrls: ['https://etherscan.io/'],
-    nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-  },
-  polygon: {
-    chainId: '0x89',
-    chainName: 'Polygon Mainnet',
-    rpcUrls: ['https://polygon-rpc.com/'],
-    blockExplorerUrls: ['https://polygonscan.com/'],
-    nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
-  },
-  mumbai: {
-    chainId: '0x13881',
-    chainName: 'Polygon Mumbai',
-    rpcUrls: ['https://rpc-mumbai.maticvigil.com/'],
-    blockExplorerUrls: ['https://mumbai.polygonscan.com/'],
-    nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
-  },
-};

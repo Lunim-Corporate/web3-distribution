@@ -13,62 +13,74 @@ export async function POST(request: Request) {
           ? body.amount
           : Number(body.amount_cents ?? body.amount ?? 0);
 
-    // Record payment
+    // 1. Record the Payment
+    console.log(`[MasterSync] Recording payment for Project ${body.project_id}: ${amountCents} cents...`);
     const { data: payment, error: paymentError } = await supabaseAdmin
       .from('payments')
       .insert([{
         project_id: body.project_id,
-        amount: amountCents,
+        amount: amountCents, // Note: using 'amount' to match current DB column
         source: body.source || 'Manual',
         tx_hash: body.tx_hash,
+        status: 'Paid',
+        payment_date: new Date().toISOString()
       }])
       .select()
       .single();
 
     if (paymentError) throw paymentError;
 
-    // Update project total revenue
+    // 2. Update Project Total Revenue & Title Sync
     const { data: project } = await supabaseAdmin
       .from('projects')
-      .select('total_revenue')
+      .select('total_revenue, name')
       .eq('id', body.project_id)
       .single();
 
-    const newTotal = (project?.total_revenue || 0) + amountCents;
+    const newTotal = (Number(project?.total_revenue || 0)) + amountCents;
 
     await supabaseAdmin
       .from('projects')
       .update({ total_revenue: newTotal })
       .eq('id', body.project_id);
 
-    // Distribute to contributors (with remainder handling to prevent rounding errors)
+    // 3. Distribute to Contributors
     const { data: contributors } = await supabaseAdmin
       .from('project_contributors')
       .select('*')
       .eq('project_id', body.project_id);
 
     if (contributors && contributors.length > 0) {
-      let remainingAmount = amountCents;
-
-      for (let i = 0; i < contributors.length; i++) {
-        const contributor = contributors[i];
-        let shareAmount: number;
-
-        if (i === contributors.length - 1) {
-          // Last contributor gets remainder to ensure exact total
-          shareAmount = remainingAmount;
-        } else {
-          // Calculate share with rounding
-          shareAmount = Math.round((contributor.revenue_share / 100) * amountCents);
-          remainingAmount -= shareAmount;
-        }
-
-        // Update contributor earnings
+      for (const contributor of contributors) {
+        const shareAmount = Math.round((Number(contributor.revenue_share) / 100) * amountCents);
         await supabaseAdmin
           .from('project_contributors')
-          .update({ total_earned: (contributor.total_earned || 0) + shareAmount })
+          .update({ total_earned: (Number(contributor.total_earned || 0) + shareAmount) })
           .eq('id', contributor.id);
       }
+    }
+
+    // 4. Log Activity Trace (Powers the Dashboard Feed)
+    await supabaseAdmin.from('activities').insert([{
+      project_id: body.project_id,
+      activity_type: 'payment_recorded',
+      description: `Revenue Influx: Web3 payment of $${(amountCents/100).toLocaleString()} confirmed for ${project?.name || 'Project'}.`,
+    }]);
+
+    // 5. Progress Milestones (Powers the Right Sidebar)
+    const { data: nextMilestone } = await supabaseAdmin
+      .from('milestones')
+      .select('id')
+      .eq('project_id', body.project_id)
+      .eq('status', 'pending')
+      .order('date', { ascending: true })
+      .limit(1);
+
+    if (nextMilestone && nextMilestone[0]) {
+      await supabaseAdmin
+        .from('milestones')
+        .update({ status: 'completed', updated_at: new Date().toISOString() })
+        .eq('id', nextMilestone[0].id);
     }
 
     return NextResponse.json({ data: payment }, { status: 201 });

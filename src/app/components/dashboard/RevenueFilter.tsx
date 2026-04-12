@@ -153,7 +153,7 @@ export const RevenueFilter: React.FC<RevenueFilterProps> = ({
           </label>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-gray-600 dark:text-gray-400">Min (£)</label>
+              <label className="text-xs text-gray-600 dark:text-gray-400">Min ($)</label>
               <input
                 type="number"
                 value={minAmount}
@@ -163,7 +163,7 @@ export const RevenueFilter: React.FC<RevenueFilterProps> = ({
               />
             </div>
             <div>
-              <label className="text-xs text-gray-600 dark:text-gray-400">Max (£)</label>
+              <label className="text-xs text-gray-600 dark:text-gray-400">Max ($)</label>
               <input
                 type="number"
                 value={maxAmount}
@@ -212,7 +212,7 @@ export const RevenueFilter: React.FC<RevenueFilterProps> = ({
               <Badge variant="success">Sources: {selectedSources.size}</Badge>
             )}
             {(minAmount > 0 || maxAmount < 999999) && (
-              <Badge variant="info">Amount: £{minAmount.toLocaleString()}-£{maxAmount.toLocaleString()}</Badge>
+              <Badge variant="info">Amount: ${minAmount.toLocaleString()}-${maxAmount.toLocaleString()}</Badge>
             )}
           </div>
         </div>

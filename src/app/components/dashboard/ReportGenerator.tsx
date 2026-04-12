@@ -108,11 +108,11 @@ export const ReportGenerator: React.FC = () => {
           </div>
 
           <Button
-            variant="primary"
+            className="w-full md:w-auto mt-4 md:mt-0"
             onClick={handleGenerateReport}
             disabled={isLoading}
           >
-            {isLoading ? 'Generating...' : 'Generate Report'}
+            {isLoading ? 'Generating...' : 'Generate report'}
           </Button>
         </div>
       </Card>

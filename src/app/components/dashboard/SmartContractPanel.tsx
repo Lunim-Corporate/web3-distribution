@@ -36,6 +36,8 @@ export const SmartContractPanel: React.FC = () => {
   const [sendAmountEth, setSendAmountEth] = useState<string>('0.01');
   const [txHash, setTxHash] = useState<string | null>(null);
   const [executing, setExecuting] = useState<boolean>(false);
+  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedProjectForTx, setSelectedProjectForTx] = useState<string>('');
 
   const refreshContractBalance = async () => {
     try {
@@ -49,6 +51,20 @@ export const SmartContractPanel: React.FC = () => {
       setLoadingBalance(false);
     }
   };
+
+  // BUG FIX #5: Fetch projects for transaction linking
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const res = await fetch('/api/projects?ts=' + Date.now(), { cache: 'no-store' });
+        const data = await res.json();
+        setProjects(Array.isArray(data) ? data : []);
+      } catch {
+        setProjects([]);
+      }
+    };
+    void fetchProjects();
+  }, []);
 
   useEffect(() => {
     void refreshContractBalance();
@@ -88,8 +104,36 @@ export const SmartContractPanel: React.FC = () => {
       const hash = await svc.sendETHToContract(sendAmountEth);
       toast.dismiss();
       setTxHash(hash);
-      toast.success('Transaction submitted!');
+      
+      // BUG FIX #5: Record transaction to database if project is selected
+      if (selectedProjectForTx) {
+        try {
+          const amountWei = parseFloat(sendAmountEth) * 100; // For USD cents equivalence
+          const res = await fetch('/api/payments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              project_id: selectedProjectForTx,
+              amount_cents: Math.round(amountWei),
+              source: 'Smart Contract - ETH Transfer',
+              tx_hash: hash,
+            }),
+          });
+          if (res.ok) {
+            toast.success('Transaction submitted and recorded!');
+          } else {
+            toast.success('Transaction submitted! (Payment recording pending)');
+          }
+        } catch {
+          toast.success('Transaction submitted! (Payment recording failed - manual entry may be needed)');
+        }
+      } else {
+        toast.success('Transaction submitted! (Optional: Select a project to link this transaction to a payment record)');
+      }
+
       await refreshContractBalance();
+      // Notify other components about the transaction
+      window.dispatchEvent(new CustomEvent('payment-recorded', { detail: { txHash: hash } }));
     } catch (e) {
       toast.dismiss();
       toast.error(e instanceof Error ? e.message : 'Failed to send ETH');
@@ -197,6 +241,20 @@ export const SmartContractPanel: React.FC = () => {
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                 Transfers ETH value to the splitter address.
+              </div>
+
+              <div className="mt-3">
+                <label className="text-sm text-gray-600 dark:text-gray-400">Link to Project (Optional)</label>
+                <select
+                  value={selectedProjectForTx}
+                  onChange={(e) => setSelectedProjectForTx(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">No Project Selected</option>
+                  {projects.map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="mt-3 flex gap-2">

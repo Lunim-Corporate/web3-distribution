@@ -35,12 +35,7 @@ export const Navbar: React.FC = () => {
   }, [pathname]);
 
   // Dashboard section links (previously in sidebar)
-  const dashboardTabs = [
-    { href: '/dashboard', label: 'Overview', icon: '📊', exact: true },
-    { href: '/dashboard/rights', label: 'Rights', icon: '⚖️' },
-    { href: '/dashboard/projects', label: 'Revenue', icon: '💸' },
-    { href: '/dashboard/contracts', label: 'Contracts', icon: '⛓️' },
-  ];
+
 
   const isOnDashboard = pathname.startsWith('/dashboard');
 
@@ -48,6 +43,8 @@ export const Navbar: React.FC = () => {
     if (exact) return pathname === href;
     return pathname.startsWith(href);
   };
+
+  if (pathname === '/' || pathname === '/login' || pathname === '/signup') return null;
 
   return (
     <>
@@ -79,26 +76,6 @@ export const Navbar: React.FC = () => {
                 </span>
               </div>
             </Link>
-
-            {/* Center: Dashboard Tabs (desktop) */}
-            {isOnDashboard && (
-              <div className="hidden lg:flex items-center bg-gray-50 dark:bg-gray-900/80 rounded-2xl p-1 gap-0.5">
-                {dashboardTabs.map((tab) => (
-                  <Link
-                    key={tab.href}
-                    href={tab.href}
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[13px] font-semibold transition-all duration-200 ${
-                      isActive(tab.href, tab.exact)
-                        ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm shadow-black/5'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
-                    }`}
-                  >
-                    <span className="text-sm">{tab.icon}</span>
-                    {tab.label}
-                  </Link>
-                ))}
-              </div>
-            )}
 
             {/* If NOT on dashboard, show a simple label */}
             {!isOnDashboard && (
@@ -260,32 +237,10 @@ export const Navbar: React.FC = () => {
           }`}
         >
           <div className="px-4 pb-5 pt-2 space-y-1 border-t border-gray-100 dark:border-gray-800">
-            {/* Dashboard tabs in mobile */}
-            {isOnDashboard && (
-              <>
-                <p className="px-3 pt-3 pb-1 text-[10px] uppercase tracking-[0.15em] font-bold text-gray-400 dark:text-gray-500">Navigate</p>
-                {dashboardTabs.map((tab) => (
-                  <Link
-                    key={tab.href}
-                    href={tab.href}
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                      isActive(tab.href, tab.exact)
-                        ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400'
-                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
-                    }`}
-                  >
-                    <span>{tab.icon}</span>
-                    {tab.label}
-                  </Link>
-                ))}
-              </>
-            )}
-
-            {!isOnDashboard && (
-              <Link href="/dashboard" className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
-                <span>📊</span> Dashboard
-              </Link>
-            )}
+            {/* Always show Dashboard link on mobile */}
+            <Link href="/dashboard" className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+              <span>📊</span> Dashboard
+            </Link>
 
             {/* User section */}
             <div className="border-t border-gray-100 dark:border-gray-800 mt-3 pt-3">

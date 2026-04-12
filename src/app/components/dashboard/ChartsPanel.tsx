@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Line, Doughnut } from 'react-chartjs-2';
 import { formatCurrency } from '@/lib/utils';
+import { formatCurrencyFromCentsGB } from '@/lib/currency';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -34,14 +35,18 @@ const ChartsPanel: React.FC = () => {
   const [timeframe, setTimeframe] = useState<'6'|'12'|'ytd'>('6');
   const [cumulative, setCumulative] = useState(false);
 
-  useEffect(() => {
-    let mounted = true;
-    fetch('/api/revenue')
+  const fetchRevenue = React.useCallback(() => {
+    fetch('/api/revenue?ts=' + Date.now(), { cache: 'no-store' })
       .then(r => r.json())
-      .then(data => { if (mounted) setRevenue(Array.isArray(data) ? data : []); })
-      .catch(() => { if (mounted) setRevenue([]); });
-    return () => { mounted = false; };
+      .then(data => { setRevenue(Array.isArray(data) ? data : []); })
+      .catch(() => { setRevenue([]); });
   }, []);
+
+  useEffect(() => {
+    fetchRevenue();
+    window.addEventListener('payment-recorded', fetchRevenue);
+    return () => window.removeEventListener('payment-recorded', fetchRevenue);
+  }, [fetchRevenue]);
 
   // Build month buckets by year-month key
   const { labels, trendData, projectedData, sourceSegments } = useMemo(() => {
@@ -81,8 +86,9 @@ const ChartsPanel: React.FC = () => {
     const trimmed = hasRevenue ? vals.slice(0, monthsCount) : demo.slice(-monthsCount);
     const trend = cumulative ? trimmed.reduce((acc, v, i) => { acc.push((acc[i-1]||0) + v); return acc; }, [] as number[]) : trimmed;
     
-    // Add projection paddings to trend array so it aligns with labels
+    // BUG FIX #3: Filter null values for chart rendering - Chart.js handles nulls differently
     const displayTrend = [...trend, null, null, null];
+    const displayProjected = projVals.map(v => v === undefined ? null : v);  // Keep null for missing projections
 
     // top sources + other
     const colors = ['#06b6d4','#f59e0b','#84cc16','#8b5cf6','#ef4444','#3b82f6'];
@@ -91,34 +97,37 @@ const ChartsPanel: React.FC = () => {
     const otherTotal = sources.slice(5).reduce((s,a)=>s+a[1],0);
     if (otherTotal > 0) top.push({ label: 'Other', value: otherTotal, color: colors[top.length%colors.length] });
 
-    return { labels: lbls, trendData: displayTrend, projectedData: projVals, sourceSegments: top };
+    return { labels: lbls, trendData: displayTrend, projectedData: displayProjected, sourceSegments: top };
   }, [revenue, timeframe, cumulative]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Revenue Trends</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-3 mb-4">
-            <label className="text-sm text-gray-600">Timeframe:</label>
+      <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent pointer-events-none" />
+        <div className="mb-4 relative z-10">
+          <h2 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-teal-400">Revenue Trends</h2>
+        </div>
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-6">
             <select
               value={timeframe}
               onChange={(e) => {
                 const v = e.target.value;
                 if (v === '6' || v === '12' || v === 'ytd') setTimeframe(v);
               }}
-              className="px-2 py-1 rounded border bg-white dark:bg-gray-800"
+              className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-white/90 text-sm focus:ring-1 focus:ring-emerald-500 outline-none backdrop-blur-md"
             >
-              <option value="6">Last 6 months</option>
-              <option value="12">Last 12 months</option>
-              <option value="ytd">Year to date</option>
+              <option value="6" className="bg-gray-900">Last 6 months</option>
+              <option value="12" className="bg-gray-900">Last 12 months</option>
+              <option value="ytd" className="bg-gray-900">Year to date</option>
             </select>
-            <label className="ml-4 text-sm"><input type="checkbox" checked={cumulative} onChange={e=>setCumulative(e.target.checked)} className="mr-2"/>Cumulative</label>
+            <label className="ml-4 text-sm text-gray-400 flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
+              <input type="checkbox" checked={cumulative} onChange={e=>setCumulative(e.target.checked)} className="accent-emerald-500 w-4 h-4 rounded bg-white/10 border-white/20"/>
+              Cumulative Check
+            </label>
           </div>
 
-          <div style={{height:240}}>
+          <div style={{height:280}}>
             <Line
               data={{
                 labels,
@@ -126,10 +135,13 @@ const ChartsPanel: React.FC = () => {
                   {
                     label: 'Actual Revenue',
                     data: trendData,
-                    borderColor: '#22c55e',
-                    backgroundColor: 'rgba(34,197,94,0.12)',
+                    borderColor: '#34d399',
+                    backgroundColor: 'rgba(52, 211, 153, 0.15)',
                     fill: true,
-                    tension: 0.3,
+                    tension: 0.4,
+                    pointBackgroundColor: '#10b981',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
                     pointRadius: 4,
                     pointHoverRadius: 6,
                   },
@@ -139,7 +151,7 @@ const ChartsPanel: React.FC = () => {
                     borderColor: '#f59e0b',
                     borderDash: [5, 5],
                     fill: false,
-                    tension: 0.3,
+                    tension: 0.4,
                     pointRadius: 0,
                     pointHoverRadius: 4,
                   }
@@ -149,6 +161,12 @@ const ChartsPanel: React.FC = () => {
                 plugins: {
                   legend: { display: false },
                   tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    titleColor: '#fff',
+                    bodyColor: '#e2e8f0',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    borderWidth: 1,
+                    padding: 12,
                     callbacks: {
                       label: (ctx: unknown) => {
                         const c = ctx as { parsed?: { y?: number } | number };
@@ -159,7 +177,8 @@ const ChartsPanel: React.FC = () => {
                             : parsed && typeof parsed === 'object'
                               ? (parsed as { y?: number }).y ?? 0
                               : 0;
-                        return formatCurrency(Number(value) || 0);
+                        // BUG FIX #4: Use USD formatting for consistency
+                        return formatCurrency(Number(value) || 0, 'USD');
                       },
                     },
                   },
@@ -168,41 +187,47 @@ const ChartsPanel: React.FC = () => {
                 maintainAspectRatio: false,
                 scales: {
                   x: { 
-                    grid: { display: false }, 
-                    ticks: { maxRotation: 0, autoSkip: true, color: 'rgba(156, 163, 175, 1)' } 
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' }, 
+                    ticks: { color: 'rgba(255, 255, 255, 0.5)', font: { family: 'ui-monospace, monospace' } } 
                   },
                   y: { 
                     beginAtZero: true, 
-                    grid: { color: 'rgba(156, 163, 175, 0.1)' },
-                    ticks: { color: 'rgba(156, 163, 175, 1)', callback: (v: string | number) => formatCurrency(Number(v)) } 
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: { color: 'rgba(255, 255, 255, 0.5)', font: { family: 'ui-monospace, monospace' }, callback: (v: string | number) => formatCurrency(Number(v), 'USD') } 
                   },
                 },
-                elements: { line: { borderWidth: 2 }, point: { hitRadius: 8 } },
+                elements: { line: { borderWidth: 3 }, point: { hitRadius: 10 } },
               }}
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Revenue by Source</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div style={{height:240}}>
+      <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-fuchsia-500/5 pointer-events-none" />
+        <div className="mb-6 relative z-10">
+          <h2 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-fuchsia-400">Revenue by Source</h2>
+        </div>
+        <div className="relative z-10 flex items-center justify-center h-[280px]">
+          <div className="w-full max-w-[280px]">
             <Doughnut
               data={{
                 labels: sourceSegments.map(s => s.label),
-                datasets: [{ data: sourceSegments.length ? sourceSegments.map(s=>s.value) : [1], backgroundColor: sourceSegments.length ? sourceSegments.map(s=>s.color) : ['#e5e7eb'], borderWidth: 0 }]
+                datasets: [{ data: sourceSegments.length ? sourceSegments.map(s=>s.value) : [1], backgroundColor: sourceSegments.length ? sourceSegments.map(s=>s.color) : ['rgba(255,255,255,0.05)'], borderWidth: 0, hoverOffset: 4 }]
               }}
               options={{
+                cutout: '75%',
                 plugins: {
-                  legend: { position: 'bottom' as const, labels: { boxWidth: 12 } },
+                  legend: { position: 'bottom' as const, labels: { color: 'rgba(255,255,255,0.7)', font: { family: 'ui-monospace, monospace', size: 11 }, padding: 20, usePointStyle: true } },
                   tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    borderWidth: 1,
+                    padding: 12,
                     callbacks: {
                       label: (ctx: { label?: string; raw?: unknown }) => {
                         const rawValue = typeof ctx.raw === 'number' ? ctx.raw : 0;
-                        return `${ctx.label ?? 'Value'}: ${formatCurrency(rawValue)}`;
+                        return ` ${ctx.label ?? 'Value'}: ${formatCurrency(rawValue, 'USD')}`;
                       },
                     },
                   },
@@ -212,8 +237,8 @@ const ChartsPanel: React.FC = () => {
               }}
             />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };

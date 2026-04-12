@@ -44,43 +44,67 @@ interface MilestoneData {
 
 export const RecentActivity: React.FC = () => {
   const [items, setItems] = React.useState<ActivityItem[]>([]);
-  React.useEffect(() => {
-    Promise.all([
-      fetch('/api/revenue').then(r=>r.json()),
-      fetch('/api/rights').then(r=>r.json()),
-      fetch('/api/milestones').then(r=>r.json())
-    ]).then(([revenue, rights, milestones]) => {
-      let splits: SplitData[] = [];
-      try { splits = JSON.parse(localStorage.getItem('crt_recent_splits')||'[]'); } catch {}
-      const revItems = (revenue as RevenueData[]).slice(0,5).map((r: RevenueData)=>({ id: r.id, title: `Payment of ${formatCurrency(r.amount)} received for ${r.projectName}`, time: formatDate(r.date), icon: '💰' }));
-      const splitItems = splits.slice(0,3).map((s: SplitData)=>({ id: `split_${s.id}`, title: `Split ${formatCurrency(s.amount)} for ${(() => {
-        const match = (revenue as RevenueData[]).find((rr: RevenueData) => rr.projectId === s.projectId || rr.projectName === s.projectId);
-        return match ? match.projectName : (s.projectName || s.projectId || 'Unknown Project');
-      })()}`, time: formatDate(s.date || new Date()), icon: '🧮' }));
-      const rightsItems = (rights as RightsData[]).slice(0,3).map((x: RightsData)=>({ id: `right_${x.id}`, title: `Rights ${x.status?.toLowerCase()} for ${x.projectName}`, time: formatDate(x.createdDate||x.expirationDate||new Date()), icon: '⚖️' }));
-      const mileItems = (milestones as MilestoneData[]).slice(0,3).map((m: MilestoneData)=>({ id: m.id, title: m.title, time: formatDate(m.date||m.target_date||new Date()), icon: '📅' }));
-      setItems([...revItems, ...splitItems, ...rightsItems, ...mileItems].slice(0,8));
-    }).catch(()=>setItems([]));
+  const fetchActivity = React.useCallback(async () => {
+    try {
+      const ts = Date.now();
+      const res = await fetch(`/api/activities?ts=${ts}`, { cache: 'no-store' });
+      const activities = await res.json();
+      
+      const mapped: ActivityItem[] = (activities || []).map((a: any) => {
+        let icon = '🔔';
+        if (a.activity_type === 'payment_recorded') icon = '💰';
+        if (a.activity_type === 'milestone_completed') icon = '✅';
+        if (a.activity_type === 'rights_added') icon = '⚖️';
+        
+        return {
+          id: a.id,
+          title: a.description,
+          time: formatDate(a.created_at),
+          icon
+        };
+      });
+
+      setItems(mapped.slice(0, 8));
+    } catch (e) {
+      console.error("Activity fetch failed:", e);
+      setItems([]);
+    }
   }, []);
+
+  React.useEffect(() => {
+    fetchActivity();
+    window.addEventListener('payment-recorded', fetchActivity);
+    return () => window.removeEventListener('payment-recorded', fetchActivity);
+  }, [fetchActivity]);
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Recent Activity</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {items.map(i => (
-            <div key={i.id} className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">{i.icon}</div>
-              <div>
-                <p className="text-sm text-gray-900 dark:text-white">{i.title}</p>
-                <p className="text-xs text-gray-500">{i.time}</p>
+    <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl overflow-hidden flex flex-col h-full relative">
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-emerald-500/5 pointer-events-none" />
+      <div className="p-6 border-b border-white/10 relative z-10 flex items-center justify-between">
+        <h2 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-300 to-emerald-400">Recent Activity</h2>
+        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+      </div>
+      <div className="flex-1 overflow-y-auto p-2 relative z-10 custom-scrollbar" style={{maxHeight:'400px'}}>
+        {items.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-8 text-center text-white/50">
+             No recent activity
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {items.map(i => (
+              <div key={i.id} className="flex items-start gap-4 p-3 rounded-2xl hover:bg-white/5 transition-all group">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500/10 to-teal-500/10 flex items-center justify-center border border-white/5 shadow-inner group-hover:scale-110 transition-transform">
+                  <span className="text-xl">{i.icon}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-300 group-hover:text-white transition-colors">{i.title}</p>
+                  <p className="text-[11px] font-mono text-gray-500 tracking-wide mt-0.5">{i.time}</p>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
