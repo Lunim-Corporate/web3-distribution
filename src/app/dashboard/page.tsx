@@ -141,19 +141,19 @@ const Dashboard = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             {/* Title */}
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 via-purple-500 to-emerald-400 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.3)]">
-                <span className="text-2xl drop-shadow-md">💎</span>
+            <div className="flex items-start md:items-center gap-3 sm:gap-4 w-full md:w-auto min-w-0">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 shrink-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-emerald-400 rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(99,102,241,0.3)]">
+                <span className="text-xl sm:text-2xl drop-shadow-md">💎</span>
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 {projectsList.length > 0 ? (
-                  <div className="relative isolate group">
+                  <div className="relative isolate group max-w-full">
                     <div className="absolute -inset-2 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 rounded-xl blur-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
                     <select 
                       value={projectId || ''} 
                       onChange={(e) => setProjectId(e.target.value)}
-                      className="relative text-xl md:text-2xl font-black bg-[#1A1B23] border border-white/10 rounded-xl px-4 py-2 pr-10 text-white shadow-xl outline-none cursor-pointer appearance-none w-full md:min-w-[280px] hover:border-indigo-500/50 transition-colors focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23818cf8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem top 50%', backgroundSize: '0.65rem auto' }}
+                      className="relative text-lg sm:text-xl md:text-2xl font-black bg-[#1A1B23] border border-white/10 rounded-xl px-3 sm:px-4 py-2 pr-8 sm:pr-10 text-white shadow-xl outline-none cursor-pointer appearance-none w-full md:min-w-[280px] max-w-full hover:border-indigo-500/50 transition-colors focus:ring-2 focus:ring-indigo-500 focus:border-transparent truncate leading-tight"
+                      style={{ backgroundImage: 'url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23818cf8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 0.75rem top 50%', backgroundSize: '0.65rem auto' }}
                     >
                       {projectsList.map(p => (
                         <option key={p.id} value={p.id} className="bg-gray-900 text-white font-medium">{p.name}</option>
@@ -161,14 +161,14 @@ const Dashboard = () => {
                     </select>
                   </div>
                 ) : (
-                  <h1 className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 tracking-tight">
+                  <h1 className="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 tracking-tight truncate">
                     {(project as any)?.name || 'Moonstone Elements'}
                   </h1>
                 )}
-                <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 mt-0.5">
-                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-                  <span className="tracking-widest uppercase">Live Sync</span>
-                  {user && <span>• {user.name || user.email?.split('@')[0]} ({user.role})</span>}
+                <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs font-semibold text-gray-500 mt-1 sm:mt-0.5 truncate">
+                  <div className="w-1.5 h-1.5 shrink-0 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
+                  <span className="tracking-widest uppercase shrink-0">Live Sync</span>
+                  {user && <span className="truncate">• {user.name || user.email?.split('@')[0]} ({user.role})</span>}
                 </div>
               </div>
             </div>
