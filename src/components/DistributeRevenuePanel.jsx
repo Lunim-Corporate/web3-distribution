@@ -115,9 +115,9 @@ const DistributeRevenuePanel = ({
                   key={holder.id}
                   className="flex justify-between items-center bg-white/5 px-3 py-2.5 rounded-lg border border-white/5"
                 >
-                  <div>
-                    <span className="text-xs font-bold text-gray-200">{holder.name}</span>
-                    <span className="text-[10px] text-gray-500 ml-1.5">({holder.percentage}%)</span>
+                  <div className="min-w-0 flex-1 mr-2">
+                    <div className="text-xs font-bold text-gray-200 truncate">{holder.name}</div>
+                    <div className="text-[10px] text-gray-500 truncate">({holder.percentage}%)</div>
                   </div>
                   <span className="text-xs font-mono font-bold text-indigo-400">
                     +{formatUSD(getPreviewSplit(holder.percentage))}
