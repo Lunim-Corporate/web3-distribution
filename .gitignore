@@ -43,3 +43,4 @@ fix_*.js
 test_*.js
 *.log
 .gemini/
+.env*.local
