@@ -18,13 +18,15 @@ Automated, secure, and transparent revenue distribution that ensures creators ar
 - ✓ Automated Revenue Recording — Transaction tracking and revenue snapshots
 - ✓ Integrated Split Visualization — Parent/child transaction grouping with collapsible split details
 - ✓ Global Demo Mode — Dedicated entry point in top navigation for guided walkthroughs
+- ✓ **Admin Module**: Centralized control panel for managing creator rosters and global project settings (v1.0 MVP).
+- ✓ **Mutable Splitting (0xSplits)**: Integration of 0xSplits protocol to handle dynamic revenue share updates securely (v1.0 MVP).
+- ✓ **Creator Module**: Read-only, high-transparency view for individual creators to audit their historic and pending payouts (v1.0 MVP).
+- ✓ **Production Hardening**: Comprehensive audit for security errors, performance optimization, and UI polish to meet "production-grade" standards (v1.0 MVP).
+- ✓ **Dashboard Sync**: Unified context provider mapping state gracefully across global isolated tabs (v1.0 MVP).
 
 ### Active
 
-- [ ] **Admin Module**: Centralized control panel for managing creator rosters and global project settings.
-- [ ] **Mutable Splitting (0xSplits)**: Integration of 0xSplits protocol to handle dynamic revenue share updates securely.
-- [ ] **Creator Module**: Read-only, high-transparency view for individual creators to audit their historic and pending payouts.
-- [ ] **Production Hardening**: Comprehensive audit for security errors, performance optimization, and UI polish to meet "production-grade" standards.
+(Awaiting Planning for Milestone 2)
 
 ### Out of Scope
 
@@ -33,7 +35,7 @@ Automated, secure, and transparent revenue distribution that ensures creators ar
 
 ## Context
 
-The project is currently a hybrid Next.js/Express application transitioning to a more robust TypeScript-focused architecture. It utilizes Supabase for Web2 state and Hardhat for Web3 contract development. A key technical challenge is enabling Admins to modify splits dynamically without corrupting historical balance records for creators.
+v1.0 Production 0xSplits Integration shipped successfully with 5 verified phases. All 14 original requirements met, unifying the dashboard with the new global `ProjectContext` and integrating 0xSplits testnet integration.
 
 ## Constraints
 
@@ -45,9 +47,10 @@ The project is currently a hybrid Next.js/Express application transitioning to a
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| 0xSplits Protocol | Industry standard for mutable payment routing; avoids custom accounting bugs. | — Pending |
-| Dual-Module Interface | Separates management (Admin) from transparency (Creator) for better UX/Security. | — Pending |
+| 0xSplits Protocol | Industry standard for mutable payment routing; avoids custom accounting bugs. | ✓ Good |
+| Dual-Module Interface | Separates management (Admin) from transparency (Creator) for better UX/Security. | ✓ Good |
 | Navbar Demo Access | Keeps production dashboard clean while allowing easy "wow" moments for new users. | ✓ Good |
+| Global Project Context | Avoids rigid hard-routing based on permissions; supports flexible view unification. | ✓ Good |
 
 ## Evolution
 
