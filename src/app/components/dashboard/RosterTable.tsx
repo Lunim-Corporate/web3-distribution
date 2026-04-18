@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabaseClient';
 import { toast } from 'react-hot-toast';
 import { useRevenueContract } from '@/hooks/useRevenueContract';
 import { useAuth } from '@/lib/auth';
+import { EnsAddress } from '@/components/EnsAddress';
 
 interface RosterTableProps {
   contributors: any[];
@@ -93,9 +94,7 @@ export const RosterTable: React.FC<RosterTableProps> = ({ contributors, onRefres
                   </div>
                 </td>
                 <td className="px-6 py-5">
-                  <code className="text-[11px] text-indigo-300 font-mono bg-indigo-500/5 px-2 py-1 rounded">
-                    {c.users?.wallet_address ? `${c.users.wallet_address.substring(0, 8)}...${c.users.wallet_address.substring(34)}` : 'N/A'}
-                  </code>
+                  <EnsAddress address={c.users?.wallet_address} />
                 </td>
                 <td className="px-6 py-5 text-center">
                   <div className="flex items-center justify-center gap-2">
