@@ -43,6 +43,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { getSplitsClient } from '@/lib/web3/client';
 
 // ------------------------------------------------------------------
 // Supabase client for direct writes in Demo Mode
@@ -513,6 +514,65 @@ export function useRevenueContract(projectId) {
     }
   };
 
+  // ── UPDATE SPLIT (ROSTER CHANGE) ──────────────────────────────
+  const updateSplitOnChain = async (newRoster) => {
+    if (!isConnected || !projectId) return;
+
+    if (isDemoMode) {
+      setTxStatus('pending');
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      // In demo mode, we just update Supabase shares
+      for (const member of newRoster) {
+        await supabaseDirect
+          .from('project_contributors')
+          .update({ revenue_share: member.revenue_share })
+          .eq('id', member.id);
+      }
+      setTxStatus('confirmed');
+      await refreshDashboardData();
+      return;
+    }
+
+    // Live Mode logic using Splits SDK
+    try {
+      setTxStatus('pending');
+      const splitsClient = await getSplitsClient(window.ethereum);
+      
+      const recipients = newRoster.map(r => ({
+        address: r.users?.wallet_address,
+        percentAllocation: r.revenue_share
+      }));
+
+      // NOTE: 0xSplits updateSplit expects basis points or specific format
+      // We use the SDK's higher-level methods
+      const splitAddress = project?.contract_address;
+      if (!splitAddress) throw new Error("No split address found for this project");
+
+      const response = await splitsClient.updateSplit({
+        splitAddress,
+        recipients,
+        distributorFeePercent: 0, // Default for now
+      });
+
+      setLastTxHash(response.event.transactionHash);
+      setTxStatus('confirmed');
+      
+      // Update DB to reflect confirmed on-chain state
+      for (const member of newRoster) {
+        await supabaseDirect
+          .from('project_contributors')
+          .update({ revenue_share: member.revenue_share })
+          .eq('id', member.id);
+      }
+      
+      await refreshDashboardData();
+    } catch (err) {
+      console.error('Split update failed:', err);
+      setTxStatus('error');
+      setErrorMessage(err.message || 'Split update failed');
+    }
+  };
+
   return {
     project,
     rightsHolders,
@@ -521,6 +581,7 @@ export function useRevenueContract(projectId) {
     walletAddress,
     connectWallet,
     sendRevenue,
+    updateSplitOnChain,
     txStatus,
     lastTxHash,
     errorMessage,

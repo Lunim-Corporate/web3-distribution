@@ -3,11 +3,19 @@
 import React, { useMemo, useState } from 'react';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
+import { useSplits } from '@/hooks/useSplits';
 
 const formatUSD = (amount: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 
-export const RevenueSnapshot: React.FC<{ activeProjectId?: string | null, projectsList?: {id: string, name: string}[] }> = ({ activeProjectId, projectsList }) => {
+export const RevenueSnapshot: React.FC<{ 
+  activeProjectId?: string | null, 
+  projectsList?: {id: string, name: string}[],
+  walletAddress?: string 
+}> = ({ activeProjectId, projectsList, walletAddress }) => {
+  const { earnings, loading: splitsLoading } = useSplits(walletAddress);
+  const isLiveWeb3 = !!walletAddress && !!earnings;
+
   const [projectFilter, setProjectFilter] = useState<string>(activeProjectId || '');
   
   React.useEffect(() => {
@@ -30,15 +38,28 @@ export const RevenueSnapshot: React.FC<{ activeProjectId?: string | null, projec
       date: string;
       source: string;
       status: string;
+      recipientName?: string;
+      splitPercentage?: number;
     }>
   >([]);
 
   const fetchRevenue = React.useCallback(() => {
-    fetch('/api/revenue?ts=' + Date.now(), { cache: 'no-store' })
+    const url = new URL('/api/revenue', window.location.origin);
+    url.searchParams.set('ts', Date.now().toString());
+    if (walletAddress) {
+      url.searchParams.set('address', walletAddress);
+      url.searchParams.set('web3', 'true');
+    }
+
+    fetch(url.toString(), { cache: 'no-store' })
       .then(r => r.json())
-      .then(setRevenue)
+      .then(data => {
+        // Handle new response shape
+        if (data.revenue) setRevenue(data.revenue);
+        else setRevenue(data);
+      })
       .catch(() => setRevenue([]));
-  }, []);
+  }, [walletAddress]);
 
   React.useEffect(() => {
     fetchRevenue();
@@ -55,14 +76,46 @@ export const RevenueSnapshot: React.FC<{ activeProjectId?: string | null, projec
   }, [revenue, projectFilter, search, fromDate, toDate]);
 
   // Group by tx_hash for accurate transaction count
-  const totals = useMemo(() => {
+  // Group by tx_hash for accurate transaction count and display
+  const { totals, groupedTransactions } = useMemo(() => {
     const total = filtered.reduce((sum, r) => sum + r.amount, 0);
-    const paid = filtered.filter((r) => r.status === 'Paid').reduce((s, r) => s + r.amount, 0);
-    const pending = filtered.filter((r) => r.status !== 'Paid').reduce((s, r) => s + r.amount, 0);
-    // Count unique transactions by tx_hash, not individual payment rows
-    const uniqueTxHashes = new Set(filtered.map(r => r.txHash || r.id));
-    return { total, paid, pending, count: uniqueTxHashes.size };
+    const paid = filtered.filter((r) => r.status === 'Paid' || r.status === 'completed' || r.status === 'Confirmed').reduce((s, r) => s + r.amount, 0);
+    const pending = filtered.filter((r) => r.status !== 'Paid' && r.status !== 'completed' && r.status !== 'Confirmed').reduce((s, r) => s + r.amount, 0);
+    
+    const txMap = new Map();
+    filtered.forEach(r => {
+      const hash = r.txHash || r.id; 
+      if (!txMap.has(hash)) {
+        txMap.set(hash, {
+          id: hash,
+          txHash: hash,
+          date: r.date,
+          projectName: r.projectName,
+          source: r.source,
+          status: r.status,
+          totalAmount: 0,
+          splits: []
+        });
+      }
+      const tx = txMap.get(hash);
+      tx.totalAmount += r.amount;
+      tx.splits.push({
+        id: r.id,
+        recipientName: r.recipientName || 'Unknown',
+        splitPercentage: r.splitPercentage || 0,
+        amount: r.amount
+      });
+    });
+    
+    const groupedTxs = Array.from(txMap.values());
+    
+    return { 
+      totals: { total, paid, pending, count: groupedTxs.length },
+      groupedTransactions: groupedTxs
+    };
   }, [filtered]);
+
+  const [expandedTx, setExpandedTx] = useState<string | null>(null);
 
   const handleGenerateReport = (period?: string) => {
     toast.loading(`Preparing ${period || 'custom'} report...`, { id: 'pdf-snap' });
@@ -185,8 +238,10 @@ export const RevenueSnapshot: React.FC<{ activeProjectId?: string | null, projec
           </div>
           <div className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 backdrop-blur-md rounded-xl p-5 border border-purple-500/15 shadow-lg relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-t from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <p className="text-[10px] font-bold text-purple-400/70 uppercase tracking-widest mb-1">Transactions</p>
-            <p className="text-2xl font-black text-white tracking-tight font-mono">{totals.count}</p>
+            <p className="text-[10px] font-bold text-purple-400/70 uppercase tracking-widest mb-1">Web3 Balance</p>
+            <p className="text-2xl font-black text-white tracking-tight font-mono">
+              {splitsLoading ? '...' : (isLiveWeb3 ? 'Live' : 'Native')}
+            </p>
           </div>
         </div>
 
@@ -199,32 +254,71 @@ export const RevenueSnapshot: React.FC<{ activeProjectId?: string | null, projec
                 <th className="px-5 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Project</th>
                 <th className="px-5 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Source</th>
                 <th className="px-5 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Amount</th>
-                <th className="px-5 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
+                <th className="px-5 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Status</th>
+                <th className="px-5 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Payment Split</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.slice(0, 20).map((r) => (
-                <tr key={r.id} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors">
-                  <td className="px-5 py-3.5 text-sm text-gray-400 whitespace-nowrap font-mono">
-                    {new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </td>
-                  <td className="px-5 py-3.5 text-sm text-gray-200 font-medium">{r.projectName}</td>
-                  <td className="px-5 py-3.5 text-sm text-gray-400">{r.source}</td>
-                  <td className="px-5 py-3.5 text-sm font-bold text-white text-right font-mono">{formatUSD(r.amount)}</td>
-                  <td className="px-5 py-3.5">
-                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-black tracking-wide ${
-                      r.status === 'Paid'
-                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
-                        : 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
-                    }`}>
-                      {r.status}
-                    </span>
-                  </td>
-                </tr>
+              {groupedTransactions.slice(0, 20).map((tx) => (
+                <React.Fragment key={tx.id}>
+                  <tr className="border-b border-white/5 hover:bg-white/[0.03] transition-colors group cursor-pointer" onClick={() => setExpandedTx(expandedTx === tx.id ? null : tx.id)}>
+                    <td className="px-5 py-3.5 text-sm text-gray-400 whitespace-nowrap font-mono">
+                      {new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </td>
+                    <td className="px-5 py-3.5 text-sm text-gray-200 font-medium">{tx.projectName}</td>
+                    <td className="px-5 py-3.5 text-sm text-gray-400">{tx.source}</td>
+                    <td className="px-5 py-3.5 text-sm font-bold text-white text-right font-mono">{formatUSD(tx.totalAmount)}</td>
+                    <td className="px-5 py-3.5 text-center">
+                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black tracking-wide ${
+                        tx.status.toLowerCase() === 'paid' || tx.status.toLowerCase() === 'completed'
+                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                          : 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
+                      }`}>
+                        {tx.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-center">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setExpandedTx(expandedTx === tx.id ? null : tx.id); }}
+                        className={`text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all border ${
+                          expandedTx === tx.id
+                            ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+                            : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        {expandedTx === tx.id ? '▲ Hide' : '▼ View'} Splits
+                      </button>
+                    </td>
+                  </tr>
+                  
+                  {expandedTx === tx.id && (
+                    <tr className="bg-white/5">
+                      <td colSpan={6} className="px-5 py-4 border-b border-white/10">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                          {tx.splits.map((split: any, idx: number) => (
+                            <div key={split.id || idx} className="bg-white/5 backdrop-blur-md p-3 rounded-xl border border-white/10 hover:border-indigo-500/20 transition-all">
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="font-bold text-gray-200 text-sm">{split.recipientName}</div>
+                                {split.splitPercentage > 0 && (
+                                  <div className="text-[10px] font-black text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                                    {split.splitPercentage}%
+                                  </div>
+                                )}
+                              </div>
+                              <div className="text-sm font-mono font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">
+                                +{formatUSD(split.amount)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
-              {filtered.length === 0 && (
+              {groupedTransactions.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-5 py-12 text-center text-gray-500">
+                  <td colSpan={6} className="px-5 py-12 text-center text-gray-500">
                     <div className="text-3xl mb-2">📭</div>
                     <p className="font-medium">No payments match your filters</p>
                   </td>
@@ -232,9 +326,9 @@ export const RevenueSnapshot: React.FC<{ activeProjectId?: string | null, projec
               )}
             </tbody>
           </table>
-          {filtered.length > 20 && (
+          {groupedTransactions.length > 20 && (
             <div className="px-5 py-3 bg-white/[0.02] border-t border-white/5 text-center">
-              <span className="text-xs text-gray-500">Showing 20 of {filtered.length} payments</span>
+              <span className="text-xs text-gray-500">Showing 20 of {groupedTransactions.length} transactions</span>
             </div>
           )}
         </div>

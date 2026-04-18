@@ -104,6 +104,19 @@ export const Navbar: React.FC = () => {
                     </svg>
                   </Link>
 
+                  {/* Web3 Demo Button */}
+                  <button
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent('open-demo'));
+                      if (!pathname.startsWith('/dashboard')) {
+                        window.location.href = '/dashboard';
+                      }
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all duration-300 border text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 border-emerald-500/30 shadow-[inset_0_0_10px_rgba(52,211,153,0.1)]"
+                  >
+                    <span>✨</span> Web3 Demo
+                  </button>
+
                   {/* Notifications */}
                   <button className="relative p-2 rounded-xl text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all">
                     <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>

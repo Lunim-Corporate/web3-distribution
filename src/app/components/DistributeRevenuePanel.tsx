@@ -1,9 +1,26 @@
 import React from 'react';
 
-const formatUSD = (amount) =>
+const formatUSD = (amount: number | string) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(amount || 0));
 
-const DistributeRevenuePanel = ({
+interface DistributeRevenuePanelProps {
+  isConnected: boolean;
+  walletAddress: string;
+  connectWallet: () => void;
+  sendRevenue: (amount: any) => void;
+  txStatus: string;
+  lastTxHash: string;
+  errorMessage: string;
+  rightsHolders: any[];
+  distributeAmount: any;
+  setDistributeAmount: (val: any) => void;
+  isDemoMode: boolean;
+  project: any;
+  projectsList: any[];
+  onProjectChange: (projectId: string) => void;
+}
+
+const DistributeRevenuePanel: React.FC<DistributeRevenuePanelProps> = ({
   isConnected,
   walletAddress,
   connectWallet,
@@ -21,14 +38,14 @@ const DistributeRevenuePanel = ({
 }) => {
   const ETH_USD_RATE = 3500;
 
-  const getPreviewSplit = (percentage) => {
+  const getPreviewSplit = (percentage: any) => {
     if (!distributeAmount || isNaN(distributeAmount)) return 0;
     const totalUSD = Number(distributeAmount) * ETH_USD_RATE;
     return (totalUSD * Number(percentage)) / 100;
   };
 
-  const totalSplit = rightsHolders.reduce((sum, h) => sum + getPreviewSplit(h.percentage), 0);
-  const totalPercentage = rightsHolders.reduce((sum, h) => sum + Number(h.percentage || 0), 0);
+  const totalSplit = rightsHolders.reduce((sum, h: any) => sum + getPreviewSplit(h.percentage), 0);
+  const totalPercentage = rightsHolders.reduce((sum, h: any) => sum + Number(h.percentage || 0), 0);
 
   return (
     <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6 shadow-xl relative overflow-hidden">

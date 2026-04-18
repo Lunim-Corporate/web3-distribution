@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useRevenueContract } from '../hooks/useRevenueContract';
 import { ethers } from 'ethers';
 
-const getDeterministicWallet = (index) => {
+const getDeterministicWallet = (index: number) => {
     // skip account 0 as it's the payer
     const path = "m/44'/60'/0'/0/" + (index + 1);
     const wallet = ethers.HDNodeWallet.fromPhrase("test test test test test test test test test test test junk", "", path);
@@ -140,7 +140,7 @@ export function RevenueDistribution() {
     }
   };
 
-  const getPreviewAmount = (percentage) => {
+  const getPreviewAmount = (percentage: number) => {
     if (!distributeAmount || isNaN(distributeAmount)) return "0.00";
     return ((Number(distributeAmount) * percentage) / 10000).toFixed(4);
   };

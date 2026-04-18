@@ -59,6 +59,11 @@ const RightsHolderCard = ({ holder, distributeAmount }) => {
           <span className="text-sm font-black text-gray-300 font-mono tracking-tight">{formatUSD(holder.total_earned || holder.total_received || 0)}</span>
         </div>
 
+        <div className="flex justify-between items-center">
+          <span className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Recent Payment</span>
+          <span className="text-sm font-black text-gray-300 font-mono tracking-tight">{formatUSD(holder.recent_payment || 0)}</span>
+        </div>
+
         {willReceive > 0 && (
           <div className="flex justify-between items-center bg-emerald-500/10 rounded-lg px-3 py-2 border border-emerald-400/20">
             <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Preview Split</span>

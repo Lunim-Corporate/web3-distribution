@@ -2,29 +2,37 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseServer';
 import { normalizePaymentStatus } from '@/lib/utils';
 
-export async function GET() {
+import { getUserEarnings } from '@/lib/web3/subgraph';
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const address = searchParams.get('address');
+  const isWeb3 = searchParams.get('web3') === 'true';
+
   try {
+    // If Web3 mode is active and we have an address, mix in protocol data
+    let web3Earnings: any = null;
+    if (isWeb3 && address) {
+      web3Earnings = await getUserEarnings(address).catch(() => null);
+    }
+
     const { data, error } = await supabaseAdmin
       .from('payments')
-      .select('*, projects(name)')
+      .select('*, projects(name), users(name, wallet_address)')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
     
-    // Transform to expected format
-    // IMPORTANT: The `amount` column stores raw USD values (NOT cents).
-    // Do NOT divide by 100 here — that was causing the data mismatch.
     const formatted = (data || []).map((p) => {
       const pr = p as Record<string, unknown>;
       const amount = Number(pr.amount ?? 0) / 100;
-
       const status = normalizePaymentStatus(pr.status ?? 'completed');
 
       const projectsRow = pr['projects'] as Record<string, unknown> | undefined;
-      const projectName =
-        projectsRow && typeof projectsRow.name === 'string'
-          ? projectsRow.name
-          : 'Unknown Project';
+      const projectName = projectsRow?.name || 'Unknown Project';
+
+      const usersRow = pr['users'] as Record<string, unknown> | undefined;
+      const recipientName = usersRow?.name || 'Unknown';
 
       return {
         id: String(pr.id ?? ''),
@@ -35,13 +43,21 @@ export async function GET() {
         source: String(pr.source ?? pr.payment_method ?? 'Direct Payment'),
         date: String(pr.created_at ?? pr.payment_date ?? ''),
         status,
+        recipientName,
+        splitPercentage: pr.split_percentage ? Number(pr.split_percentage) : 0,
       };
     });
+
+    // If we have web3 data, we can either append it or replace metrics
+    // For Phase 1, we return the base data but allow the UI to consume web3Earnings separately if needed
     
-    return NextResponse.json(formatted);
+    return NextResponse.json({
+      revenue: formatted,
+      web3: web3Earnings,
+    });
   } catch (error) {
     console.error('CRITICAL Error fetching revenue:', error);
-    return NextResponse.json([], { status: 200 });
+    return NextResponse.json({ revenue: [], web3: null }, { status: 200 });
   }
 }
 

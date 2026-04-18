@@ -173,19 +173,7 @@ export default function LoginPage() {
               </button>
             </div>
 
-            {/* Quick Helper for Demo */}
-            <div className="mt-8 pt-6 border-t border-slate-700/50">
-              <p className="text-center text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">Demo Credentials</p>
-              <div className="flex flex-col gap-2">
-                <button 
-                  onClick={() => { setEmail('jeevesh039@gmail.com'); setPassword('Jeevesh01@'); }}
-                  className="flex justify-between items-center bg-slate-900/40 hover:bg-slate-800/80 border border-slate-700/50 rounded-lg p-3 cursor-pointer transition-colors"
-                >
-                  <span className="text-xs text-slate-300 font-medium">Administrator</span>
-                  <span className="text-xs text-blue-400 font-mono bg-blue-500/10 px-2 py-1 rounded">Auto-fill</span>
-                </button>
-              </div>
-            </div>
+
 
           </div>
 
