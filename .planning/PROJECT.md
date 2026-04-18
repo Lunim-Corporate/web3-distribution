@@ -24,9 +24,21 @@ Automated, secure, and transparent revenue distribution that ensures creators ar
 - ✓ **Production Hardening**: Comprehensive audit for security errors, performance optimization, and UI polish to meet "production-grade" standards (v1.0 MVP).
 - ✓ **Dashboard Sync**: Unified context provider mapping state gracefully across global isolated tabs (v1.0 MVP).
 
-### Active
+## Current Milestone: v2.0 Platform Maturation & Advanced Tooling
 
-(Awaiting Planning for Milestone 2)
+**Goal:** Evolve the MVP integrations into robust, production-ready enterprise tools with enhanced functionality for both Admins and Creators.
+
+**Target features:**
+- Advanced Wallet/Web3 Tooling (WalletConnect, transaction batching, ENS)
+- Admin Module Pro (Multi-sig integrations, bulk CSV imports, visual analytics)
+- Creator Module Automation (Exportable tax reports, push notifications)
+- Dashboard Enhancements (Persistent state hydration, light/dark modes)
+
+### Active
+- [ ] WalletConnect Support
+- [ ] Rich Analytics & CSV Export
+- [ ] Automated push/email notifications
+- [ ] Multi-sig configurations for admin splits
 
 ### Out of Scope
 
