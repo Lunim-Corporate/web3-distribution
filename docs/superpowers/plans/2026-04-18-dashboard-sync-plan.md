@@ -5,20 +5,24 @@
 **Goal:** Create a unified, project-synced dashboard experience with a global project selector and personalized views for members and guests.
 
 **Architecture:**
-1.  **Project Context**: A global React provider to manage the active project and user's relationship to it.
-2.  **Global Header**: A new shared component for the project selector.
-3.  **UI Unification**: Consolidate sidebar and dashboard tabs.
+
+1. **Project Context**: A global React provider to manage the active project and user's relationship to it.
+2. **Global Header**: A new shared component for the project selector.
+3. **UI Unification**: Consolidate sidebar and dashboard tabs.
 
 **Tech Stack:** Next.js (App Router), Supabase, Framer Motion, Tailwind CSS.
 
 ---
 
 ### Task 1: Create Global Project Context
+
 **Files:**
+
 - Create: `src/app/lib/projectContext.tsx`
 - Modify: `src/app/dashboard/admin/layout.tsx`
 
 - [ ] **Step 1: Implement ProjectContext**
+
 ```tsx
 'use client';
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
@@ -91,6 +95,7 @@ export const useProject = () => {
 ```
 
 - [ ] **Step 2: Wrap Admin Layout with ProjectProvider**
+
 ```tsx
 import { ProjectProvider } from '@/lib/projectContext';
 // ...
@@ -107,7 +112,9 @@ return (
 ---
 
 ### Task 2: Create Global Dashboard Header
+
 **Files:**
+
 - Create: `src/app/components/dashboard/DashboardHeader.tsx`
 - Modify: `src/app/dashboard/admin/page.tsx` (Remove local header)
 
@@ -120,11 +127,14 @@ Place `DashboardHeader` at the top of the main content area in the layout.
 ---
 
 ### Task 3: Isolate Web3 Demo Tab
+
 **Files:**
+
 - Modify: `src/app/dashboard/admin/page.tsx`
 - Modify: `src/app/components/Navbar.tsx`
 
 - [ ] **Step 1: Add 'demo' tab to TABS array in page.tsx**
+
 ```tsx
 const TABS = [
   { id: 'overview', label: 'Overview', icon: '📊' },
@@ -136,6 +146,7 @@ const TABS = [
 ```
 
 - [ ] **Step 2: Render RevenueDistribution component only in 'demo' tab**
+
 ```tsx
 {activeTab === 'demo' && (
   <RevenueDistribution />
@@ -148,7 +159,9 @@ Use `window.dispatchEvent` to switch the tab to 'demo' when the button is clicke
 ---
 
 ### Task 4: Fix Sidebar & Missing Routes
+
 **Files:**
+
 - Modify: `src/app/components/dashboard/Sidebar.tsx`
 - Create: `src/app/dashboard/admin/settings/page.tsx`
 - Create: `src/app/dashboard/admin/projects/page.tsx`
@@ -162,7 +175,9 @@ Ensure they point to the new routes.
 ---
 
 ### Task 5: Personalized View Implementation
+
 **Files:**
+
 - Modify: `src/app/dashboard/admin/page.tsx`
 
 - [ ] **Step 1: Conditionals based on userRoleInProject**

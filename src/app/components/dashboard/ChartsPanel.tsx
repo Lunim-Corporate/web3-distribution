@@ -30,17 +30,30 @@ interface RevenueData {
   status: string;
 }
 
-const ChartsPanel: React.FC = () => {
+interface ChartsPanelProps {
+  walletAddress?: string;
+}
+
+const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress }) => {
   const [revenue, setRevenue] = useState<RevenueData[]>([]);
   const [timeframe, setTimeframe] = useState<'6'|'12'|'ytd'>('6');
   const [cumulative, setCumulative] = useState(false);
 
   const fetchRevenue = React.useCallback(() => {
-    fetch('/api/revenue?ts=' + Date.now(), { cache: 'no-store' })
+    const url = new URL('/api/revenue', window.location.origin);
+    url.searchParams.set('ts', Date.now().toString());
+    if (walletAddress) {
+      url.searchParams.set('address', walletAddress);
+    }
+
+    fetch(url.toString(), { cache: 'no-store' })
       .then(r => r.json())
-      .then(data => { setRevenue(Array.isArray(data) ? data : []); })
+      .then(data => { 
+        const items = data.revenue ? data.revenue : (Array.isArray(data) ? data : []);
+        setRevenue(items); 
+      })
       .catch(() => { setRevenue([]); });
-  }, []);
+  }, [walletAddress]);
 
   useEffect(() => {
     fetchRevenue();

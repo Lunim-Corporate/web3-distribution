@@ -5,6 +5,8 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabaseClient';
 import { RosterTable } from '@/components/dashboard/RosterTable';
 import { AddMemberModal } from '@/components/dashboard/AddMemberModal';
+import { CsvImportModal } from '@/components/dashboard/CsvImportModal';
+import { MultiSigConfig } from '@/components/dashboard/MultiSigConfig';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function RosterPage() {
@@ -14,6 +16,8 @@ export default function RosterPage() {
   const [contributors, setContributors] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
+  const [isMultiSigEnabled, setIsMultiSigEnabled] = useState(false);
 
   const fetchContributors = async (pid: string) => {
     try {
@@ -62,8 +66,15 @@ export default function RosterPage() {
   return (
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-2 border-b border-white/5">
-        <div>
-          <h1 className="text-3xl font-black text-white tracking-tight">Roster Management</h1>
+        <div className="flex-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-black text-white tracking-tight">Roster Management</h1>
+            {isMultiSigEnabled && (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.1)]">
+                <span className="text-sm leading-none">🛡️</span> Multi-Sig Active
+              </span>
+            )}
+          </div>
           <p className="text-gray-500 font-medium mt-1">Configure project contributors and their revenue share percentages.</p>
         </div>
 
@@ -80,9 +91,16 @@ export default function RosterPage() {
           
           <button 
             onClick={() => setIsAddModalOpen(true)}
-            className="px-6 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-500/20"
+            className="px-6 py-2.5 bg-[#1A1B23] hover:bg-[#252631] text-gray-300 border border-white/10 rounded-xl font-bold text-sm transition-all"
           >
             + Add Member
+          </button>
+
+          <button 
+            onClick={() => setIsCsvModalOpen(true)}
+            className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2"
+          >
+            <span>📊</span> Import CSV
           </button>
         </div>
       </div>
@@ -92,6 +110,11 @@ export default function RosterPage() {
         onRefresh={() => projectId && fetchContributors(projectId)} 
       />
 
+      <MultiSigConfig 
+        projectId={projectId}
+        onStatusChange={setIsMultiSigEnabled}
+      />
+
       <AnimatePresence>
         {isAddModalOpen && (
           <AddMemberModal 
@@ -99,6 +122,16 @@ export default function RosterPage() {
             onClose={() => setIsAddModalOpen(false)} 
             onSuccess={() => {
               setIsAddModalOpen(false);
+              projectId && fetchContributors(projectId);
+            }} 
+          />
+        )}
+        {isCsvModalOpen && (
+          <CsvImportModal 
+            projectId={projectId} 
+            onClose={() => setIsCsvModalOpen(false)} 
+            onSuccess={() => {
+              setIsCsvModalOpen(false);
               projectId && fetchContributors(projectId);
             }} 
           />

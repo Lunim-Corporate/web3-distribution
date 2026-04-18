@@ -7,8 +7,11 @@ import { supabase } from '@/lib/supabaseClient';
 import { useSplits } from '@/hooks/useSplits';
 import { RevenueSnapshot } from '@/components/dashboard/RevenueSnapshot';
 import { WelcomeCard } from '@/components/dashboard/WelcomeCard';
+import { ChartsPanel } from '@/components/dashboard/ChartsPanel';
+import { ReportGenerator } from '@/components/dashboard/ReportGenerator';
 import { toast } from 'react-hot-toast';
 import { TransactionIndicator } from '@/components/dashboard/TransactionIndicator';
+import { AnimatePresence } from 'framer-motion';
 
 const formatUSD = (amount: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -19,6 +22,7 @@ export default function CreatorDashboard() {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectsList, setProjectsList] = useState<Array<{id: string, name: string}>>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'overview' | 'history' | 'reports'>('overview');
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -93,19 +97,74 @@ export default function CreatorDashboard() {
         </div>
       )}
 
-      {/* Analytics & History */}
-      <div className="grid grid-cols-1 gap-12">
-        <section>
-          <div className="flex items-center justify-between mb-8 px-1">
-            <h3 className="text-xl font-bold text-white tracking-tight">Earning History</h3>
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Protocol Sync Active</span>
-            </div>
-          </div>
-          <RevenueSnapshot activeProjectId={projectId} projectsList={projectsList} />
-        </section>
+      {/* Navigation Tabs */}
+      <div className="flex items-center gap-4 bg-white/5 p-1 rounded-2xl border border-white/5 w-fit">
+        {[
+          { id: 'overview', label: 'Overview', icon: '📊' },
+          { id: 'history', label: 'Payment History', icon: '🔁' },
+          { id: 'reports', label: 'Tax Reports', icon: '📄' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              activeTab === tab.id
+                ? 'bg-white/10 text-white shadow-lg'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <span>{tab.icon}</span>
+            {tab.label}
+          </button>
+        ))}
       </div>
+
+      {/* Main Content Areas */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={activeTab}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.2 }}
+          className="space-y-12"
+        >
+          {activeTab === 'overview' && (
+            <div className="space-y-12">
+              <ChartsPanel walletAddress={user?.wallet_address} />
+              <section>
+                <div className="flex items-center justify-between mb-8 px-1">
+                  <h3 className="text-xl font-bold text-white tracking-tight">Recent Earnings</h3>
+                </div>
+                <RevenueSnapshot activeProjectId={projectId} projectsList={projectsList} walletAddress={user?.wallet_address} />
+              </section>
+            </div>
+          )}
+
+          {activeTab === 'history' && (
+            <section>
+              <div className="flex items-center justify-between mb-8 px-1">
+                <h3 className="text-xl font-bold text-white tracking-tight">Full Payment History</h3>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Protocol Sync Active</span>
+                </div>
+              </div>
+              <RevenueSnapshot activeProjectId={projectId} projectsList={projectsList} walletAddress={user?.wallet_address} />
+            </section>
+          )}
+
+          {activeTab === 'reports' && (
+            <section className="max-w-3xl">
+              <div className="mb-8 px-1">
+                <h3 className="text-xl font-bold text-white tracking-tight">Report Generator</h3>
+                <p className="text-sm text-gray-500 mt-1">Export your revenue and tax data for external accounting.</p>
+              </div>
+              <ReportGenerator walletAddress={user?.wallet_address} />
+            </section>
+          )}
+        </motion.div>
+      </AnimatePresence>
 
       {/* Info Panel */}
       <footer className="pt-20 border-t border-white/5 text-center">

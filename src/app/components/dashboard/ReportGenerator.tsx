@@ -8,7 +8,11 @@ import { formatCurrency, formatDate, formatPercentage } from '@/lib/utils';
 import type { RevenueReport } from '@/lib/types';
 import toast from 'react-hot-toast';
 
-export const ReportGenerator: React.FC = () => {
+interface ReportGeneratorProps {
+  walletAddress?: string;
+}
+
+export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress }) => {
   const [startDate, setStartDate] = useState<string>(
     new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0]
   );
@@ -25,9 +29,14 @@ export const ReportGenerator: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const response = await fetch(
-        `/api/reports?startDate=${startDate}&endDate=${endDate}`
-      );
+      const url = new URL('/api/reports', window.location.origin);
+      url.searchParams.set('startDate', startDate);
+      url.searchParams.set('endDate', endDate);
+      if (walletAddress) {
+        url.searchParams.set('address', walletAddress);
+      }
+
+      const response = await fetch(url.toString());
       if (!response.ok) throw new Error('Failed to generate report');
       const { data } = await response.json();
       setReport(data);
@@ -52,6 +61,8 @@ export const ReportGenerator: React.FC = () => {
         body: JSON.stringify({
           startDate,
           endDate,
+          projectId: report.reportPeriod.startDate === startDate ? undefined : undefined, // Keep existing interface
+          address: walletAddress,
           format: exportFormat,
         }),
       });

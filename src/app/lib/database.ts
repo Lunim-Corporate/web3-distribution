@@ -267,20 +267,24 @@ export async function getActivities(userId: string) {
 }
 
 // Reports
-export async function generateRevenueReport(startDate: string, endDate: string, projectId?: string) {
+export async function generateRevenueReport(startDate: string, endDate: string, projectId?: string, walletAddress?: string) {
   try {
     // Append time to ensure we capture the whole end date up to midnight
     const endOfDay = endDate.includes('T') ? endDate : `${endDate}T23:59:59.999Z`;
 
-    // Step 1: Fetch payments with projects
+    // Step 1: Fetch payments with projects and users
     let paymentQuery = supabase
       .from('payments')
-      .select('*, projects(id, name)')
+      .select('*, projects(id, name), users!inner(id, name, wallet_address)')
       .gte('payment_date', startDate)
       .lte('payment_date', endOfDay);
 
     if (projectId) {
       paymentQuery = paymentQuery.eq('project_id', projectId);
+    }
+
+    if (walletAddress) {
+      paymentQuery = paymentQuery.eq('users.wallet_address', walletAddress);
     }
 
     const { data: payments, error: paymentError } = await paymentQuery;

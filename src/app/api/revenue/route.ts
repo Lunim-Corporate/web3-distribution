@@ -16,10 +16,16 @@ export async function GET(request: Request) {
       web3Earnings = await getUserEarnings(address).catch(() => null);
     }
 
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('payments')
-      .select('*, projects(name), users(name, wallet_address)')
+      .select('*, projects(name), users!inner(name, wallet_address)')
       .order('created_at', { ascending: false });
+
+    if (address) {
+      query = query.eq('users.wallet_address', address);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
     

@@ -9,13 +9,13 @@
 
 ### Admin Module Pro (ADM)
 - [x] **ADM-05**: Bulk roster imports via CSV template (add multiple creators).
-- [ ] **ADM-06**: Rich visual analytics interface displaying revenue influx over time.
+- [x] **ADM-06**: Rich visual analytics interface displaying revenue influx over time.
 - [x] **ADM-07**: Define multi-sig requirements for any Split Controller percentage adjusters.
 
 ### Creator Module Automation (CRE)
-- [ ] **CRE-05**: Auto-generate downloadable CSV tax/revenue reports.
+- [x] **CRE-05**: Auto-generate downloadable CSV tax/revenue reports.
 - [ ] **CRE-06**: Dispatch automated email or push notifications on revenue deposit.
-- [ ] **CRE-07**: Interactive historic value tracking charts for payout timelines.
+- [x] **CRE-07**: Interactive historic value tracking charts for payout timelines.
 
 ### Dashboard Refinement (UIX)
 - [ ] **UIX-01**: Persistent state hydration globally (avoid reloads erasing active context).

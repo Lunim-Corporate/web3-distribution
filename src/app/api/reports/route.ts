@@ -8,6 +8,7 @@ export async function GET(request: Request) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const projectId = searchParams.get('projectId');
+    const walletAddress = searchParams.get('address');
 
     if (!startDate || !endDate) {
       return NextResponse.json(
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const report = await generateRevenueReport(startDate, endDate, projectId || undefined);
+    const report = await generateRevenueReport(startDate, endDate, projectId || undefined, walletAddress || undefined);
 
     return NextResponse.json({ data: report }, { status: 200 });
   } catch (error) {
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { startDate, endDate, projectId, format } = body;
+    const { startDate, endDate, projectId, address, format } = body;
 
     if (!startDate || !endDate) {
       return NextResponse.json(
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const report = await generateRevenueReport(startDate, endDate, projectId);
+    const report = await generateRevenueReport(startDate, endDate, projectId, address);
 
     // If CSV export requested, format appropriately
     if (format === 'csv') {
