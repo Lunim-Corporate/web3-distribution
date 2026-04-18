@@ -8,6 +8,7 @@
 
 ## Current Focus
 - Phase 4: Premium Polish [DONE]
+- Phase 5: Dashboard Sync [DONE]
 
 ## Project Reference
 - See: .planning/PROJECT.md (updated 2026-04-17)

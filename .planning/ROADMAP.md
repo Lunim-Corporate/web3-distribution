@@ -32,3 +32,11 @@
 - **Success Criteria:**
   - All transitions use framer-motion for a premium feel.
   - Transaction state feedback (pending, success, error) is clear and visually stunning.
+
+### Phase 5: Dashboard Sync [DONE]
+**Goal:** Unify organization-wide contextual state and permissions.
+- **Requirements:** ADM-01
+- **Success Criteria:**
+  - Active workspace reflects global context synced across isolated tabs.
+  - Permissions model allows personalized components (MyPerformance) dynamically per-role without hard-redirection out of workspace.
+  - Web3 Demo isolated to standalone environment to protect core dashboard integrity.
