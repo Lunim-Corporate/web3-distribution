@@ -37,6 +37,13 @@ const DistributeRevenuePanel: React.FC<DistributeRevenuePanelProps> = ({
   onProjectChange
 }) => {
   const ETH_USD_RATE = 3500;
+  const [isBatchMode, setIsBatchMode] = React.useState(false);
+  const [selectedProjectIds, setSelectedProjectIds] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    if (project?.id) setSelectedProjectIds([project.id]);
+  }, [project?.id]);
+
 
   const getPreviewSplit = (percentage: any) => {
     if (!distributeAmount || isNaN(distributeAmount)) return 0;
@@ -57,9 +64,20 @@ const DistributeRevenuePanel: React.FC<DistributeRevenuePanelProps> = ({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 relative z-10 gap-3">
         <div>
           <h2 className="text-base font-black text-white uppercase tracking-tighter">Distribute Revenue</h2>
-          <p className="text-[10px] font-bold text-gray-500 mt-0.5 uppercase tracking-widest">
-            {isDemoMode ? 'Simulated Blockchain Settlement' : 'On-Chain Settlement'}
-          </p>
+          <div className="flex gap-2 mt-1">
+             <button 
+               onClick={() => setIsBatchMode(false)}
+               className={`text-[9px] font-black px-2 py-0.5 rounded border tracking-widest uppercase transition-all ${!isBatchMode ? 'bg-indigo-500 text-white border-indigo-500' : 'bg-transparent text-gray-500 border-white/10 hover:border-white/20'}`}
+             >
+               Single
+             </button>
+             <button 
+               onClick={() => setIsBatchMode(true)}
+               className={`text-[9px] font-black px-2 py-0.5 rounded border tracking-widest uppercase transition-all ${isBatchMode ? 'bg-indigo-500 text-white border-indigo-500' : 'bg-transparent text-gray-500 border-white/10 hover:border-white/20'}`}
+             >
+               Batch (v2)
+             </button>
+          </div>
         </div>
 
         {isConnected ? (
@@ -79,13 +97,29 @@ const DistributeRevenuePanel: React.FC<DistributeRevenuePanelProps> = ({
         )}
       </div>
 
-      {/* Demo Mode indicator */}
-      {isDemoMode && isConnected && (
-        <div className="mb-4 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2 relative z-10">
-          <span className="text-sm">🟢</span>
-          <span className="text-[11px] font-bold text-emerald-400">
-            Ready — Enter ETH amount below and click Distribute to process a transaction
-          </span>
+      {/* Batch Selector */}
+      {isBatchMode && (
+        <div className="mb-6 p-4 rounded-xl bg-white/5 border border-white/10 relative z-10">
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Select Projects to Batch</label>
+          <div className="space-y-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
+            {projectsList.map(p => (
+              <label key={p.id} className="flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-white/10 transition-all cursor-pointer border border-transparent hover:border-white/10">
+                <div className="flex items-center gap-3">
+                  <input 
+                    type="checkbox" 
+                    checked={selectedProjectIds.includes(p.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) setSelectedProjectIds([...selectedProjectIds, p.id]);
+                      else setSelectedProjectIds(selectedProjectIds.filter(id => id !== p.id));
+                    }}
+                    className="w-4 h-4 rounded accent-indigo-500"
+                  />
+                  <span className="text-sm text-white font-medium">{p.name}</span>
+                </div>
+                {p.id === project?.id && <span className="text-[9px] font-black text-indigo-400 uppercase">Current</span>}
+              </label>
+            ))}
+          </div>
         </div>
       )}
 

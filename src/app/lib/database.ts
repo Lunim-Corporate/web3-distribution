@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import type { ProjectUpdate, ContributorUpdate, CreativeRightUpdate, MilestoneUpdate } from './types';
+import { sendRevenueNotification } from './notifications';
 
 // Projects
 export async function getProjects() {
@@ -136,10 +137,20 @@ export async function recordPayment(data: {
   if (contributors) {
     for (const contributor of contributors) {
       const shareAmount = Math.round((contributor.revenue_share / 100) * amountCents);
+      const shareUSD = shareAmount / 100;
+      
       await supabase
         .from('project_contributors')
         .update({ total_earned: (contributor.total_earned || 0) + shareAmount })
         .eq('id', contributor.id);
+      
+      // DISPATCH NOTIFICATION (Async)
+      sendRevenueNotification(
+        contributor.user_id, 
+        data.project_id, 
+        shareUSD, 
+        project?.name || 'Project'
+      ).catch(err => console.error('Notification dispatch failed:', err));
     }
   }
 

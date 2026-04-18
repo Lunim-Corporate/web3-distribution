@@ -4,7 +4,7 @@
 
 ### Wallet & Tooling (WAL)
 - [x] **WAL-01**: Support multi-wallet login (WalletConnect) beyond MetaMask.
-- [ ] **WAL-02**: Implement transaction batching for lower gas fees when distributing.
+- [x] **WAL-02**: Implement transaction batching for lower gas fees when distributing.
 - [x] **WAL-03**: Integrate ENS resolution so hex addresses display as `name.eth`.
 
 ### Admin Module Pro (ADM)
@@ -14,7 +14,7 @@
 
 ### Creator Module Automation (CRE)
 - [x] **CRE-05**: Auto-generate downloadable CSV tax/revenue reports.
-- [ ] **CRE-06**: Dispatch automated email or push notifications on revenue deposit.
+- [x] **CRE-06**: Dispatch automated email or push notifications on revenue deposit.
 - [x] **CRE-07**: Interactive historic value tracking charts for payout timelines.
 
 ### Dashboard Refinement (UIX)
