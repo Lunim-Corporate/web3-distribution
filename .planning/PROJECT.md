@@ -22,32 +22,23 @@ Automated, secure, and transparent revenue distribution that ensures creators ar
 - ✓ **Mutable Splitting (0xSplits)**: Integration of 0xSplits protocol to handle dynamic revenue share updates securely (v1.0 MVP).
 - ✓ **Creator Module**: Read-only, high-transparency view for individual creators to audit their historic and pending payouts (v1.0 MVP).
 - ✓ **Production Hardening**: Comprehensive audit for security errors, performance optimization, and UI polish to meet "production-grade" standards (v1.0 MVP).
-- ✓ **Dashboard Sync**: Unified context provider mapping state gracefully across global isolated tabs (v1.0 MVP).
+- ✓ **Wallet & Tooling**: WalletConnect v2, ENS resolving, and gas-efficient distribution batching (v2.0).
+- ✓ **Advanced Admin Suite**: Bulk CSV roster imports and high-fidelity revenue trend analytics (v2.0).
+- ✓ **Creator Automations**: Auto-generated tax reports and automated distribution notifications (v2.0).
+- ✓ **Global UX Polish**: User-locked state persistence and "Soft Indigo" theme switching (v2.0).
 
-## Current Milestone: v2.0 Platform Maturation & Advanced Tooling
-
-**Goal:** Evolve the MVP integrations into robust, production-ready enterprise tools with enhanced functionality for both Admins and Creators.
-
-**Target features:**
-- Advanced Wallet/Web3 Tooling (WalletConnect, transaction batching, ENS)
-- Admin Module Pro (Multi-sig integrations, bulk CSV imports, visual analytics)
-- Creator Module Automation (Exportable tax reports, push notifications)
-- Dashboard Enhancements (Persistent state hydration, light/dark modes)
+## Current Milestone: v3.0 [Planning Phase]
+*(Run `/gsd-new-milestone` to define Milestone v3.0 Goals)*
 
 ### Active
-- [ ] WalletConnect Support
-- [ ] Rich Analytics & CSV Export
-- [ ] Automated push/email notifications
-- [ ] Multi-sig configurations for admin splits
+- [ ] *Defining v3.0 focus areas...*
 
 ### Out of Scope
-
 - [Manual Fiat Payouts] — Rationale: System is designed for trustless Web3 native routing only.
 - [Social Networking Features] — Rationale: Focus is strictly on financial tracking and rights management.
 
 ## Context
-
-v1.0 Production 0xSplits Integration shipped successfully with 5 verified phases. All 14 original requirements met, unifying the dashboard with the new global `ProjectContext` and integrating 0xSplits testnet integration.
+**v2.0 Platform Maturation SHIPPED (2026-04-18)**: Successfully evolved the MVP into a production-hardened platform with advanced analytics, multi-wallet support, and immersive UX polish. Milestone v1.0 (Core Integration) remains the bedrock of the protocol logic.
 
 ## Constraints
 
@@ -82,4 +73,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-17 after initialization*
+*Last updated: 2026-04-18 after Milestone v2.0 Archival*
