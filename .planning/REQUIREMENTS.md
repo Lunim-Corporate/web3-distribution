@@ -3,9 +3,9 @@
 ## v2.0 Requirements
 
 ### Wallet & Tooling (WAL)
-- [ ] **WAL-01**: Support multi-wallet login (WalletConnect) beyond MetaMask.
+- [x] **WAL-01**: Support multi-wallet login (WalletConnect) beyond MetaMask.
 - [ ] **WAL-02**: Implement transaction batching for lower gas fees when distributing.
-- [ ] **WAL-03**: Integrate ENS resolution so hex addresses display as `name.eth`.
+- [x] **WAL-03**: Integrate ENS resolution so hex addresses display as `name.eth`.
 
 ### Admin Module Pro (ADM)
 - [ ] **ADM-05**: Bulk roster imports via CSV template (add multiple creators).
