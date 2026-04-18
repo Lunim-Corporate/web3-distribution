@@ -8,9 +8,9 @@
 - [x] **WAL-03**: Integrate ENS resolution so hex addresses display as `name.eth`.
 
 ### Admin Module Pro (ADM)
-- [ ] **ADM-05**: Bulk roster imports via CSV template (add multiple creators).
+- [x] **ADM-05**: Bulk roster imports via CSV template (add multiple creators).
 - [ ] **ADM-06**: Rich visual analytics interface displaying revenue influx over time.
-- [ ] **ADM-07**: Define multi-sig requirements for any Split Controller percentage adjusters.
+- [x] **ADM-07**: Define multi-sig requirements for any Split Controller percentage adjusters.
 
 ### Creator Module Automation (CRE)
 - [ ] **CRE-05**: Auto-generate downloadable CSV tax/revenue reports.
