@@ -45,7 +45,7 @@ export async function GET(request: Request) {
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(24);
-    doc.text('MOONSTONE', 20, 25);
+    doc.text('LUNIM', 20, 25);
     doc.setFontSize(10);
     doc.text('CREATIVE RIGHTS PLATFORM — PLATFORM REPORT', 20, 32);
 
@@ -88,7 +88,7 @@ export async function GET(request: Request) {
       doc.setFontSize(8);
       doc.setTextColor(150);
       doc.text(`Page ${i} of ${pageCount}`, 190, 287, { align: 'right' });
-      doc.text('Moonstone Creative Hub - Confidential', 20, 287);
+      doc.text('LUNIM Creative Hub - Confidential', 20, 287);
     }
 
     // BINARY OUTPUT
@@ -100,7 +100,7 @@ export async function GET(request: Request) {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="moonstone_${filenameSuffix}_${new Date().toISOString().slice(0, 10)}.pdf"`,
+        'Content-Disposition': `attachment; filename="lunim_${filenameSuffix}_${new Date().toISOString().slice(0, 10)}.pdf"`,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache'
       }

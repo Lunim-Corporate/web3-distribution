@@ -4,7 +4,7 @@ import { requireAdmin } from '@/lib/apiSecurity';
 
 export async function POST(request: Request) {
   try {
-    requireAdmin();
+    await requireAdmin();
     const body = await request.json();
     const amountCents =
       typeof body.amount_cents === 'number'
@@ -63,8 +63,9 @@ export async function POST(request: Request) {
     // 4. Log Activity Trace (Powers the Dashboard Feed)
     await supabaseAdmin.from('activities').insert([{
       project_id: body.project_id,
-      activity_type: 'payment_recorded',
+      action: 'payment_recorded',
       description: `Revenue Influx: Web3 payment of $${(amountCents/100).toLocaleString()} confirmed for ${project?.name || 'Project'}.`,
+      timestamp: new Date().toISOString(),
     }]);
 
     // 5. Progress Milestones (Powers the Right Sidebar)

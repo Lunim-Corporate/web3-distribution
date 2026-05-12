@@ -26,12 +26,14 @@ Automated, secure, and transparent revenue distribution that ensures creators ar
 - ✓ **Advanced Admin Suite**: Bulk CSV roster imports and high-fidelity revenue trend analytics (v2.0).
 - ✓ **Creator Automations**: Auto-generated tax reports and automated distribution notifications (v2.0).
 - ✓ **Global UX Polish**: User-locked state persistence and "Soft Indigo" theme switching (v2.0).
+- ✓ **Phase 3.1: Foundation & Demo Localization**: Moved demo trigger to Navbar; fixed flickering and state sync issues (v3.0).
+- ✓ **Phase 3.2: Revenue Logic & Hardening**: Hardened automated distribution logic and centralized project constants (v3.0).
 
-## Current Milestone: v3.0 [Planning Phase]
-*(Run `/gsd-new-milestone` to define Milestone v3.0 Goals)*
+## Current Milestone: v3.0 [Production Stability & Demo Refinement]
 
 ### Active
-- [ ] *Defining v3.0 focus areas...*
+- [ ] **Production Polish & Verification**: Refine split visualization and perform final E2E system audit.
+- [ ] **Final Security Sweep**: Verify all contract interactions and DB constraints for production readiness.
 
 ### Out of Scope
 - [Manual Fiat Payouts] — Rationale: System is designed for trustless Web3 native routing only.

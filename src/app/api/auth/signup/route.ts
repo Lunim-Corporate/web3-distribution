@@ -50,14 +50,13 @@ export async function POST(request: Request) {
 
     const userId = authData.user.id;
 
-    // Step 2: Create user record in public.users table
+    // Step 2: Create user record in public.users_profile table
     const { error: userError } = await supabaseAdmin
-      .from('users')
+      .from('users_profile')
       .insert({
         id: userId,
-        email,
-        name,
-        role: role || 'contributor',
+        display_name: name,
+        role: (role || 'RIGHTS_HOLDER').toUpperCase(),
       })
       .select()
       .single();

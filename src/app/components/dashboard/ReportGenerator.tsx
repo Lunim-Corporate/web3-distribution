@@ -6,13 +6,15 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { formatCurrency, formatDate, formatPercentage } from '@/lib/utils';
 import type { RevenueReport } from '@/lib/types';
+import { ETH_PRICE_USD } from '@/app/lib/constants';
 import toast from 'react-hot-toast';
 
 interface ReportGeneratorProps {
-  walletAddress?: string;
+  isDemoMode?: boolean;
+  activeProjectId?: string | null;
 }
 
-export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress }) => {
+export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ isDemoMode, activeProjectId }) => {
   const [startDate, setStartDate] = useState<string>(
     new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0]
   );
@@ -20,6 +22,13 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
   const [report, setReport] = useState<RevenueReport | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [exportFormat, setExportFormat] = useState<'json' | 'csv'>('csv');
+  const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
+  const toggleProject = (id: string) => setExpandedProjects(prev => ({ ...prev, [id]: !prev[id] }));
+
+  // Reset report when demo mode or project selection changes
+  React.useEffect(() => {
+    setReport(null);
+  }, [isDemoMode, activeProjectId]);
 
   const handleGenerateReport = async () => {
     if (!startDate || !endDate) {
@@ -29,14 +38,10 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
 
     setIsLoading(true);
     try {
-      const url = new URL('/api/reports', window.location.origin);
-      url.searchParams.set('startDate', startDate);
-      url.searchParams.set('endDate', endDate);
-      if (walletAddress) {
-        url.searchParams.set('address', walletAddress);
-      }
-
-      const response = await fetch(url.toString());
+      const isDemoMode = localStorage.getItem('demo_mode') === 'true';
+      const response = await fetch(
+        `/api/reports?startDate=${startDate}&endDate=${endDate}&demo=${isDemoMode}${activeProjectId && activeProjectId !== 'all' ? `&projectId=${activeProjectId}` : ''}`
+      );
       if (!response.ok) throw new Error('Failed to generate report');
       const { data } = await response.json();
       setReport(data);
@@ -61,9 +66,9 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
         body: JSON.stringify({
           startDate,
           endDate,
-          projectId: report.reportPeriod.startDate === startDate ? undefined : undefined, // Keep existing interface
-          address: walletAddress,
           format: exportFormat,
+          demo: localStorage.getItem('demo_mode') === 'true',
+          projectId: activeProjectId && activeProjectId !== 'all' ? activeProjectId : undefined
         }),
       });
 
@@ -136,23 +141,17 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
             <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Report Summary
             </h4>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="p-4 bg-blue-50 dark:bg-gray-800 rounded-lg">
                 <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">Total Revenue</p>
                 <p className="text-lg font-bold text-blue-600 dark:text-blue-400 mt-1">
-                  {formatCurrency(report.totalRevenue)}
+                  {formatCurrency(report.totalRevenue * ETH_PRICE_USD)}
                 </p>
               </div>
               <div className="p-4 bg-green-50 dark:bg-gray-800 rounded-lg">
                 <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">Total Paid</p>
                 <p className="text-lg font-bold text-green-600 dark:text-green-400 mt-1">
-                  {formatCurrency(report.totalPaid)}
-                </p>
-              </div>
-              <div className="p-4 bg-yellow-50 dark:bg-gray-800 rounded-lg">
-                <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">Pending</p>
-                <p className="text-lg font-bold text-yellow-600 dark:text-yellow-400 mt-1">
-                  {formatCurrency(report.totalPending)}
+                  {formatCurrency(report.totalPaid * ETH_PRICE_USD)}
                 </p>
               </div>
               <div className="p-4 bg-purple-50 dark:bg-gray-800 rounded-lg">
@@ -164,7 +163,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
               <div className="p-4 bg-indigo-50 dark:bg-gray-800 rounded-lg">
                 <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">Avg Payment</p>
                 <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400 mt-1">
-                  {formatCurrency(report.averagePaymentAmount)}
+                  {formatCurrency(report.averagePaymentAmount * ETH_PRICE_USD)}
                 </p>
               </div>
             </div>
@@ -195,7 +194,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-gray-900 dark:text-white">
-                        {formatCurrency(source.amount)}
+                        {formatCurrency(source.amount * ETH_PRICE_USD)}
                       </p>
                       <p className="text-xs text-gray-500">
                         {formatPercentage(source.percentage)} · {source.paymentCount} payments
@@ -223,36 +222,69 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
                       <th className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">
                         Total
                       </th>
-                      <th className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">
-                        Paid
-                      </th>
-                      <th className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">
-                        Pending
-                      </th>
                       <th className="px-4 py-3 text-center font-semibold text-gray-900 dark:text-white">
                         Contributors
                       </th>
+                      <th className="px-4 py-3 text-center font-semibold text-gray-900 dark:text-white">
+                        Share (%)
+                      </th>
+                      <th className="px-4 py-3 w-10"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {report.projects.map((project, idx) => (
-                      <tr key={idx} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <td className="px-4 py-3 text-gray-900 dark:text-white font-medium">
-                          {project.projectName}
-                        </td>
-                        <td className="px-4 py-3 text-right text-gray-900 dark:text-white">
-                          {formatCurrency(project.totalRevenue)}
-                        </td>
-                        <td className="px-4 py-3 text-right text-green-600 dark:text-green-400">
-                          {formatCurrency(project.paidRevenue)}
-                        </td>
-                        <td className="px-4 py-3 text-right text-yellow-600 dark:text-yellow-400">
-                          {formatCurrency(project.pendingRevenue)}
-                        </td>
-                        <td className="px-4 py-3 text-center text-gray-900 dark:text-white">
-                          {project.contributorCount}
-                        </td>
-                      </tr>
+                      <React.Fragment key={idx}>
+                        <tr className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                          <td className="px-4 py-3 text-gray-900 dark:text-white font-medium">
+                            {project.projectName}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-900 dark:text-white font-mono">
+                            {formatCurrency(project.totalRevenue * ETH_PRICE_USD)}
+                          </td>
+                          <td className="px-4 py-3 text-center text-gray-900 dark:text-white">
+                            {project.contributorCount}
+                          </td>
+                          <td className="px-4 py-3 text-center text-gray-900 dark:text-white font-mono">
+                            {formatPercentage(project.sharePercentage)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => toggleProject(project.projectId)}
+                              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-500"
+                            >
+                              <svg
+                                className={`w-5 h-5 transition-transform ${expandedProjects[project.projectId] ? 'rotate-180' : ''}`}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
+                          </td>
+                        </tr>
+                        {expandedProjects[project.projectId] && project.splits && (
+                          <tr className="bg-gray-50/50 dark:bg-gray-900/30">
+                            <td colSpan={5} className="px-8 py-4">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {project.splits.map((split: any, sIdx: number) => (
+                                  <div key={sIdx} className="flex items-center justify-between p-3 bg-white/50 dark:bg-black/20 rounded-xl border border-gray-100 dark:border-white/5">
+                                    <div className="flex flex-col">
+                                      <span className="text-sm font-medium text-gray-900 dark:text-white">{split.name}</span>
+                                      <span className="text-xs text-gray-500">{split.percentage}% Share</span>
+                                    </div>
+                                    <div className="text-right">
+                                      <span className="text-sm font-bold text-green-600 dark:text-green-400">
+                                        {formatCurrency(split.amount * ETH_PRICE_USD)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>

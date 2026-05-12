@@ -1,113 +1,170 @@
 'use client';
 
-import { ethers } from 'ethers';
-
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (params: { method: string; params?: unknown[] }) => Promise<unknown>;
-      on?: (event: string, callback: (...args: unknown[]) => void) => void;
-      removeListener?: (event: string, callback: (...args: unknown[]) => void) => void;
-    };
-  }
-}
+import React, { useState, useEffect } from 'react';
+import { useWallets } from '@privy-io/react-auth';
+import { createPublicClient, http, custom, encodeFunctionData, parseEther, formatEther } from 'viem';
+import { baseSepolia } from 'viem/chains';
+import { createSmartAccountClient } from 'permissionless';
+import { toSafeSmartAccount } from 'permissionless/accounts';
 
 type Address = `0x${string}`;
 
-const REVENUE_SPLITTER_ADDRESS = process.env.NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS as
-  | Address
-  | undefined;
+const REVENUE_SPLITTER_ADDRESS = process.env.NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS as Address;
+const ALCHEMY_RPC = process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC || 'https://sepolia.base.org';
+const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL || ALCHEMY_RPC;
+const BUNDLER_URL = process.env.NEXT_PUBLIC_BUNDLER_URL || ALCHEMY_RPC;
 
-const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL as string | undefined;
+// Safe specific addresses for Base Sepolia (Entrypoint v0.6)
+const SAFE_4337_MODULE_ADDRESS = '0x39E9269c98CAF0ca8675071f105b31057022f462';
+const SAFE_FACTORY_ADDRESS = '0x4e1C6295da940866A45F924e38e65fB84F0E01a6';
 
-function requireContractAddress(): Address {
-  if (!REVENUE_SPLITTER_ADDRESS) {
-    throw new Error('Missing NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS');
+const ABI = [
+  {
+    type: 'function',
+    name: 'distributeRevenue',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'payable'
+  },
+  {
+    type: 'function',
+    name: 'getContractBalance',
+    inputs: [],
+    outputs: [{ type: 'uint256', name: '' }],
+    stateMutability: 'view'
   }
-  return REVENUE_SPLITTER_ADDRESS;
-}
+];
 
-function getFallbackAbi(): string[] {
-  // Fallback ABI that supports common “release payments” patterns.
-  // If your deployed contract uses different method names/signatures,
-  // set NEXT_PUBLIC_REVENUE_SPLITTER_ABI_JSON accordingly.
-  return ['function releasePayments() external', 'event PaymentReleased(address indexed payee, uint256 amount)'];
-}
+export function useRevenueSplitter() {
+  const { wallets } = useWallets();
+  
+  const [smartAccountAddress, setSmartAccountAddress] = useState<Address | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
 
-function getContractAbi(): ethers.InterfaceAbi {
-  const raw = process.env.NEXT_PUBLIC_REVENUE_SPLITTER_ABI_JSON;
-  if (!raw) return getFallbackAbi();
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (Array.isArray(parsed)) return parsed as ethers.InterfaceAbi;
-  } catch {
-    // ignore and fallback
-  }
-  return getFallbackAbi();
-}
+  useEffect(() => {
+    async function initSmartAccount() {
+      const embeddedWallet = wallets.find((w) => w.walletClientType === 'privy');
+      if (!embeddedWallet || !REVENUE_SPLITTER_ADDRESS) {
+        setSmartAccountAddress(null);
+        return;
+      }
 
-function getWindowEthereum(): NonNullable<Window['ethereum']> {
-  if (typeof window === 'undefined' || !window.ethereum) {
-    throw new Error('MetaMask not detected (window.ethereum is missing).');
-  }
-  return window.ethereum;
-}
+      setIsInitializing(true);
+      try {
+        const provider = await embeddedWallet.getEthereumProvider();
+        const publicClient = createPublicClient({
+          chain: baseSepolia,
+          transport: http(ALCHEMY_RPC),
+        });
 
-function getReadOnlyProvider(): ethers.Provider {
-  const address = requireContractAddress();
-  void address;
+        const smartAccount = await toSafeSmartAccount(publicClient, {
+          signer: custom(provider),
+          safeVersion: '1.4.1',
+          entryPoint: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789', // v0.6
+        });
+        setSmartAccountAddress(smartAccount.address);
+      } catch (err) {
+        console.error('Failed to init smart account:', err);
+        setSmartAccountAddress(null);
+      } finally {
+        setIsInitializing(false);
+      }
+    }
+    initSmartAccount();
+  }, [wallets]);
 
-  if (typeof window !== 'undefined' && window.ethereum) {
-    return new ethers.BrowserProvider(getWindowEthereum());
-  }
-  if (!RPC_URL) {
-    throw new Error('Missing NEXT_PUBLIC_RPC_URL for read-only contract calls.');
-  }
-  return new ethers.JsonRpcProvider(RPC_URL);
-}
+  const getContractBalanceEth = async (): Promise<string> => {
+    if (!REVENUE_SPLITTER_ADDRESS) throw new Error('Missing contract address');
+    
+    const publicClient = createPublicClient({
+      chain: baseSepolia,
+      transport: http(ALCHEMY_RPC),
+    });
+    
+    const balance = await publicClient.getBalance({ address: REVENUE_SPLITTER_ADDRESS });
+    return formatEther(balance);
+  };
 
-export class RevenueSplitterService {
-  private readonly contractAddress: Address;
-  private readonly abi: ethers.InterfaceAbi;
+  const distributeRevenue = async (amountEth: string): Promise<string> => {
+    if (!REVENUE_SPLITTER_ADDRESS) throw new Error('Missing contract address');
+    
+    const embeddedWallet = wallets.find((w) => w.walletClientType === 'privy');
+    if (!embeddedWallet) {
+      throw new Error('No Privy embedded wallet found. Please connect your embedded wallet.');
+    }
 
-  constructor(contractAddress: Address, abi: ethers.InterfaceAbi) {
-    this.contractAddress = contractAddress;
-    this.abi = abi;
-  }
-
-  static create(): RevenueSplitterService {
-    return new RevenueSplitterService(requireContractAddress(), getContractAbi());
-  }
-
-  async getContractBalanceEth(): Promise<string> {
-    const provider = getReadOnlyProvider();
-    const balanceWei = await provider.getBalance(this.contractAddress);
-    return ethers.formatEther(balanceWei);
-  }
-
-  async sendETHToContract(amountEth: string): Promise<string> {
-    const ethereum = getWindowEthereum();
-    const provider = new ethers.BrowserProvider(ethereum);
-    const signer = await provider.getSigner();
-
-    const valueWei = ethers.parseEther(amountEth);
-    const tx = await signer.sendTransaction({
-      to: this.contractAddress,
-      value: valueWei,
+    const provider = await embeddedWallet.getEthereumProvider();
+    
+    const publicClient = createPublicClient({
+      chain: baseSepolia,
+      transport: http(ALCHEMY_RPC),
     });
 
-    return tx.hash;
-  }
+    const smartAccount = await toSafeSmartAccount(publicClient, {
+      signer: custom(provider),
+      safeVersion: '1.4.1',
+      entryPoint: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+    });
 
-  async releasePayments(): Promise<string> {
-    const ethereum = getWindowEthereum();
-    const provider = new ethers.BrowserProvider(ethereum);
-    const signer = await provider.getSigner();
+    const smartAccountClient = createSmartAccountClient({
+      account: smartAccount,
+      chain: baseSepolia,
+      bundlerTransport: http(BUNDLER_URL),
+      middleware: {
+        sponsorUserOperation: async ({ userOperation }) => {
+          const response = await fetch(PAYMASTER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              id: 1,
+              method: 'alchemy_requestGasAndPaymasterAndData',
+              params: [
+                {
+                  ...userOperation,
+                  nonce: `0x${BigInt(userOperation.nonce || 0).toString(16)}`,
+                  sender: smartAccount.address,
+                  callData: userOperation.callData,
+                },
+                { policyId: process.env.NEXT_PUBLIC_ALCHEMY_GAS_POLICY_ID },
+              ],
+            }),
+          });
+          const result = await response.json();
+          if (result.error) throw new Error(result.error.message);
+          return {
+            paymasterAndData: result.result.paymasterAndData,
+            preVerificationGas: result.result.preVerificationGas,
+            verificationGasLimit: result.result.verificationGasLimit,
+            callGasLimit: result.result.callGasLimit,
+          };
+        },
+      },
+    });
 
-    const contract = new ethers.Contract(this.contractAddress, this.abi, signer);
-    const tx = await contract.releasePayments();
-    return tx.hash;
-  }
+    const valueWei = parseEther(amountEth);
+    const callData = encodeFunctionData({
+      abi: ABI,
+      functionName: 'distributeRevenue',
+    });
+
+    // Send the UserOperation
+    const txHash = await smartAccountClient.sendTransaction({
+      to: REVENUE_SPLITTER_ADDRESS,
+      value: valueWei,
+      data: callData,
+    });
+
+    // Wait for the transaction to be mined
+    await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+    return txHash;
+  };
+
+  return {
+    smartAccountAddress,
+    isInitializing,
+    getContractBalanceEth,
+    distributeRevenue,
+  };
 }
-
-

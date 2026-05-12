@@ -1,7 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { usePrivy } from '@privy-io/react-auth';
 
 export type Role = 'admin' | 'creator' | 'contributor' | 'viewer';
 
@@ -32,11 +33,11 @@ type AuthContextType = {
   listUsers: () => Promise<User[]>;
   setUserRole: (userId: string, role: Role) => Promise<void>;
   inviteUser: (email: string, name: string, role: Role) => Promise<void>;
-  connectUserWallet: (walletAddress: string) => Promise<void>;
+  connectUserWallet: (walletAddress: string, walletType?: 'metamask' | 'local') => Promise<void>;
   disconnectUserWallet: () => Promise<void>;
-  pending2FA: { email: string; sessionId: string } | null;
-  verify2FA: (code: string) => Promise<void>;
   cancel2FA: () => void;
+  exportWallet: () => Promise<void>;
+  linkWallet: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -50,23 +51,21 @@ const SETTINGS_LS_KEY = 'crt_settings';
  */
 async function fetchPublicProfile(authUserId: string, authUser: { email?: string; user_metadata?: Record<string, unknown> }): Promise<User> {
   const { data: dbUser } = await supabase
-    .from('users')
-    .select('id, email, name, role, wallet_address, wallet_connected, wallet_connected_at')
+    .from('users_profile')
+    .select('id, role, display_name')
     .eq('id', authUserId)
     .maybeSingle();
 
   const meta = (authUser?.user_metadata ?? {}) as Record<string, unknown>;
-  const role = (dbUser?.role as Role | undefined) ?? (meta.role as Role | undefined) ?? 'creator';
+  const rawRole = (dbUser?.role as string | undefined) ?? (meta.role as string | undefined) ?? 'RIGHTS_HOLDER';
+  const role = rawRole.toLowerCase() as Role;
 
   return {
     id: authUserId,
-    email: dbUser?.email || authUser.email || '',
-    name: dbUser?.name || (meta.name as string) || '',
+    email: authUser.email || '',
+    name: dbUser?.display_name || (meta.name as string) || '',
     isAdmin: role === 'admin',
     role,
-    wallet_address: dbUser?.wallet_address || null,
-    wallet_connected: !!dbUser?.wallet_connected,
-    wallet_connected_at: dbUser?.wallet_connected_at || null,
   };
 }
 
@@ -92,58 +91,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch { /* ignore */ }
   }
 
+  const { user: privyUser, ready: privyReady, login: privyLogin, logout: privyLogout, getAccessToken, exportWallet: privyExportWallet, linkWallet: privyLinkWallet } = usePrivy();
+
   useEffect(() => {
     // Load settings from localStorage
     const raw = localStorage.getItem(SETTINGS_LS_KEY);
     if (raw) {
       try { setSettings(JSON.parse(raw) as Settings); } catch { /* ignore */ }
     }
+  }, []);
 
-    // Subscribe to auth state changes
-    // Supabase fires INITIAL_SESSION first, then SIGNED_IN on explicit login.
-    // We handle any event that has a session to hydrate the user.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log(`[AUTH] ${event}`, session?.user?.id ?? 'no-user');
-
-      if (!session?.user) {
-        // Signed out or no session
+  useEffect(() => {
+    async function syncPrivyUser() {
+      if (!privyReady) return;
+      
+      if (!privyUser) {
         clearCookie();
         setUser(null);
         setIsAuthHydrated(true);
         return;
       }
 
-      // We have a session — hydrate the user profile
-      fetchPublicProfile(session.user.id, session.user).then(profile => {
+      try {
+        const token = await getAccessToken();
+        const res = await fetch('/api/auth/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ privyUser })
+        });
+        
+        if (!res.ok) throw new Error('Sync failed');
+        
+        const { user: supabaseProfile } = await res.json();
+        
+        const profile: User = {
+          id: supabaseProfile.id,
+          email: privyUser.email?.address || '',
+          name: supabaseProfile.display_name || privyUser.email?.address?.split('@')[0] || '',
+          isAdmin: supabaseProfile.role === 'ADMIN',
+          role: supabaseProfile.role?.toLowerCase() as Role || 'creator',
+        };
+
         setUser(profile);
         setCookie(profile);
-        console.log('[AUTH] Profile loaded:', profile.email);
         setIsAuthHydrated(true);
-      }).catch(err => {
-        console.error('[AUTH] Profile fetch failed:', err);
-        // Still set a minimal user from the session so the app doesn't hang
-        setUser({
-          id: session.user.id,
-          email: session.user.email ?? '',
+      } catch (err) {
+        console.error('[AUTH] Privy Sync failed:', err);
+        // Fallback user state
+        const profile: User = {
+          id: privyUser.id.replace('did:privy:', ''), // fallback ID
+          email: privyUser.email?.address || '',
           role: 'creator',
-        });
+        };
+        setUser(profile);
         setIsAuthHydrated(true);
-      });
-    });
+      }
+    }
+    
+    syncPrivyUser();
+  }, [privyUser, privyReady, getAccessToken]);
 
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []); // Empty array — only runs once on mount
-
-  async function login(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    // onAuthStateChange fires SIGNED_IN → sets user + isAuthHydrated
+  async function login(email?: string, password?: string) {
+    privyLogin();
   }
 
   async function logout() {
-    await supabase.auth.signOut();
+    await privyLogout();
+    await supabase.auth.signOut(); // Clean up any lingering supabase session
     clearCookie();
     setUser(null);
     setIsAuthHydrated(true);
@@ -169,23 +183,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function listUsers(): Promise<User[]> {
-    const { data, error } = await supabase.from('users').select('*');
-    if (error) throw error;
-    return (data || []).map((u) => ({
+    const res = await fetch('/api/users');
+    if (!res.ok) throw new Error('Failed to fetch users');
+    const data = await res.json();
+    return (data || []).map((u: any) => ({
       id: u.id,
-      email: u.email,
-      name: u.name,
-      role: u.role,
-      isAdmin: u.role === 'admin',
-      wallet_address: u.wallet_address,
-      wallet_connected: !!u.wallet_connected,
-      wallet_connected_at: u.wallet_connected_at,
+      email: '', // Email not in public profile
+      name: u.display_name,
+      role: u.role?.toLowerCase() as Role,
+      isAdmin: u.role?.toUpperCase() === 'ADMIN',
     }));
   }
 
   async function setUserRole(userId: string, role: Role) {
-    const { error } = await supabase.from('users').update({ role }).eq('id', userId);
-    if (error) throw error;
+    const res = await fetch('/api/users', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, role })
+    });
+    if (!res.ok) throw new Error('Failed to update role');
   }
 
   async function inviteUser(email: string, name: string, role: Role) {
@@ -197,36 +213,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!response.ok) throw new Error((await response.json()).error || 'Invite failed');
   }
 
-  async function connectUserWallet(walletAddress: string) {
+  async function connectUserWallet(walletAddress: string, walletType: 'metamask' | 'local' = 'local') {
     if (!user) return;
-    const update = {
-      wallet_address: walletAddress,
-      wallet_connected: true,
-      wallet_connected_at: new Date().toISOString(),
-    };
-    const { error } = await supabase.from('users').update(update).eq('id', user.id);
+    const now = new Date().toISOString();
+    // Update users_profile table with wallet info
+    const { error } = await supabase
+      .from('users_profile')
+      .update({
+        wallet_address: walletAddress,
+        wallet_type: walletType,
+        updated_at: now,
+      })
+      .eq('id', user.id);
     if (error) throw error;
-    setUser((prev) => (prev ? { ...prev, ...update } : null));
+    setUser((prev) => (prev ? { ...prev, wallet_address: walletAddress, wallet_connected: true, wallet_connected_at: now } : null));
   }
 
   async function disconnectUserWallet() {
     if (!user) return;
-    const update = { wallet_address: null, wallet_connected: false, wallet_connected_at: null };
-    const { error } = await supabase.from('users').update(update).eq('id', user.id);
+    const { error } = await supabase
+      .from('users_profile')
+      .update({ wallet_address: null, wallet_type: null, updated_at: new Date().toISOString() })
+      .eq('id', user.id);
     if (error) throw error;
-    setUser((prev) => (prev ? { ...prev, ...update } : null));
+    setUser((prev) => (prev ? { ...prev, wallet_address: null, wallet_connected: false, wallet_connected_at: null } : null));
   }
 
   async function verify2FA(code: string) {
-    if (!pending2FA) throw new Error('No 2FA in progress');
-    if (code !== '123456') throw new Error('Invalid verification code. Use: 123456');
-    if (pending2FA.password) {
-      await login(pending2FA.email, pending2FA.password);
-    }
-    setPending2FA(null);
+    throw new Error('MFA is handled by Privy securely.');
   }
 
-  function cancel2FA() { setPending2FA(null); }
+  function cancel2FA() {}
 
   const value: AuthContextType = {
     user,
@@ -241,9 +258,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     inviteUser,
     connectUserWallet,
     disconnectUserWallet,
-    pending2FA,
+    pending2FA: null,
     verify2FA,
     cancel2FA,
+    exportWallet: privyExportWallet,
+    linkWallet: privyLinkWallet,
   };
 
   return (

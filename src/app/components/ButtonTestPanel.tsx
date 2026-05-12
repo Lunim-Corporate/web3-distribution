@@ -6,11 +6,11 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/lib/auth';
-import { useWallet } from '@/lib/wallet';
+import { useRevenueSplitter } from '@/lib/web3';
 
 export const ButtonTestPanel: React.FC = () => {
   const { user } = useAuth();
-  const { isConnected, connectWallet } = useWallet();
+  const { smartAccountAddress } = useRevenueSplitter();
   const [testResults, setTestResults] = useState<Record<string, 'success' | 'error' | 'pending'>>({});
 
   const runTest = async (testName: string, testFn: () => Promise<void> | void) => {
@@ -79,14 +79,11 @@ export const ButtonTestPanel: React.FC = () => {
       }
     },
     {
-      name: 'Wallet Connection',
-      description: 'Test MetaMask wallet connection',
+      name: 'Smart Account',
+      description: 'Test Smart Account (AA) initialization',
       test: async () => {
-        if (!isConnected) {
-          await connectWallet();
-        }
-        if (typeof window !== 'undefined' && !window.ethereum) {
-          throw new Error('MetaMask not detected');
+        if (!smartAccountAddress) {
+          throw new Error('Smart account not initialized. Please login first.');
         }
       }
     },

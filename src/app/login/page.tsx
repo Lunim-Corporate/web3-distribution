@@ -6,8 +6,6 @@ import { motion } from 'framer-motion';
 
 export default function LoginPage() {
   const { login, isAuthHydrated, user } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -19,22 +17,14 @@ export default function LoginPage() {
 
   const handleLogin = async () => {
     setError('');
-    if (!email.trim() || !email.includes('@')) { setError('Please enter a valid email address.'); return; }
-    if (!password.trim()) { setError('Please enter your password.'); return; }
-
     setIsLoading(true);
     try {
-      await login(email, password);
-      window.location.href = '/dashboard';
+      await login();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Login failed. Please check your credentials.';
       setError(msg);
       setIsLoading(false);
     }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !isLoading) handleLogin();
   };
 
   return (
@@ -83,7 +73,7 @@ export default function LoginPage() {
         <div className="relative z-40 p-12">
           <div className="flex border-l-2 border-blue-500/30 pl-4 py-1">
             <div>
-              <p className="text-sm font-bold text-white tracking-widest uppercase mb-1">Moonstone Network</p>
+              <p className="text-sm font-bold text-white tracking-widest uppercase mb-1">LUNIM Network</p>
               <p className="text-xs text-blue-400 font-mono">v2.4.0 • Live Sync Active</p>
             </div>
           </div>
@@ -106,7 +96,7 @@ export default function LoginPage() {
             <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl shadow-2xl shadow-blue-500/50 mb-4">
               <span className="text-2xl text-white">💎</span>
             </div>
-            <h1 className="text-3xl font-black text-white tracking-tight">Moonstone</h1>
+            <h1 className="text-3xl font-black text-white tracking-tight">LUNIM</h1>
           </div>
 
           <div className="bg-slate-900/40 backdrop-blur-2xl border border-slate-700/50 rounded-3xl p-8 sm:p-10 shadow-[0_0_40px_rgba(0,0,0,0.5)]">
@@ -114,36 +104,6 @@ export default function LoginPage() {
             <p className="text-sm text-slate-400 mb-8">Sign in to access your platform dashboard.</p>
 
             <div className="space-y-6">
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  disabled={isLoading}
-                  placeholder="youremail@gmail.com"
-                  className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-3.5 text-white placeholder-slate-600 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all disabled:opacity-50"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  disabled={isLoading}
-                  placeholder="••••••••"
-                  className="w-full bg-slate-950/50 border border-slate-700/50 rounded-xl px-4 py-3.5 text-white placeholder-slate-600 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all disabled:opacity-50"
-                />
-              </div>
-
               {error && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold rounded-xl px-4 py-3.5">
                   {error}
@@ -153,7 +113,7 @@ export default function LoginPage() {
               <button
                 onClick={handleLogin}
                 disabled={isLoading}
-                className="w-full relative overflow-hidden group bg-slate-100 hover:bg-white text-slate-900 font-bold py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] disabled:opacity-50 disabled:cursor-not-allowed mt-4"
+                className="w-full relative overflow-hidden group bg-slate-100 hover:bg-white text-slate-900 font-bold py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-100/0 via-blue-100/30 to-blue-100/0 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
                 {isLoading ? (
@@ -166,15 +126,12 @@ export default function LoginPage() {
                   </span>
                 ) : (
                   <span className="relative z-10 flex items-center justify-center gap-2">
-                    Access Dashboard
+                    Continue with Email or Google
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                   </span>
                 )}
               </button>
             </div>
-
-
-
           </div>
 
           <p className="text-center text-[10px] text-slate-600 mt-8 font-mono tracking-wide uppercase">

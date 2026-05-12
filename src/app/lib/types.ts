@@ -176,6 +176,8 @@ export interface RevenueByProject {
   paidRevenue: number;
   pendingRevenue: number;
   contributorCount: number;
+  sharePercentage: number;
+  splits?: any[];
 }
 
 export interface TopContributor {

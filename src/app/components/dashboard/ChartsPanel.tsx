@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Line, Doughnut } from 'react-chartjs-2';
 import { formatCurrency } from '@/lib/utils';
 import { formatCurrencyFromCentsGB } from '@/lib/currency';
+import { ETH_PRICE_USD } from '@/app/lib/constants';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -20,6 +21,25 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcEleme
 
 const monthsNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+const PROJECT_COLORS: Record<string, string> = {
+  'Neon Requiem': '#ec4899', // Pink
+  'The Salt Coast': '#6366f1', // Indigo
+  'Glass Republic': '#f43f5e', // Rose
+  'Dust & Dynasty': '#a855f7', // Purple
+  'Binary Fault': '#06b6d4', // Cyan
+  'Aether Drift': '#84cc16', // Lime
+  'Solaris': '#eab308', // Yellow
+  'Night Caster': '#f97316', // Orange
+  'Deep State': '#ef4444', // Red
+  'Lunar Gate': '#3b82f6', // Blue
+};
+
+const DEFAULT_COLORS = ['#6366f1','#a855f7','#ec4899','#f43f5e','#f97316','#eab308','#84cc16','#10b981','#06b6d4','#3b82f6'];
+
+const getProjectColor = (name: string, index: number) => {
+  return PROJECT_COLORS[name] || DEFAULT_COLORS[index % DEFAULT_COLORS.length];
+};
+
 interface RevenueData {
   id: string;
   projectId: string;
@@ -31,29 +51,21 @@ interface RevenueData {
 }
 
 interface ChartsPanelProps {
-  walletAddress?: string;
+  projectId?: string | null;
+  isDemoMode?: boolean;
 }
 
-const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress }) => {
+const ChartsPanel: React.FC<ChartsPanelProps> = ({ projectId, isDemoMode }) => {
   const [revenue, setRevenue] = useState<RevenueData[]>([]);
   const [timeframe, setTimeframe] = useState<'6'|'12'|'ytd'>('6');
   const [cumulative, setCumulative] = useState(false);
 
   const fetchRevenue = React.useCallback(() => {
-    const url = new URL('/api/revenue', window.location.origin);
-    url.searchParams.set('ts', Date.now().toString());
-    if (walletAddress) {
-      url.searchParams.set('address', walletAddress);
-    }
-
-    fetch(url.toString(), { cache: 'no-store' })
+    fetch(`/api/revenue?demo=${isDemoMode}&ts=${Date.now()}`, { cache: 'no-store' })
       .then(r => r.json())
-      .then(data => { 
-        const items = data.revenue ? data.revenue : (Array.isArray(data) ? data : []);
-        setRevenue(items); 
-      })
+      .then(data => { setRevenue(Array.isArray(data) ? data : []); })
       .catch(() => { setRevenue([]); });
-  }, [walletAddress]);
+  }, [isDemoMode]);
 
   useEffect(() => {
     fetchRevenue();
@@ -62,16 +74,42 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress }) => {
   }, [fetchRevenue]);
 
   // Build month buckets by year-month key
-  const { labels, trendData, projectedData, sourceSegments } = useMemo(() => {
+  const { labels, trendData, projectedData, projectSegments } = useMemo(() => {
+    // Filter revenue by project if needed
+    const filteredRevenue = projectId && projectId !== 'all' 
+      ? revenue.filter(r => r.projectId === projectId)
+      : revenue;
+
     const monthly: Record<string, number> = {};
-    const sourceMap: Record<string, number> = {};
+    const projectMap: Record<string, number> = {};
+    const transactionsList: { label: string, value: number, id: string }[] = [];
+
     revenue.forEach((r: RevenueData) => {
       const d = new Date(r.date);
       if (isNaN(d.getTime())) return;
+      
       const key = `${d.getFullYear()}-${d.getMonth()}`;
-      monthly[key] = (monthly[key] || 0) + Number(r.amount || 0);
-      const src = r.source || 'Direct Payment';
-      sourceMap[src] = (sourceMap[src] || 0) + Number(r.amount || 0);
+      // Data in DB is ETH, convert to USD for chart consistency with Reports
+      const amountUSD = Number(r.amount || 0) * ETH_PRICE_USD;
+      
+      // Trend data uses filtered revenue
+      if (!projectId || projectId === 'all' || r.projectId === projectId) {
+        monthly[key] = (monthly[key] || 0) + amountUSD;
+      }
+
+      // Project shares always use total revenue to calculate relative share
+      const pName = r.projectName || 'Unknown Project';
+      projectMap[pName] = (projectMap[pName] || 0) + amountUSD;
+      
+      // Transaction list for internal breakdown when a project is selected
+      if (r.projectId === projectId) {
+        const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        transactionsList.push({
+          label: `Tx on ${dateStr}`,
+          value: amountUSD,
+          id: r.id
+        });
+      }
     });
 
     const now = new Date();
@@ -79,39 +117,77 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress }) => {
     const lbls: string[] = [];
     const vals: number[] = [];
     const projVals: (number | null)[] = [];
-    for (let i = monthsCount - 1; i >= -3; i--) { // Project 3 months into future
+    for (let i = monthsCount - 1; i >= -3; i--) {
       const dt = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${dt.getFullYear()}-${dt.getMonth()}`;
       lbls.push(`${monthsNames[dt.getMonth()]} '${String(dt.getFullYear()).slice(-2)}`);
       if (i >= 0) {
         vals.push(monthly[key] || 0);
-        projVals.push(i === 0 ? (monthly[key] || 0) : null); // Connect last point to projection
+        projVals.push(i === 0 ? (monthly[key] || 0) : null);
       } else {
-        vals.push(0); // Fill empty spaces for array parity
+        vals.push(0);
         const average = vals.filter(v => v > 0).reduce((a, b) => a + b, 0) / (vals.filter(v => v > 0).length || 1);
-        projVals.push(average * (1.1 ** Math.abs(i))); // Assume 10% month-over-month growth for projection
+        projVals.push(average * (1.1 ** Math.abs(i)));
       }
     }
 
-    // demo fallback when empty
     const hasRevenue = revenue && revenue.length > 0;
     const demo = [0,12000,8000,20000,4000,65000,5000,12000,25000,8000,15000,10000];
-    const trimmed = hasRevenue ? vals.slice(0, monthsCount) : demo.slice(-monthsCount);
+    
+    // Only use demo fallback if explicitly in demo mode AND no data exists
+    const shouldShowDemo = isDemoMode && (!hasRevenue || Object.keys(monthly).length === 0);
+    const trimmed = shouldShowDemo ? demo.slice(-monthsCount) : vals.slice(0, monthsCount);
     const trend = cumulative ? trimmed.reduce((acc, v, i) => { acc.push((acc[i-1]||0) + v); return acc; }, [] as number[]) : trimmed;
     
-    // BUG FIX #3: Filter null values for chart rendering - Chart.js handles nulls differently
     const displayTrend = [...trend, null, null, null];
-    const displayProjected = projVals.map(v => v === undefined ? null : v);  // Keep null for missing projections
+    const displayProjected = projVals.map(v => v === undefined ? null : v);
 
-    // top sources + other
-    const colors = ['#06b6d4','#f59e0b','#84cc16','#8b5cf6','#ef4444','#3b82f6'];
-    const sources = Object.entries(sourceMap).sort((a,b)=>b[1]-a[1]);
-    const top = sources.slice(0,5).map((s,i)=>({ label: s[0], value: s[1], color: colors[i%colors.length] }));
-    const otherTotal = sources.slice(5).reduce((s,a)=>s+a[1],0);
-    if (otherTotal > 0) top.push({ label: 'Other', value: otherTotal, color: colors[top.length%colors.length] });
+    // Build segments for Donut
+    let segments: { label: string, value: number, color: string }[] = [];
 
-    return { labels: lbls, trendData: displayTrend, projectedData: displayProjected, sourceSegments: top };
-  }, [revenue, timeframe, cumulative]);
+    if (!projectId || projectId === 'all') {
+      // Global View: Share by Project
+      const projects = Object.entries(projectMap).sort((a,b)=>b[1]-a[1]);
+      segments = projects.slice(0, 9).map((p, i) => ({
+        label: p[0],
+        value: p[1],
+        color: getProjectColor(p[0], i)
+      }));
+      const otherProj = projects.slice(9).reduce((sum, p) => sum + p[1], 0);
+      if (otherProj > 0) segments.push({ label: 'Others', value: otherProj, color: '#94a3b8' });
+    } else {
+      // Project View: Individual Transactions for THIS project
+      const activeProjectName = revenue.find(r => r.projectId === projectId)?.projectName || 'Project';
+      const baseColor = getProjectColor(activeProjectName, 0);
+      const sortedTxs = [...transactionsList].sort((a,b) => b.value - a.value);
+      
+      segments = sortedTxs.slice(0, 10).map((tx, i) => {
+        // High contrast themed palette: Start with base color, then use distinct high-contrast colors
+        const highContrastPalette = [
+          baseColor,
+          '#10b981', // Emerald
+          '#3b82f6', // Blue
+          '#f59e0b', // Amber
+          '#8b5cf6', // Violet
+          '#ef4444', // Red
+          '#06b6d4', // Cyan
+          '#f97316', // Orange
+          '#ec4899', // Pink
+          '#84cc16', // Lime
+        ];
+        return {
+          label: tx.label,
+          value: tx.value,
+          color: highContrastPalette[i % highContrastPalette.length]
+        };
+      });
+
+      const otherTxs = sortedTxs.slice(10).reduce((sum, tx) => sum + tx.value, 0);
+      if (otherTxs > 0) segments.push({ label: 'Other Txs', value: otherTxs, color: `${baseColor}40` });
+    }
+
+    return { labels: lbls, trendData: displayTrend, projectedData: displayProjected, projectSegments: segments };
+  }, [revenue, timeframe, cumulative, projectId, isDemoMode]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -219,19 +295,30 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress }) => {
       <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-fuchsia-500/5 pointer-events-none" />
         <div className="mb-6 relative z-10">
-          <h2 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-fuchsia-400">Revenue by Source</h2>
+          <h2 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-fuchsia-400">
+            {(!projectId || projectId === 'all') ? 'Revenue Share by Project' : 'Transaction Distribution'}
+          </h2>
         </div>
-        <div className="relative z-10 flex items-center justify-center h-[280px]">
-          <div className="w-full max-w-[280px]">
+        <div className="relative z-10 flex flex-col md:flex-row items-center justify-center h-[350px] gap-8">
+          <div className="w-full max-w-[350px] flex-shrink-0">
             <Doughnut
               data={{
-                labels: sourceSegments.map(s => s.label),
-                datasets: [{ data: sourceSegments.length ? sourceSegments.map(s=>s.value) : [1], backgroundColor: sourceSegments.length ? sourceSegments.map(s=>s.color) : ['rgba(255,255,255,0.05)'], borderWidth: 0, hoverOffset: 4 }]
+                labels: projectSegments.map(s => s.label),
+                datasets: [{ data: projectSegments.length ? projectSegments.map(s=>s.value) : [1], backgroundColor: projectSegments.length ? projectSegments.map(s=>s.color) : ['rgba(255,255,255,0.05)'], borderWidth: 0, hoverOffset: 4 }]
               }}
               options={{
-                cutout: '75%',
+                cutout: '65%',
                 plugins: {
-                  legend: { position: 'bottom' as const, labels: { color: 'rgba(255,255,255,0.7)', font: { family: 'ui-monospace, monospace', size: 11 }, padding: 20, usePointStyle: true } },
+                  legend: { 
+                    position: 'right' as const, 
+                    labels: { 
+                      color: 'rgba(255,255,255,0.7)', 
+                      font: { family: 'ui-monospace, monospace', size: 12 }, 
+                      padding: 15, 
+                      usePointStyle: true,
+                      boxWidth: 8
+                    } 
+                  },
                   tooltip: {
                     backgroundColor: 'rgba(15, 23, 42, 0.9)',
                     borderColor: 'rgba(255,255,255,0.1)',
@@ -240,7 +327,9 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress }) => {
                     callbacks: {
                       label: (ctx: { label?: string; raw?: unknown }) => {
                         const rawValue = typeof ctx.raw === 'number' ? ctx.raw : 0;
-                        return ` ${ctx.label ?? 'Value'}: ${formatCurrency(rawValue, 'USD')}`;
+                        const total = (ctx as any).dataset.data.reduce((a: number, b: number) => a + b, 0);
+                        const percentage = ((rawValue / total) * 100).toFixed(1);
+                        return ` ${ctx.label ?? 'Value'}: ${formatCurrency(rawValue, 'USD')} (${percentage}%)`;
                       },
                     },
                   },

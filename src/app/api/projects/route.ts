@@ -4,11 +4,11 @@ import { requireAuth } from '@/lib/apiSecurity';
 
 export async function GET() {
   try {
-    requireAuth();
+    await requireAuth();
     const { data, error } = await supabaseAdmin
       .from('projects')
       .select('*')
-      .eq('status', 'Active')
+      .ilike('status', 'active')
       .order('created_at', { ascending: false });
 
     if (error) throw error;

@@ -75,7 +75,7 @@ export default function HomePage() {
               <Link href="/login">
                 <button className="group relative px-8 py-4 bg-slate-100 text-slate-900 rounded-full font-bold shadow-[0_0_30px_rgba(255,255,255,0.15)] hover:shadow-[0_0_50px_rgba(255,255,255,0.3)] transition-all overflow-hidden flex items-center gap-3">
                   <div className="absolute inset-0 bg-blue-100 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                  <span className="relative z-10">Enter Moonstone</span>
+                  <span className="relative z-10">Enter LUNIM</span>
                   <svg className="w-4 h-4 relative z-10 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                 </button>
               </Link>

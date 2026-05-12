@@ -42,12 +42,17 @@ interface MilestoneData {
   target_date?: string;
 }
 
-export const RecentActivity: React.FC = () => {
+interface RecentActivityProps {
+  isDemoMode?: boolean;
+}
+
+export const RecentActivity: React.FC<RecentActivityProps> = ({ isDemoMode }) => {
   const [items, setItems] = React.useState<ActivityItem[]>([]);
   const fetchActivity = React.useCallback(async () => {
     try {
       const ts = Date.now();
-      const res = await fetch(`/api/activities?ts=${ts}`, { cache: 'no-store' });
+      const isDemoMode = localStorage.getItem('demo_mode') === 'true';
+      const res = await fetch(`/api/activities?ts=${ts}&demo=${isDemoMode}`, { cache: 'no-store' });
       const activities = await res.json();
       
       const mapped: ActivityItem[] = (activities || []).map((a: any) => {
@@ -74,8 +79,22 @@ export const RecentActivity: React.FC = () => {
   React.useEffect(() => {
     fetchActivity();
     window.addEventListener('payment-recorded', fetchActivity);
-    return () => window.removeEventListener('payment-recorded', fetchActivity);
-  }, [fetchActivity]);
+    
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel('lunim-realtime');
+      bc.onmessage = (ev) => {
+        if (ev.data?.type === 'payment-recorded') fetchActivity();
+      };
+    } catch (e) {
+      console.warn('BroadcastChannel not supported');
+    }
+
+    return () => {
+      window.removeEventListener('payment-recorded', fetchActivity);
+      if (bc) bc.close();
+    };
+  }, [fetchActivity, isDemoMode]);
   return (
     <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl overflow-hidden flex flex-col h-full relative">
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-emerald-500/5 pointer-events-none" />

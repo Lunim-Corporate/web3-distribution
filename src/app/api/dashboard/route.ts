@@ -1,0 +1,122 @@
+import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/app/lib/supabaseServer';
+import { requireAuth } from '@/app/lib/apiSecurity';
+
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const pid = searchParams.get('pid');
+    const isDemoMode = searchParams.get('demo') === 'true';
+
+    // 1. Get user session to know who is requesting
+    const user = await requireAuth();
+    const userId = user.id;
+
+    // 2. Fetch user profile via admin to bypass RLS recursion
+    const { data: profile } = await supabaseAdmin
+      .from('users_profile')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    const isAdmin = profile?.role === 'ADMIN' || profile?.role === 'admin' || user.role === 'admin' || user.isAdmin;
+
+    // 3. Fetch all active projects, rights holders, and transactions
+    const { data: allProjs } = await supabaseAdmin.from('projects').select('*').ilike('status', 'active');
+    const { data: allHolders } = await supabaseAdmin.from('rights_holders').select('*');
+    
+    // Filter transactions by is_demo
+    let txQuery = supabaseAdmin.from('transactions').select('*, transaction_splits(*)').order('created_at', { ascending: false });
+    if (isDemoMode) {
+      txQuery = txQuery.eq('is_demo', true);
+    } else {
+      // In web3 mode, show transactions where is_demo is false OR null
+      txQuery = txQuery.or('is_demo.eq.false,is_demo.is.null');
+    }
+    const { data: allTx } = await txQuery;
+
+    // Recalculate project totals based on filtered transactions for visual consistency
+    const projectTotals = new Map();
+    (allTx || []).forEach(tx => {
+      const current = projectTotals.get(tx.project_id) || 0;
+      projectTotals.set(tx.project_id, current + Number(tx.total_amount_eth || 0));
+    });
+
+    // Recalculate holder totals based on filtered splits
+    const holderTotals = new Map();
+    (allTx || []).forEach(tx => {
+      (tx.transaction_splits || []).forEach((s: any) => {
+        const current = holderTotals.get(s.rights_holder_id) || 0;
+        holderTotals.set(s.rights_holder_id, current + Number(s.amount_eth || 0));
+      });
+    });
+
+    const enrichedProjs = (allProjs || []).map(p => ({
+      ...p,
+      total_distributed: projectTotals.get(p.id) || 0
+    }));
+
+    const enrichedHolders = (allHolders || []).map(h => ({
+      ...h,
+      total_received: holderTotals.get(h.id) || 0
+    }));
+
+    // 4. Manual Filtering (replicating RLS)
+    let allowedProjs = enrichedProjs;
+    let allowedHolders = enrichedHolders;
+    let allowedTx = allTx || [];
+
+    if (!isAdmin) {
+      // Rights Holder: filter down to their projects and splits
+      const myHolderRecords = allowedHolders.filter(h => h.user_id === userId);
+      const myProjectIds = myHolderRecords.map(h => h.project_id);
+
+      allowedProjs = allowedProjs.filter(p => myProjectIds.includes(p.id));
+      allowedHolders = myHolderRecords;
+      
+      const { data: mySplits } = await supabaseAdmin.from('transaction_splits').select('*, transactions(*)').order('created_at', { ascending: false });
+      
+      const uniqueTx = new Map();
+      (mySplits || []).forEach((s: any) => {
+        // filter splits that belong to my rights holder records
+        if (myHolderRecords.find(h => h.id === s.rights_holder_id)) {
+          if (s.transactions) {
+            uniqueTx.set(s.transactions.id, { ...s.transactions, transaction_splits: [s] });
+          }
+        }
+      });
+      allowedTx = Array.from(uniqueTx.values());
+    }
+
+    // 5. Structure the response
+    if (!pid || pid === 'all') {
+      return NextResponse.json({
+        projectsList: allowedProjs,
+        project: {
+          id: 'all',
+          name: 'All Projects',
+          status: 'active',
+          total_distributed: allowedProjs.reduce((s, p) => s + Number(p.total_distributed || 0), 0)
+        },
+        holders: allowedHolders,
+        transactions: allowedTx
+      });
+    }
+
+    // If specific project requested, filter everything to that pid
+    const singleProj = allowedProjs.find(p => p.id === pid);
+    if (!singleProj) {
+      return NextResponse.json({ error: 'Project not found or unauthorized' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      projectsList: allowedProjs,
+      project: singleProj,
+      holders: allowedHolders.filter(h => h.project_id === pid),
+      transactions: allowedTx.filter(t => t.project_id === pid)
+    });
+
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}

@@ -5,8 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth';
-import { useWallet } from '@/lib/wallet';
-import { RevenueSplitterService } from '@/lib/web3';
+import { useRevenueSplitter } from '@/lib/web3';
 import { truncateAddress } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 
@@ -20,16 +19,13 @@ const requiredChainIdHex =
   requiredChainIdDec != null ? `0x${requiredChainIdDec.toString(16)}` : null;
 
 export const SmartContractPanel: React.FC = () => {
-  const { user } = useAuth();
-  const {
-    account,
-    isConnected,
-    chainId,
-    balance,
-    connectWallet,
-    disconnectWallet,
-    switchNetwork,
-  } = useWallet();
+  const { user, logout } = useAuth();
+  const { 
+    distributeRevenue, 
+    getContractBalanceEth: getBalanceHook,
+    smartAccountAddress,
+    isInitializing
+  } = useRevenueSplitter();
 
   const [contractBalanceEth, setContractBalanceEth] = useState<string>('0');
   const [loadingBalance, setLoadingBalance] = useState<boolean>(false);
@@ -39,11 +35,11 @@ export const SmartContractPanel: React.FC = () => {
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedProjectForTx, setSelectedProjectForTx] = useState<string>('');
 
+
   const refreshContractBalance = async () => {
     try {
       setLoadingBalance(true);
-      const svc = RevenueSplitterService.create();
-      const bal = await svc.getContractBalanceEth();
+      const bal = await getBalanceHook();
       setContractBalanceEth(bal);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to read contract balance');
@@ -72,36 +68,25 @@ export const SmartContractPanel: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (isConnected) void refreshContractBalance();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isConnected, chainId]);
-
-  const ensureCorrectNetwork = async () => {
-    if (!requiredChainIdHex) return;
-    if (typeof chainId !== 'number') return;
-    if (requiredChainIdDec == null) return;
-    if (chainId === requiredChainIdDec) return;
-    await switchNetwork(requiredChainIdHex);
-  };
+    if (smartAccountAddress) void refreshContractBalance();
+  }, [smartAccountAddress]);
 
   const handleSendETH = async () => {
     if (!user || user.role !== 'admin') {
       toast.error('Admin only: You do not have permission to send transactions.');
       return;
     }
-    if (!isConnected) {
-      toast.error('Please connect your wallet first.');
+    if (!smartAccountAddress) {
+      toast.error('Smart account not ready.');
       return;
     }
 
     try {
       setExecuting(true);
       setTxHash(null);
-      await ensureCorrectNetwork();
 
-      toast.loading('Sending ETH to contract...');
-      const svc = RevenueSplitterService.create();
-      const hash = await svc.sendETHToContract(sendAmountEth);
+      toast.loading('Initiating distribution...');
+      const hash = await distributeRevenue(sendAmountEth);
       toast.dismiss();
       setTxHash(hash);
       
@@ -147,19 +132,17 @@ export const SmartContractPanel: React.FC = () => {
       toast.error('Admin only: You do not have permission to release payments.');
       return;
     }
-    if (!isConnected) {
-      toast.error('Please connect your wallet first.');
+    if (!smartAccountAddress) {
+      toast.error('Smart account not ready.');
       return;
     }
 
     try {
       setExecuting(true);
       setTxHash(null);
-      await ensureCorrectNetwork();
 
-      toast.loading('Releasing payments...');
-      const svc = RevenueSplitterService.create();
-      const hash = await svc.releasePayments();
+      toast.loading('Distributing revenue to holders...');
+      const hash = await distributeRevenue(sendAmountEth);
       toast.dismiss();
       setTxHash(hash);
       toast.success('Release transaction submitted!');
@@ -184,33 +167,21 @@ export const SmartContractPanel: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Wallet</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Smart Account</div>
               <div className="font-medium text-gray-900 dark:text-white mt-1">
-                {account ? truncateAddress(account) : 'Not connected'}
+                {isInitializing ? 'Initializing...' : (smartAccountAddress ? truncateAddress(smartAccountAddress) : 'Not ready')}
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400">
-                {balance ? `Balance: ${balance} ETH` : 'Balance: -'}
+                Type: Alchemy SimpleAccount (ERC-4337)
               </div>
-              {requiredChainIdDec != null && typeof chainId === 'number' && (
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Network: {chainId}{' '}
-                  {chainId === requiredChainIdDec ? (
-                    <Badge variant="success">OK</Badge>
-                  ) : (
-                    <Badge variant="warning">Switch required</Badge>
-                  )}
-                </div>
-              )}
             </div>
 
             <div className="flex flex-col gap-2 items-end">
-              {!isConnected ? (
-                <Button onClick={() => void connectWallet()} variant="primary">
-                  Connect Wallet
-                </Button>
+              {!user ? (
+                <div className="text-sm text-red-500 font-medium">Please login</div>
               ) : (
-                <Button onClick={disconnectWallet} variant="secondary">
-                  Disconnect
+                <Button onClick={() => void logout()} variant="secondary">
+                  Logout
                 </Button>
               )}
             </div>
@@ -280,7 +251,7 @@ export const SmartContractPanel: React.FC = () => {
                 Release payments
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Calls `releasePayments()` on the deployed contract.
+                Calls `distributeRevenue()` to split ETH among all rights holders.
               </div>
 
               <div className="mt-3 flex justify-end">

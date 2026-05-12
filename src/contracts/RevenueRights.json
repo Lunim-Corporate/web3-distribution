@@ -1,26 +1,26 @@
 {
-  "address": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+  "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
   "abi": [
     {
       "inputs": [
         {
           "internalType": "address payable[]",
-          "name": "wallets",
+          "name": "_wallets",
           "type": "address[]"
         },
         {
           "internalType": "string[]",
-          "name": "names",
+          "name": "_names",
           "type": "string[]"
         },
         {
           "internalType": "string[]",
-          "name": "roles",
+          "name": "_roles",
           "type": "string[]"
         },
         {
           "internalType": "uint256[]",
-          "name": "basisPointsArr",
+          "name": "_basisPoints",
           "type": "uint256[]"
         }
       ],
@@ -39,7 +39,7 @@
         {
           "indexed": false,
           "internalType": "string",
-          "name": "name",
+          "name": "fullName",
           "type": "string"
         },
         {
@@ -122,7 +122,7 @@
             },
             {
               "internalType": "string",
-              "name": "name",
+              "name": "fullName",
               "type": "string"
             },
             {
@@ -187,7 +187,7 @@
         },
         {
           "internalType": "string",
-          "name": "name",
+          "name": "fullName",
           "type": "string"
         },
         {
@@ -216,6 +216,10 @@
       ],
       "stateMutability": "view",
       "type": "function"
+    },
+    {
+      "stateMutability": "payable",
+      "type": "receive"
     }
   ]
 }

@@ -7,7 +7,7 @@ const EMAIL_FROM = process.env.EMAIL_FROM || 'noreply@updates.lunim.io';
 
 export async function POST(request: Request) {
   try {
-    requireAdmin();
+    await requireAdmin();
     const { email, name, role } = await request.json();
 
     if (!email || !name || !role) {
@@ -41,12 +41,11 @@ export async function POST(request: Request) {
 
     // Create user in public map
     const { error: userError } = await supabaseAdmin
-      .from('users')
+      .from('users_profile')
       .insert({
         id: userId,
-        email,
-        name,
-        role,
+        display_name: name,
+        role: (role || 'RIGHTS_HOLDER').toUpperCase(),
       });
 
     if (userError) {
@@ -68,7 +67,7 @@ export async function POST(request: Request) {
           subject: 'You have been invited to Creative Rights Tracker',
           html: `
             <div style="font-family: sans-serif; max-w-xl; margin: 0 auto;">
-              <h2>Welcome to the Moonstone Pipeline!</h2>
+              <h2>Welcome to the LUNIM Pipeline!</h2>
               <p>Hi ${name},</p>
               <p>You have been formally invited to join the Creative Rights Tracker dashboard as a <strong>${role}</strong>.</p>
               <p>You can securely log in at <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login">our platform</a> using the following credentials:</p>

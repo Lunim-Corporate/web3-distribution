@@ -1,27 +1,29 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { formatCurrency } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
-import { useSplits } from '@/hooks/useSplits';
+import { ETH_PRICE_USD } from '@/app/lib/constants';
 
 const formatUSD = (amount: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 
-export const RevenueSnapshot: React.FC<{ 
-  activeProjectId?: string | null, 
-  projectsList?: {id: string, name: string}[],
-  walletAddress?: string 
-}> = ({ activeProjectId, projectsList, walletAddress }) => {
-  const { earnings, loading: splitsLoading } = useSplits(walletAddress);
-  const isLiveWeb3 = !!walletAddress && !!earnings;
+import { jsPDF } from 'jspdf';
+interface RevenueSnapshotProps {
+  activeProjectId: string | null;
+  projectsList: Array<{ id: string; name: string }>;
+  transactions?: any[];
+  isDemoMode?: boolean;
+}
 
+export const RevenueSnapshot: React.FC<RevenueSnapshotProps> = ({ activeProjectId, projectsList, transactions, isDemoMode }) => {
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+  const toggleRow = (id: string) => setExpandedRows(prev => ({...prev, [id]: !prev[id]}));
   const [projectFilter, setProjectFilter] = useState<string>(activeProjectId || '');
   
   React.useEffect(() => {
-    if (activeProjectId) {
-      setProjectFilter(activeProjectId);
-    }
+    setProjectFilter(activeProjectId || '');
   }, [activeProjectId]);
 
   const [search, setSearch] = useState<string>('');
@@ -38,34 +40,26 @@ export const RevenueSnapshot: React.FC<{
       date: string;
       source: string;
       status: string;
-      recipientName?: string;
-      splitPercentage?: number;
+      splits?: any[];
     }>
   >([]);
 
-  const fetchRevenue = React.useCallback(() => {
-    const url = new URL('/api/revenue', window.location.origin);
-    url.searchParams.set('ts', Date.now().toString());
-    if (walletAddress) {
-      url.searchParams.set('address', walletAddress);
-      url.searchParams.set('web3', 'true');
+  const fetchRevenue = React.useCallback(async () => {
+    try {
+      const isDemoMode = localStorage.getItem('demo_mode') === 'true';
+      const res = await fetch(`/api/revenue?demo=${isDemoMode}&ts=${Date.now()}`, { cache: 'no-store' });
+      const data = await res.json();
+      setRevenue(data);
+    } catch {
+      setRevenue([]);
     }
-
-    fetch(url.toString(), { cache: 'no-store' })
-      .then(r => r.json())
-      .then(data => {
-        // Handle new response shape
-        if (data.revenue) setRevenue(data.revenue);
-        else setRevenue(data);
-      })
-      .catch(() => setRevenue([]));
-  }, [walletAddress]);
+  }, []);
 
   React.useEffect(() => {
     fetchRevenue();
     window.addEventListener('payment-recorded', fetchRevenue);
     return () => window.removeEventListener('payment-recorded', fetchRevenue);
-  }, [fetchRevenue]);
+  }, [fetchRevenue, isDemoMode]);
 
   const filtered = useMemo(() => {
     return revenue
@@ -76,48 +70,16 @@ export const RevenueSnapshot: React.FC<{
   }, [revenue, projectFilter, search, fromDate, toDate]);
 
   // Group by tx_hash for accurate transaction count
-  // Group by tx_hash for accurate transaction count and display
-  const { totals, groupedTransactions } = useMemo(() => {
+  const totals = useMemo(() => {
     const total = filtered.reduce((sum, r) => sum + r.amount, 0);
-    const paid = filtered.filter((r) => r.status === 'Paid' || r.status === 'completed' || r.status === 'Confirmed').reduce((s, r) => s + r.amount, 0);
-    const pending = filtered.filter((r) => r.status !== 'Paid' && r.status !== 'completed' && r.status !== 'Confirmed').reduce((s, r) => s + r.amount, 0);
-    
-    const txMap = new Map();
-    filtered.forEach(r => {
-      const hash = r.txHash || r.id; 
-      if (!txMap.has(hash)) {
-        txMap.set(hash, {
-          id: hash,
-          txHash: hash,
-          date: r.date,
-          projectName: r.projectName,
-          source: r.source,
-          status: r.status,
-          totalAmount: 0,
-          splits: []
-        });
-      }
-      const tx = txMap.get(hash);
-      tx.totalAmount += r.amount;
-      tx.splits.push({
-        id: r.id,
-        recipientName: r.recipientName || 'Unknown',
-        splitPercentage: r.splitPercentage || 0,
-        amount: r.amount
-      });
-    });
-    
-    const groupedTxs = Array.from(txMap.values());
-    
-    return { 
-      totals: { total, paid, pending, count: groupedTxs.length },
-      groupedTransactions: groupedTxs
-    };
+    const paid = filtered.filter((r) => r.status === 'Paid').reduce((s, r) => s + r.amount, 0);
+    const pending = filtered.filter((r) => r.status !== 'Paid').reduce((s, r) => s + r.amount, 0);
+    // Count unique transactions by tx_hash, not individual payment rows
+    const uniqueTxHashes = new Set(filtered.map(r => r.txHash || r.id));
+    return { total, paid, pending, count: uniqueTxHashes.size };
   }, [filtered]);
 
-  const [expandedTx, setExpandedTx] = useState<string | null>(null);
-
-  const handleGenerateReport = (period?: string) => {
+  const handleGenerateReport = async (period?: string) => {
     toast.loading(`Preparing ${period || 'custom'} report...`, { id: 'pdf-snap' });
     try {
       const params = new URLSearchParams();
@@ -127,8 +89,51 @@ export const RevenueSnapshot: React.FC<{
         if (toDate) params.append('endDate', toDate);
       }
       if (projectFilter) params.append('projectId', projectFilter);
-      window.open(`/api/reports/export?${params.toString()}`, '_blank');
-      toast.success('Report generation started!', { id: 'pdf-snap' });
+      
+      const res = await fetch(`/api/reports?${params.toString()}`);
+      const { data: report } = await res.json();
+      
+      const doc = new jsPDF();
+      doc.setFillColor(30, 64, 175);
+      doc.rect(0, 0, 210, 40, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(24);
+      doc.text('LUNIM', 20, 25);
+      doc.setFontSize(10);
+      doc.text('CREATIVE RIGHTS PLATFORM - REPORT', 20, 32);
+      
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(16);
+      doc.text('EXECUTIVE SUMMARY', 20, 55);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Generated At: ${new Date().toLocaleString()}`, 20, 62);
+      
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Total Revenue: USD ${(report.totalRevenue * ETH_PRICE_USD).toFixed(2)}`, 20, 78);
+      doc.text(`Total Paid: USD ${(report.totalPaid * ETH_PRICE_USD).toFixed(2)}`, 20, 86);
+      doc.text(`Payment Count: ${report.paymentCount}`, 20, 94);
+      
+      doc.setFontSize(14);
+      doc.text('RECENT PROJECTS & REVENUE', 20, 118);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      let y = 128;
+      
+      if (report.projects && report.projects.length > 0) {
+        report.projects.slice(0, 15).forEach((proj: any) => {
+          if (y > 270) { doc.addPage(); y = 20; }
+          const share = proj.sharePercentage ? `${proj.sharePercentage.toFixed(1)}%` : '0%';
+          doc.text(`${proj.projectName}: USD ${(proj.totalRevenue * ETH_PRICE_USD).toFixed(2)} (${share} share)`, 25, y);
+          y += 8;
+        });
+      } else {
+        doc.text('No matching project data found for this period.', 25, y);
+      }
+      
+      doc.save(`lunim_report_${new Date().toISOString().slice(0, 10)}.pdf`);
+      toast.success('Report downloaded successfully!', { id: 'pdf-snap' });
     } catch {
       toast.error('Could not trigger report', { id: 'pdf-snap' });
     }
@@ -214,34 +219,20 @@ export const RevenueSnapshot: React.FC<{
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <div className="bg-gradient-to-br from-indigo-500/10 to-indigo-500/5 backdrop-blur-md rounded-xl p-5 border border-indigo-500/15 shadow-lg relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-t from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <p className="text-[10px] font-bold text-indigo-400/70 uppercase tracking-widest mb-1">Total Revenue</p>
             <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-br from-indigo-300 to-indigo-500 tracking-tight font-mono">
-              {formatUSD(totals.total)}
+              {formatUSD(totals.total * ETH_PRICE_USD)}
             </p>
           </div>
-          <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 backdrop-blur-md rounded-xl p-5 border border-emerald-500/15 shadow-lg relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <p className="text-[10px] font-bold text-emerald-400/70 uppercase tracking-widest mb-1">Paid</p>
-            <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-br from-emerald-300 to-emerald-500 tracking-tight font-mono">
-              {formatUSD(totals.paid)}
-            </p>
-          </div>
-          <div className="bg-gradient-to-br from-amber-500/10 to-amber-500/5 backdrop-blur-md rounded-xl p-5 border border-amber-500/15 shadow-lg relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-t from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <p className="text-[10px] font-bold text-amber-400/70 uppercase tracking-widest mb-1">Pending</p>
-            <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-br from-amber-300 to-amber-500 tracking-tight font-mono">
-              {formatUSD(totals.pending)}
-            </p>
-          </div>
+
+          
           <div className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 backdrop-blur-md rounded-xl p-5 border border-purple-500/15 shadow-lg relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-t from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <p className="text-[10px] font-bold text-purple-400/70 uppercase tracking-widest mb-1">Web3 Balance</p>
-            <p className="text-2xl font-black text-white tracking-tight font-mono">
-              {splitsLoading ? '...' : (isLiveWeb3 ? 'Live' : 'Native')}
-            </p>
+            <p className="text-[10px] font-bold text-purple-400/70 uppercase tracking-widest mb-1">Transactions</p>
+            <p className="text-2xl font-black text-white tracking-tight font-mono">{totals.count}</p>
           </div>
         </div>
 
@@ -254,71 +245,98 @@ export const RevenueSnapshot: React.FC<{
                 <th className="px-5 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Project</th>
                 <th className="px-5 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Source</th>
                 <th className="px-5 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">Amount</th>
-                <th className="px-5 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Status</th>
-                <th className="px-5 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">Payment Split</th>
+                <th className="px-5 py-3.5 text-[10px] font-black text-gray-400 uppercase tracking-widest">Status</th>
               </tr>
             </thead>
             <tbody>
-              {groupedTransactions.slice(0, 20).map((tx) => (
-                <React.Fragment key={tx.id}>
-                  <tr className="border-b border-white/5 hover:bg-white/[0.03] transition-colors group cursor-pointer" onClick={() => setExpandedTx(expandedTx === tx.id ? null : tx.id)}>
-                    <td className="px-5 py-3.5 text-sm text-gray-400 whitespace-nowrap font-mono">
-                      {new Date(tx.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </td>
-                    <td className="px-5 py-3.5 text-sm text-gray-200 font-medium">{tx.projectName}</td>
-                    <td className="px-5 py-3.5 text-sm text-gray-400">{tx.source}</td>
-                    <td className="px-5 py-3.5 text-sm font-bold text-white text-right font-mono">{formatUSD(tx.totalAmount)}</td>
-                    <td className="px-5 py-3.5 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-black tracking-wide ${
-                        tx.status.toLowerCase() === 'paid' || tx.status.toLowerCase() === 'completed'
-                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
-                          : 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
-                      }`}>
-                        {tx.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-center">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setExpandedTx(expandedTx === tx.id ? null : tx.id); }}
-                        className={`text-[10px] font-bold px-3 py-1.5 rounded-lg transition-all border ${
-                          expandedTx === tx.id
-                            ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
-                            : 'bg-white/5 text-gray-400 border-white/10 hover:bg-white/10 hover:text-white'
-                        }`}
-                      >
-                        {expandedTx === tx.id ? '▲ Hide' : '▼ View'} Splits
-                      </button>
-                    </td>
-                  </tr>
-                  
-                  {expandedTx === tx.id && (
-                    <tr className="bg-white/5">
-                      <td colSpan={6} className="px-5 py-4 border-b border-white/10">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                          {tx.splits.map((split: any, idx: number) => (
-                            <div key={split.id || idx} className="bg-white/5 backdrop-blur-md p-3 rounded-xl border border-white/10 hover:border-indigo-500/20 transition-all">
-                              <div className="flex justify-between items-start mb-2">
-                                <div className="font-bold text-gray-200 text-sm">{split.recipientName}</div>
-                                {split.splitPercentage > 0 && (
-                                  <div className="text-[10px] font-black text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
-                                    {split.splitPercentage}%
-                                  </div>
-                                )}
-                              </div>
-                              <div className="text-sm font-mono font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-400">
-                                +{formatUSD(split.amount)}
-                              </div>
-                            </div>
-                          ))}
+              {filtered.slice(0, 20).map((r: any) => {
+                const hasSplits = r.splits && r.splits.length > 0;
+                const isExpanded = expandedRows[r.id];
+                return (
+                  <React.Fragment key={r.id}>
+                    <tr onClick={() => hasSplits && toggleRow(r.id)} className={`border-b border-white/5 transition-colors ${hasSplits ? 'cursor-pointer hover:bg-white/[0.05]' : 'hover:bg-white/[0.03]'}`}>
+                      <td className="px-5 py-3.5 text-sm text-gray-400 whitespace-nowrap font-mono">
+                        {new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </td>
+                      <td className="px-5 py-3.5 text-sm text-gray-200 font-medium">{r.projectName}</td>
+                      <td className="px-5 py-3.5 text-sm text-gray-400">{r.source}</td>
+                      <td className="px-5 py-3.5 text-sm font-bold text-white text-right font-mono">{formatUSD(r.amount * ETH_PRICE_USD)}</td>
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center justify-end gap-4">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black tracking-wide ${
+                            r.status === 'Paid'
+                              ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                              : 'bg-amber-500/15 text-amber-400 border border-amber-500/20'
+                          }`}>
+                            {r.status}
+                          </span>
+                          <span className="text-gray-500 text-xs w-3 text-center">{hasSplits ? (isExpanded ? '▼' : '▶') : ''}</span>
                         </div>
                       </td>
                     </tr>
-                  )}
-                </React.Fragment>
-              ))}
-              {groupedTransactions.length === 0 && (
+                    <AnimatePresence>
+                      {isExpanded && hasSplits && (
+                        <tr className="bg-white/[0.02] border-b border-white/5">
+                          <td colSpan={5} className="px-5 py-0 overflow-hidden">
+                            <motion.div 
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.25, ease: 'easeInOut' }}
+                              className="px-5 py-5 space-y-4"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-1 h-4 bg-indigo-500/40 rounded-full" />
+                                  <span className="text-[10px] font-black text-indigo-400/80 uppercase tracking-[0.2em]">Distribution Breakdown</span>
+                                </div>
+                                <div className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] font-mono text-gray-500">
+                                  Hash: {r.txHash?.slice(0, 12)}...
+                                </div>
+                              </div>
+
+                              <div className="space-y-1 relative pl-4">
+                                {/* Vertical connection line */}
+                                <div className="absolute left-1.5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-white/10 via-white/5 to-transparent rounded-full" />
+                                
+                                {r.splits.map((s: any, idx: number) => (
+                                  <div key={s.id} className="flex justify-between items-center py-2 group/split">
+                                    <div className="flex items-center gap-3">
+                                      <div className="relative">
+                                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center text-[11px] font-black text-indigo-300 border border-white/10 shadow-sm group-hover/split:border-indigo-500/30 transition-colors">
+                                          {s.full_name?.charAt(0) || '?'}
+                                        </div>
+                                        <div className="absolute -left-[14px] top-1/2 -translate-y-1/2 w-2 h-0.5 bg-white/10" />
+                                      </div>
+                                      <div className="flex flex-col">
+                                        <span className="text-sm font-bold text-gray-200 group-hover/split:text-white transition-colors">{s.full_name}</span>
+                                        <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">{s.role}</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-8">
+                                      <div className="flex flex-col items-end">
+                                        <span className="text-xs font-black text-indigo-400 font-mono">{s.percentage}%</span>
+                                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tighter">Share</span>
+                                      </div>
+                                      <div className="flex flex-col items-end min-w-[100px]">
+                                        <span className="text-sm font-black text-emerald-400 font-mono tracking-tight">{formatUSD(s.amount_eth * ETH_PRICE_USD)}</span>
+                                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tighter">{s.amount_eth.toFixed(4)} ETH</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </motion.div>
+                          </td>
+                        </tr>
+                      )}
+                    </AnimatePresence>
+                  </React.Fragment>
+                );
+              })}
+              {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center text-gray-500">
+                  <td colSpan={5} className="px-5 py-12 text-center text-gray-500">
                     <div className="text-3xl mb-2">📭</div>
                     <p className="font-medium">No payments match your filters</p>
                   </td>
@@ -326,9 +344,9 @@ export const RevenueSnapshot: React.FC<{
               )}
             </tbody>
           </table>
-          {groupedTransactions.length > 20 && (
+          {filtered.length > 20 && (
             <div className="px-5 py-3 bg-white/[0.02] border-t border-white/5 text-center">
-              <span className="text-xs text-gray-500">Showing 20 of {groupedTransactions.length} transactions</span>
+              <span className="text-xs text-gray-500">Showing 20 of {filtered.length} payments</span>
             </div>
           )}
         </div>

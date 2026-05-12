@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git rm *)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(git worktree *)",
+      "Bash(npm install *)",
+      "Bash(xargs -0 du -ch)",
+      "Bash(npx next *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
+    ]
+  }
+}

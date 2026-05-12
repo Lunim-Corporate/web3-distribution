@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useAuth } from '@/lib/auth';
+import { mockMilestones, mockRights } from '@/data/mockData';
 import { formatDate } from '@/lib/utils';
 
 type Notice = {
@@ -14,38 +14,55 @@ type Notice = {
 };
 
 export const NotifyWidget: React.FC<{ resurfacingHours?: number }> = ({ resurfacingHours = 6 }) => {
-  const [notices, setNotices] = useState<Notice[]>([]);
   const [dismissed, setDismissed] = useState<Record<string, boolean>>({});
-  const [open, setOpen] = useState(false);
-  const { user } = useAuth();
+  const [open, setOpen] = useState(true);
 
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const fetchNotices = async () => {
-      try {
-        const res = await fetch(`/api/notifications?userId=${user.id}`);
-        const data = await res.json();
-        const formatted = data.map((n: any) => ({
-          id: n.id,
-          type: n.type === 'revenue' ? 'milestone' : 'rights', 
-          title: n.title,
-          subtitle: n.message,
-          severity: n.type === 'revenue' ? 'info' : 'warning',
-          date: n.created_at
-        }));
-        setNotices(formatted);
-        if (formatted.length > 0) setOpen(true);
-      } catch (err) {
-        console.error('Failed to fetch notifications:', err);
-      }
+  const notices = useMemo<Notice[]>(() => {
+    const today = new Date();
+    const soon = (d: string, days: number) => {
+      const diff = (new Date(d).getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+      return diff <= days;
     };
 
-    fetchNotices();
-    const interval = setInterval(fetchNotices, 30000); 
-    return () => clearInterval(interval);
-  }, [user?.id]);
+    const rightsSoon = mockRights
+      .filter((r) => soon(r.expirationDate, 30))
+      .map<Notice>((r) => ({
+        id: `right_${r.id}`,
+        type: 'rights',
+        title: `Rights expiring soon for ${r.projectName}`,
+        subtitle: `${r.rightsType} • Owner: ${r.owner}`,
+        date: r.expirationDate,
+        severity: 'warning',
+      }));
 
+    const criticalMilestones = mockMilestones
+      .filter((m) => m.priority === 'critical' || soon(m.date, 14))
+      .map<Notice>((m) => ({
+        id: `mile_${m.id}`,
+        type: 'milestone',
+        title: m.title,
+        subtitle: m.description,
+        date: m.date,
+        severity: m.priority === 'critical' ? 'critical' : 'warning',
+      }));
+
+    return [...rightsSoon, ...criticalMilestones].slice(0, 3);
+  }, []);
+
+  useEffect(() => {
+    if (notices.length === 0) setOpen(false);
+
+    // Restore dismissal state and resurfacing
+    try {
+      const raw = localStorage.getItem('crt_notify_dismissed');
+      if (raw) setDismissed(JSON.parse(raw));
+
+      const hiddenUntil = localStorage.getItem('crt_notify_hidden_until');
+      if (hiddenUntil && Date.now() < Number(hiddenUntil)) {
+        setOpen(false);
+      }
+    } catch {}
+  }, [notices.length]);
 
   if (!open || notices.every((n) => dismissed[n.id])) return null;
 

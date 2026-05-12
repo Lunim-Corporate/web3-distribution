@@ -1,28 +1,21 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseServer';
+import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { normalizePaymentStatus } from '@/lib/utils';
 
-import { getUserEarnings } from '@/lib/web3/subgraph';
-
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const address = searchParams.get('address');
-  const isWeb3 = searchParams.get('web3') === 'true';
-
+export async function GET(req: Request) {
   try {
-    // If Web3 mode is active and we have an address, mix in protocol data
-    let web3Earnings: any = null;
-    if (isWeb3 && address) {
-      web3Earnings = await getUserEarnings(address).catch(() => null);
-    }
+    const { searchParams } = new URL(req.url);
+    const isDemoMode = searchParams.get('demo') === 'true';
 
     let query = supabaseAdmin
-      .from('payments')
-      .select('*, projects(name), users!inner(name, wallet_address)')
+      .from('transactions')
+      .select('*, projects(name), transaction_splits(*)')
       .order('created_at', { ascending: false });
 
-    if (address) {
-      query = query.eq('users.wallet_address', address);
+    if (isDemoMode) {
+      query = query.eq('is_demo', true);
+    } else {
+      query = query.or('is_demo.eq.false,is_demo.is.null');
     }
 
     const { data, error } = await query;
@@ -30,40 +23,27 @@ export async function GET(request: Request) {
     if (error) throw error;
     
     const formatted = (data || []).map((p) => {
-      const pr = p as Record<string, unknown>;
-      const amount = Number(pr.amount ?? 0) / 100;
-      const status = normalizePaymentStatus(pr.status ?? 'completed');
+      const amount = Number(p.total_amount_eth || p.total_amount || 0);
 
-      const projectsRow = pr['projects'] as Record<string, unknown> | undefined;
-      const projectName = projectsRow?.name || 'Unknown Project';
-
-      const usersRow = pr['users'] as Record<string, unknown> | undefined;
-      const recipientName = usersRow?.name || 'Unknown';
+      const projectName = p.projects?.name || 'Unknown Project';
 
       return {
-        id: String(pr.id ?? ''),
-        projectId: String(pr.project_id ?? ''),
+        id: String(p.id ?? ''),
+        projectId: String(p.project_id ?? ''),
         projectName,
         amount,
-        txHash: String(pr.tx_hash ?? ''),
-        source: String(pr.source ?? pr.payment_method ?? 'Direct Payment'),
-        date: String(pr.created_at ?? pr.payment_date ?? ''),
-        status,
-        recipientName,
-        splitPercentage: pr.split_percentage ? Number(pr.split_percentage) : 0,
+        txHash: String(p.tx_hash ?? ''),
+        source: 'Client Payment',
+        date: String(p.created_at ?? ''),
+        status: 'completed',
+        splits: p.transaction_splits || [],
       };
     });
-
-    // If we have web3 data, we can either append it or replace metrics
-    // For Phase 1, we return the base data but allow the UI to consume web3Earnings separately if needed
     
-    return NextResponse.json({
-      revenue: formatted,
-      web3: web3Earnings,
-    });
+    return NextResponse.json(formatted);
   } catch (error) {
     console.error('CRITICAL Error fetching revenue:', error);
-    return NextResponse.json({ revenue: [], web3: null }, { status: 200 });
+    return NextResponse.json([], { status: 200 });
   }
 }
 
