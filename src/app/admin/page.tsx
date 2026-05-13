@@ -175,12 +175,12 @@ export default function AdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           action: 'add_user', 
-          payload: { ...invite, projectId: selectedProjectId, role: 'contributor' } 
+          payload: { ...invite, projectId: invite.projectId || selectedProjectId, role: 'contributor' } 
         })
       });
       if (!res.ok) throw new Error('Failed to add rights holder');
       toast.success('Rights holder added');
-      setInvite({ name: '', email: '', wallet_address: '', percentage: 0 });
+      setInvite({ name: '', email: '', wallet_address: '', percentage: 0, projectId: selectedProjectId || '' } as any);
       if (selectedProjectId && selectedProjectId !== 'new') fetchContributors(selectedProjectId);
     } catch (e: any) {
       toast.error(e.message);
@@ -466,15 +466,24 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-2xl p-4 space-y-2">
-              <p className="text-[9px] font-black text-indigo-400/60 uppercase tracking-widest">Target Project</p>
-              <p className="text-sm font-bold text-indigo-300">
-                {selectedProjectId === 'new' ? 'Create Project First' : currentProject?.name || 'Select a Project'}
-              </p>
+            <div>
+              <label className="text-[9px] font-black text-gray-600 uppercase tracking-[0.2em] ml-1">Target Project</label>
+              <select 
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 mt-1"
+                value={invite.projectId || selectedProjectId || ''}
+                onChange={(e) => {
+                  const pid = e.target.value;
+                  setInvite({...invite, projectId: pid} as any);
+                  if (pid && pid !== 'new') setSelectedProjectId(pid);
+                }}
+              >
+                <option value="" disabled>Select Project</option>
+                {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
             </div>
 
             <button 
-              disabled={isActionLoading || !selectedProjectId || selectedProjectId === 'new'}
+              disabled={isActionLoading || !(invite.projectId || selectedProjectId) || selectedProjectId === 'new'}
               onClick={handleAddRightsHolder}
               className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl transition-all shadow-xl shadow-emerald-500/20 disabled:opacity-30 disabled:grayscale"
             >
