@@ -62,6 +62,7 @@ export const Navbar: React.FC = () => {
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
   useEffect(() => {
     setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
     const onDemoChanged = () => setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
