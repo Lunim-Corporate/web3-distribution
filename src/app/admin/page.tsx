@@ -4,22 +4,22 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Role, useAuth, type User } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function AdminPage() {
-  const { user } = useAuth();
+  const { user, listUsers } = useAuth();
   const router = useRouter();
-  const { listUsers, setUserRole, inviteUser } = useAuth();
   
-  const [users, setUsers] = useState<User[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | 'new' | null>(null);
   const [contributors, setContributors] = useState<any[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
-
-  const [invite, setInvite] = useState({ name: '', email: '', role: 'creator' as Role, wallet_address: '', projectId: '', percentage: 0 });
-  const [newProject, setNewProject] = useState({ name: '', total_revenue: 0 });
   
   const [isLoading, setIsLoading] = useState(true);
-  const [isInviting, setIsInviting] = useState(false);
+  const [isActionLoading, setIsActionLoading] = useState(false);
+
+  // Forms
+  const [newProject, setNewProject] = useState({ name: '', total_revenue: 0 });
+  const [invite, setInvite] = useState({ name: '', email: '', wallet_address: '', percentage: 0 });
 
   useEffect(() => {
     if (!user) {
@@ -33,18 +33,17 @@ export default function AdminPage() {
 
     void (async () => {
       try {
-        const next = await listUsers();
-        setUsers(next);
         await fetchProjects();
       } finally {
         setIsLoading(false);
       }
     })();
-  }, [user, router, listUsers]);
+  }, [user, router]);
 
   useEffect(() => {
-    if (selectedProjectId) {
+    if (selectedProjectId && selectedProjectId !== 'new') {
       fetchContributors(selectedProjectId);
+      setInvite(prev => ({ ...prev, projectId: selectedProjectId }));
     } else {
       setContributors([]);
     }
@@ -56,8 +55,13 @@ export default function AdminPage() {
       if (res.ok) {
         const data = await res.json();
         setProjects(data);
+        if (data.length > 0 && !selectedProjectId) {
+          setSelectedProjectId(data[0].id);
+        }
       }
-    } catch(e) {}
+    } catch(e) {
+      console.error('Fetch projects failed', e);
+    }
   };
 
   const fetchContributors = async (projectId: string) => {
@@ -67,34 +71,37 @@ export default function AdminPage() {
         const data = await res.json();
         setContributors(data.contributors || []);
       }
-    } catch(e) {}
-  };
-
-  const refresh = async () => {
-    const next = await listUsers();
-    setUsers(next);
-    if (selectedProjectId) await fetchContributors(selectedProjectId);
+    } catch(e) {
+      console.error('Fetch contributors failed', e);
+    }
   };
 
   const handleCreateProject = async () => {
     if (!newProject.name) return toast.error('Project name required');
+    setIsActionLoading(true);
     try {
       const res = await fetch('/api/admin-actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'create_project', payload: newProject })
       });
-      if (!res.ok) throw new Error('Failed');
+      if (!res.ok) throw new Error('Failed to create project');
+      const result = await res.json();
       toast.success('Project created');
       setNewProject({ name: '', total_revenue: 0 });
       await fetchProjects();
+      if (result.data?.[0]?.id) {
+        setSelectedProjectId(result.data[0].id);
+      }
     } catch (e: any) {
       toast.error(e.message);
+    } finally {
+      setIsActionLoading(false);
     }
   };
 
   const handleDeleteProject = async (projectId: string) => {
-    if (!confirm('Are you sure you want to delete this project? This will remove all associated contributors and data.')) return;
+    if (!confirm('Are you sure you want to delete this project?')) return;
     try {
       const res = await fetch('/api/admin-actions', {
         method: 'POST',
@@ -103,15 +110,46 @@ export default function AdminPage() {
       });
       if (!res.ok) throw new Error('Failed to delete project');
       toast.success('Project deleted');
-      if (selectedProjectId === projectId) setSelectedProjectId('');
+      if (selectedProjectId === projectId) setSelectedProjectId(null);
       await fetchProjects();
     } catch (e: any) {
       toast.error(e.message);
     }
   };
 
+  const handleUpdateContributor = async (c: any, field: string, value: any) => {
+    // Optimistic update
+    const updated = contributors.map(item => 
+      item.id === c.id ? { ...item, [field]: value } : item
+    );
+    setContributors(updated);
+  };
+
+  const saveContributorChanges = async (c: any) => {
+    try {
+      const res = await fetch('/api/admin-actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'edit_contributor', 
+          payload: { 
+            contributor_id: c.id, 
+            user_id: c.user_id,
+            percentage: Number(c.percentage || c.revenue_share),
+            name: c.name,
+            wallet_address: c.wallet_address
+          } 
+        })
+      });
+      if (!res.ok) throw new Error('Update failed');
+      toast.success('Rights holder updated');
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
   const handleDeleteContributor = async (contributorId: string) => {
-    if (!confirm('Remove this rights holder from the project?')) return;
+    if (!confirm('Remove this rights holder?')) return;
     try {
       const res = await fetch('/api/admin-actions', {
         method: 'POST',
@@ -120,157 +158,354 @@ export default function AdminPage() {
       });
       if (!res.ok) throw new Error('Failed to remove contributor');
       toast.success('Contributor removed');
-      if (selectedProjectId) fetchContributors(selectedProjectId);
+      if (selectedProjectId && selectedProjectId !== 'new') fetchContributors(selectedProjectId);
     } catch (e: any) {
       toast.error(e.message);
     }
   };
 
-  const handleEditPercentage = async (contributorId: string, percentage: number) => {
+  const handleAddRightsHolder = async () => {
+    if (!invite.email || !selectedProjectId || selectedProjectId === 'new') {
+      return toast.error('Email and active project required');
+    }
+    setIsActionLoading(true);
     try {
       const res = await fetch('/api/admin-actions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'edit_contributor', payload: { contributor_id: contributorId, percentage } })
+        body: JSON.stringify({ 
+          action: 'add_user', 
+          payload: { ...invite, projectId: selectedProjectId, role: 'contributor' } 
+        })
       });
-      if (!res.ok) throw new Error('Failed');
-      toast.success('Updated percentage');
-      if (selectedProjectId) fetchContributors(selectedProjectId);
+      if (!res.ok) throw new Error('Failed to add rights holder');
+      toast.success('Rights holder added');
+      setInvite({ name: '', email: '', wallet_address: '', percentage: 0 });
+      if (selectedProjectId && selectedProjectId !== 'new') fetchContributors(selectedProjectId);
     } catch (e: any) {
       toast.error(e.message);
-    }
-  };
-
-  const handleAddUser = async () => {
-    const email = invite.email.trim();
-    const name = (invite.name || email.split('@')[0]).trim();
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if(!emailRegex.test(email)) {
-      toast.error('Please enter a valid email address.');
-      return;
-    }
-    setIsInviting(true);
-    toast.loading('Creating user...', { id: 'invite' });
-    try {
-      const res = await fetch('/api/admin-actions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'add_user', payload: { ...invite, name, email } })
-      });
-      if (!res.ok) throw new Error('Failed to create user and contributor');
-      toast.success('User and contributor added!', { id: 'invite' });
-      setInvite({ name:'', email:'', role:'creator', wallet_address: '', projectId: selectedProjectId, percentage: 0 });
-      await refresh();
-    } catch (e: any) {
-      toast.error(e.message, { id: 'invite' });
     } finally {
-      setIsInviting(false);
+      setIsActionLoading(false);
     }
   };
 
-  if (isLoading || !user || user.role !== 'admin') return null;
+  if (isLoading || !user) return null;
+
+  const currentProject = projects.find(p => p.id === selectedProjectId);
 
   return (
-    <main className="p-8 max-w-6xl mx-auto space-y-8 pb-20">
-      <div>
-        <h1 className="text-3xl font-black text-white">Admin Dashboard</h1>
-        <p className="text-gray-400">Manage projects, rights holders, and revenue shares.</p>
-      </div>
-
-      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-4">
-        <h2 className="text-lg font-bold text-white">Project Management</h2>
-        <div className="flex gap-4 items-center">
-          <input className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500" placeholder="Project Name" value={newProject.name} onChange={(e)=>setNewProject({...newProject, name: e.target.value})} />
-          <input type="number" className="w-48 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500" placeholder="Initial Revenue (USD)" value={newProject.total_revenue || ''} onChange={(e)=>setNewProject({...newProject, total_revenue: Number(e.target.value)})} />
-          <button onClick={handleCreateProject} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg transition-colors">Create Project</button>
+    <div className="flex h-screen bg-[#0B0C10] text-white overflow-hidden">
+      
+      {/* ── LEFT SIDEBAR ────────────────────────────────────────── */}
+      <aside className="w-72 bg-white/5 border-r border-white/10 flex flex-col">
+        <div className="p-6 border-b border-white/10">
+          <h1 className="text-xl font-black tracking-tighter flex items-center gap-2">
+            <span className="text-indigo-500 text-2xl">💎</span>
+            LUNIM <span className="text-gray-500 font-light">ADMIN</span>
+          </h1>
         </div>
 
-        {projects.length > 0 && (
-          <div className="pt-4 border-t border-white/5">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Existing Projects</p>
-            <div className="flex flex-wrap gap-2">
-              {projects.map(p => (
-                <div key={p.id} className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
-                  <span className="text-sm text-white font-medium">{p.name}</span>
-                  <button onClick={() => handleDeleteProject(p.id)} className="text-gray-500 hover:text-red-400 transition-colors p-0.5">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+        <div className="p-4">
+          <button 
+            onClick={() => setSelectedProjectId('new')}
+            className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all border ${
+              selectedProjectId === 'new' 
+                ? 'bg-indigo-500 border-indigo-400 shadow-lg shadow-indigo-500/20' 
+                : 'bg-white/5 border-white/10 hover:bg-white/10 text-gray-400 hover:text-white'
+            }`}
+          >
+            <span className="text-lg">+</span> Add New Project
+          </button>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
-        {/* ADD USER / CONTRIBUTOR */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-4">
-          <h2 className="text-lg font-bold text-white">Add New Rights Holder</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <input className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white" placeholder="Name" value={invite.name} onChange={(e)=>setInvite({...invite, name: e.target.value})} />
-            <input className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white" placeholder="Email" value={invite.email} onChange={(e)=>setInvite({...invite, email: e.target.value})} />
-            <input className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white col-span-2" placeholder="Wallet Address (0x...)" value={invite.wallet_address} onChange={(e)=>setInvite({...invite, wallet_address: e.target.value})} />
-            
-            <select className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white" value={invite.projectId} onChange={(e)=>setInvite({...invite, projectId: e.target.value})}>
-              <option value="">Select Project...</option>
-              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-            
-            <input type="number" className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white" placeholder="Revenue Share (%)" value={invite.percentage || ''} onChange={(e)=>setInvite({...invite, percentage: Number(e.target.value)})} />
-            
-            <button disabled={isInviting} onClick={handleAddUser} className="col-span-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg disabled:opacity-50">
-              {isInviting ? "Adding..." : "Add to Project"}
+        <div className="flex-1 overflow-y-auto px-4 space-y-1 py-2 custom-scrollbar">
+          <p className="px-2 text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Projects</p>
+          {projects.map((p, i) => (
+            <button
+              key={p.id}
+              onClick={() => setSelectedProjectId(p.id)}
+              className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-all group ${
+                selectedProjectId === p.id 
+                  ? 'bg-white/10 text-white' 
+                  : 'text-gray-400 hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              <div className={`w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-[10px] font-black text-white shadow-lg`}>
+                {p.name.charAt(0)}
+              </div>
+              <span className="truncate flex-1 text-left">{p.name}</span>
+              <div onClick={(e) => { e.stopPropagation(); handleDeleteProject(p.id); }} className="opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all p-1">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </div>
             </button>
-          </div>
+          ))}
         </div>
+      </aside>
 
-        {/* EDIT PROJECT CONTRIBUTORS */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-bold text-white">Edit Project Shares</h2>
-            <select className="bg-black/40 border border-white/10 rounded-lg px-4 py-1 text-sm text-white" value={selectedProjectId} onChange={(e)=>setSelectedProjectId(e.target.value)}>
-              <option value="">Select Project</option>
-              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
-          
-          {!selectedProjectId ? (
-            <p className="text-gray-500 text-sm">Select a project to view and edit its rights holders.</p>
-          ) : contributors.length === 0 ? (
-            <p className="text-gray-500 text-sm">No rights holders found for this project.</p>
-          ) : (
-            <div className="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-              {contributors.map((c: any) => (
-                <div key={c.id || c.user_id} className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5 group">
-                  <div className="flex items-center gap-3">
-                    <button onClick={() => handleDeleteContributor(c.id)} className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-all p-1">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                    </button>
+      {/* ── MAIN CONTENT AREA ───────────────────────────────────── */}
+      <main className="flex-1 flex overflow-hidden">
+        
+        {/* MIDDLE COLUMN: PROJECT MANAGEMENT */}
+        <section className="flex-1 overflow-y-auto p-8 border-r border-white/10 custom-scrollbar">
+          <AnimatePresence mode="wait">
+            {selectedProjectId === 'new' ? (
+              <motion.div 
+                key="new-project"
+                initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
+                className="max-w-2xl mx-auto space-y-8 py-10"
+              >
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-black">Launch New Project</h2>
+                  <p className="text-gray-500">Initialize a new revenue distribution pool.</p>
+                </div>
+
+                <div className="bg-white/5 border border-white/10 rounded-3xl p-8 space-y-6 backdrop-blur-xl">
+                  <div className="space-y-4">
                     <div>
-                      <p className="text-white font-bold text-sm">{c.name || 'Unknown'}</p>
-                      <p className="text-gray-500 text-xs font-mono truncate w-32">{c.wallet_address || 'No wallet'}</p>
+                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Project Name</label>
+                      <input 
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-all mt-1" 
+                        placeholder="e.g. Midnight Horizon EP"
+                        value={newProject.name}
+                        onChange={(e) => setNewProject({...newProject, name: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Initial Revenue (USD)</label>
+                      <input 
+                        type="number"
+                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition-all mt-1" 
+                        placeholder="0.00"
+                        value={newProject.total_revenue || ''}
+                        onChange={(e) => setNewProject({...newProject, total_revenue: Number(e.target.value)})}
+                      />
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <input 
-                      type="number" 
-                      className="w-16 bg-black/40 border border-white/10 rounded px-2 py-1 text-white text-right"
-                      defaultValue={c.percentage}
-                      onBlur={(e) => {
-                        const val = Number(e.target.value);
-                        if (val !== c.percentage) handleEditPercentage(c.id, val);
-                      }}
-                    />
-                    <span className="text-gray-500 text-sm">%</span>
+
+                  <button 
+                    disabled={isActionLoading}
+                    onClick={handleCreateProject}
+                    className="w-full py-4 bg-indigo-500 hover:bg-indigo-400 text-white font-black rounded-xl transition-all shadow-xl shadow-indigo-500/20 disabled:opacity-50"
+                  >
+                    {isActionLoading ? 'Creating Pool...' : 'Initialize Project'}
+                  </button>
+                </div>
+              </motion.div>
+            ) : selectedProjectId ? (
+              <motion.div 
+                key={selectedProjectId}
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                className="space-y-8"
+              >
+                <div className="flex justify-between items-end border-b border-white/5 pb-6">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse" />
+                      <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Live Management</span>
+                    </div>
+                    <h2 className="text-4xl font-black tracking-tight">{currentProject?.name}</h2>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Total Distributed</p>
+                    <p className="text-2xl font-black text-emerald-400">${Number(currentProject?.total_revenue || 0).toLocaleString()}</p>
                   </div>
                 </div>
-              ))}
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between px-2">
+                    <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest">Rights Holders & Allocations</h3>
+                    <span className="text-[10px] font-bold text-gray-600">{contributors.length} RECIPIENTS</span>
+                  </div>
+
+                  <div className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden backdrop-blur-xl">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-white/5 bg-white/5">
+                          <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Name</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Wallet Address</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Share %</th>
+                          <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5">
+                        {contributors.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="px-6 py-20 text-center text-gray-500 italic text-sm">
+                              No rights holders assigned to this project yet.
+                            </td>
+                          </tr>
+                        ) : (
+                          contributors.map((c) => (
+                            <tr key={c.id} className="hover:bg-white/[0.02] transition-colors group">
+                              <td className="px-6 py-4">
+                                <input 
+                                  className="bg-transparent border-none text-white font-bold focus:ring-0 w-full p-0"
+                                  value={c.name}
+                                  onChange={(e) => handleUpdateContributor(c, 'name', e.target.value)}
+                                />
+                              </td>
+                              <td className="px-6 py-4">
+                                <input 
+                                  className="bg-transparent border-none text-gray-400 font-mono text-xs focus:ring-0 w-full p-0"
+                                  value={c.wallet_address}
+                                  onChange={(e) => handleUpdateContributor(c, 'wallet_address', e.target.value)}
+                                />
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  <input 
+                                    type="number"
+                                    className="bg-white/5 border border-white/10 rounded px-2 py-1 text-white font-black text-sm w-16 text-right focus:border-indigo-500 focus:outline-none"
+                                    value={c.percentage || c.revenue_share}
+                                    onChange={(e) => handleUpdateContributor(c, 'percentage', e.target.value)}
+                                  />
+                                  <span className="text-gray-600 font-bold text-xs">%</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button 
+                                    onClick={() => saveContributorChanges(c)}
+                                    className="p-2 bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white rounded-lg transition-all"
+                                    title="Save Changes"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteContributor(c.id)}
+                                    className="p-2 bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition-all"
+                                    title="Remove"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  {contributors.length > 0 && (
+                    <div className="flex justify-end pt-4">
+                      <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-xl">
+                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest mr-3">Total Allocation:</span>
+                        <span className={`text-lg font-black ${
+                          contributors.reduce((sum, c) => sum + Number(c.percentage || c.revenue_share), 0) === 100 
+                            ? 'text-emerald-400' 
+                            : 'text-rose-400'
+                        }`}>
+                          {contributors.reduce((sum, c) => sum + Number(c.percentage || c.revenue_share), 0)}%
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-40">
+                <div className="w-20 h-20 rounded-3xl bg-white/5 flex items-center justify-center text-4xl">📁</div>
+                <div>
+                  <h3 className="text-xl font-black">Project Workspace</h3>
+                  <p className="text-sm text-gray-500 max-w-xs">Select a project from the sidebar to manage its revenue splits and rights holders.</p>
+                </div>
+              </div>
+            )}
+          </AnimatePresence>
+        </section>
+
+        {/* RIGHT COLUMN: ADD RIGHTS HOLDER */}
+        <aside className="w-80 bg-white/5 p-6 flex flex-col gap-8">
+          <div className="space-y-1">
+            <h3 className="text-lg font-black tracking-tight">Add Rights Holder</h3>
+            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Onboard new contributor</p>
+          </div>
+
+          <div className="space-y-5">
+            <div className="space-y-4">
+              <div>
+                <label className="text-[9px] font-black text-gray-600 uppercase tracking-[0.2em] ml-1">Full Name</label>
+                <input 
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500" 
+                  placeholder="Artist or Creator Name"
+                  value={invite.name}
+                  onChange={(e) => setInvite({...invite, name: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-gray-600 uppercase tracking-[0.2em] ml-1">Email Address</label>
+                <input 
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500" 
+                  placeholder="email@example.com"
+                  value={invite.email}
+                  onChange={(e) => setInvite({...invite, email: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-gray-600 uppercase tracking-[0.2em] ml-1">Wallet Address</label>
+                <input 
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder-gray-600 focus:outline-none focus:border-indigo-500" 
+                  placeholder="0x..."
+                  value={invite.wallet_address}
+                  onChange={(e) => setInvite({...invite, wallet_address: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="text-[9px] font-black text-gray-600 uppercase tracking-[0.2em] ml-1">Allocation Share (%)</label>
+                <div className="relative">
+                  <input 
+                    type="number"
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 pr-10" 
+                    placeholder="0"
+                    value={invite.percentage || ''}
+                    onChange={(e) => setInvite({...invite, percentage: Number(e.target.value)})}
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 font-bold">%</span>
+                </div>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
-      
-    </main>
+
+            <div className="bg-indigo-500/5 border border-indigo-500/10 rounded-2xl p-4 space-y-2">
+              <p className="text-[9px] font-black text-indigo-400/60 uppercase tracking-widest">Target Project</p>
+              <p className="text-sm font-bold text-indigo-300">
+                {selectedProjectId === 'new' ? 'Create Project First' : currentProject?.name || 'Select a Project'}
+              </p>
+            </div>
+
+            <button 
+              disabled={isActionLoading || !selectedProjectId || selectedProjectId === 'new'}
+              onClick={handleAddRightsHolder}
+              className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl transition-all shadow-xl shadow-emerald-500/20 disabled:opacity-30 disabled:grayscale"
+            >
+              {isActionLoading ? 'Onboarding...' : 'Add to Pool'}
+            </button>
+          </div>
+
+          <div className="mt-auto pt-6 border-t border-white/5">
+             <p className="text-[9px] text-gray-600 font-medium leading-relaxed">
+               Onboarding a new rights holder will automatically create a secure profile and link their wallet to the project's revenue distribution smart contract.
+             </p>
+          </div>
+        </aside>
+
+      </main>
+
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.2);
+        }
+      `}</style>
+    </div>
   );
 }

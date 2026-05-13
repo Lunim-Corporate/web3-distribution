@@ -58,11 +58,28 @@ export async function POST(req: Request) {
     }
 
     if (action === 'edit_contributor') {
-      const { contributor_id, percentage } = payload;
-      const { data, error } = await supabaseAdmin.from('project_contributors')
-        .update({ revenue_share: percentage })
-        .eq('id', contributor_id);
-      if (error) throw error;
+      const { contributor_id, user_id, percentage, name, wallet_address } = payload;
+      
+      // Update project_contributors percentage
+      if (contributor_id && percentage !== undefined) {
+        const { error: cErr } = await supabaseAdmin.from('project_contributors')
+          .update({ revenue_share: percentage })
+          .eq('id', contributor_id);
+        if (cErr) throw cErr;
+      }
+      
+      // Update user details
+      if (user_id && (name || wallet_address)) {
+        const update: any = {};
+        if (name) update.name = name;
+        if (wallet_address) update.wallet_address = wallet_address;
+        
+        const { error: uErr } = await supabaseAdmin.from('users')
+          .update(update)
+          .eq('id', user_id);
+        if (uErr) throw uErr;
+      }
+      
       return NextResponse.json({ success: true });
     }
 
