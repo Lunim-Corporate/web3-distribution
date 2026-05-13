@@ -167,6 +167,7 @@ export function useRevenueContract(projectId) {
   // ────────────────────────────────────────────────────────────────
   // Data refresh — works for BOTH modes
   // ────────────────────────────────────────────────────────────────
+  const refreshDashboardData = useCallback(async () => {
     try {
       const mode = isDemoMode ? 'demo' : 'live';
       const url = `/api/dashboard/data?projectId=${projectId || 'all'}&mode=${mode}`;
@@ -258,7 +259,7 @@ export function useRevenueContract(projectId) {
     } catch (err) {
       console.error('Data refresh error:', err);
     }
-  }, [projectId]);
+  }, [projectId, isDemoMode]);
 
   // Initial load
   useEffect(() => {
