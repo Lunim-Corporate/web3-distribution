@@ -68,7 +68,7 @@ export async function POST(request: Request) {
           subject: 'You have been invited to Creative Rights Tracker',
           html: `
             <div style="font-family: sans-serif; max-w-xl; margin: 0 auto;">
-              <h2>Welcome to the Moonstone Pipeline!</h2>
+              <h2>Welcome to the LUNIM Platform!</h2>
               <p>Hi ${name},</p>
               <p>You have been formally invited to join the Creative Rights Tracker dashboard as a <strong>${role}</strong>.</p>
               <p>You can securely log in at <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login">our platform</a> using the following credentials:</p>

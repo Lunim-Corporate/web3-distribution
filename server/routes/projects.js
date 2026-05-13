@@ -7,15 +7,31 @@ const validate = require('../middleware/validate');
 // GET /api/projects - Fetch all projects with their rights_holders
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    // First get all projects
+    const { data: projects, error: pErr } = await supabase
       .from('projects')
-      .select('*, project_contributors(id, role, revenue_share, users(name, wallet_address))');
+      .select('*');
 
-    if (error) throw error;
+    if (pErr) throw pErr;
+
+    // Then get all contributors
+    const { data: contributors, error: cErr } = await supabase
+      .from('project_contributors')
+      .select('*, users(name, wallet_address)');
     
-    // Map existing schema to exactly what dashboard expects
-    const mapped = data.map(p => {
-      const rights_holders = (p.project_contributors || []).map(c => ({
+    // If there's an error with users join, try without it
+    let contributorsData = contributors || [];
+    if (cErr) {
+      const { data: simpleContributors } = await supabase
+        .from('project_contributors')
+        .select('*');
+      contributorsData = (simpleContributors || []).map(c => ({ ...c, users: null }));
+    }
+
+    // Map projects with their contributors
+    const mapped = (projects || []).map(p => {
+      const projectContributors = contributorsData.filter(c => c.project_id === p.id);
+      const rights_holders = projectContributors.map(c => ({
         id: c.id,
         name: c.users?.name || 'Unknown',
         role: c.role,
@@ -38,18 +54,35 @@ router.get('/:projectId', async (req, res) => {
   try {
     const { projectId } = req.params;
 
+    // Get project first
     const { data: project, error: projectError } = await supabase
       .from('projects')
-      .select('*, project_contributors(id, user_id, role, revenue_share, users(name, wallet_address))')
+      .select('*')
       .eq('id', projectId)
       .single();
 
     if (projectError) throw projectError;
     if (!project) return res.status(404).json({ error: 'Project not found' });
 
+    // Get contributors separately
+    const { data: contributors, error: contribError } = await supabase
+      .from('project_contributors')
+      .select('*, users(name, wallet_address)')
+      .eq('project_id', projectId);
+    
+    // Fallback without users join if needed
+    let contributorsData = contributors || [];
+    if (contribError) {
+      const { data: simple } = await supabase
+        .from('project_contributors')
+        .select('*')
+        .eq('project_id', projectId);
+      contributorsData = (simple || []).map(c => ({ ...c, users: null }));
+    }
+
     // Map to expected rights_holders and keep a map by user_id
     const userToRhMap = {};
-    const rights_holders = (project.project_contributors || []).map(c => {
+    const rights_holders = contributorsData.map(c => {
       const rh = {
         id: c.id,
         user_id: c.user_id,
@@ -171,7 +204,26 @@ router.post('/', async (req, res) => {
       }
     }
 
-    res.status(201).json(project);
+    // Fetch created project with rights_holders (without join - handle separately)
+    let rights_holders = [];
+    try {
+      const { data: contributors } = await supabase
+        .from('project_contributors')
+        .select('id, role, revenue_share, users(name, wallet_address)')
+        .eq('project_id', project.id);
+      rights_holders = (contributors || []).map(c => ({
+        id: c.id,
+        name: c.users?.name || 'Unknown',
+        role: c.role,
+        wallet_address: c.users?.wallet_address || '',
+        percentage: c.revenue_share,
+        total_received: 0
+      }));
+    } catch (e) {
+      console.log('No contributors found or error:', e.message);
+    }
+
+    res.status(201).json({ ...project, rights_holders });
   } catch (err) {
     console.error('Error creating project:', err);
     res.status(500).json({ error: err.message });

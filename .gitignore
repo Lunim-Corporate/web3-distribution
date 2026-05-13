@@ -1,5 +1,5 @@
 # dependencies
-node_modules/
+node_modules
 /.pnp
 .pnp.js
 
@@ -38,18 +38,10 @@ artifacts/
 cache/
 typechain-types/
 
-# internal/one-off scripts
+# internal scripts
 fix_*.js
 test_*.js
-patch_*.js
 *.log
 .gemini/
 .env*.local
 .worktrees/
-
-# AI tool artifacts
-skills-lock.json
-PRD.md
-IMPLEMENTATION_PRD.md
-AUDIT.md
-DEMO_WALKTHROUGH.md

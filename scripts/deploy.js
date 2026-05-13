@@ -36,10 +36,10 @@ async function main() {
     abi: artifact.abi
   };
 
-  const outputDir = path.join(__dirname, "..", "src", "contracts");
+  const outputDir = path.join(__dirname, "..", "src", "app", "contracts");
   if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
   fs.writeFileSync(path.join(outputDir, "RevenueRights.json"), JSON.stringify(exportData, null, 2));
-  console.log("✅ ABI and Address saved to src/contracts/RevenueRights.json");
+  console.log("✅ ABI and Address saved to src/app/contracts/RevenueRights.json");
 
   // SEED SUPABASE via Backend API
   console.log("\n📡 Seeding Supabase database via Backend API...");

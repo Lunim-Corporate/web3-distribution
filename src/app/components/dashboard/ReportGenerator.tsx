@@ -132,133 +132,88 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
       {report && (
         <>
           {/* Summary Stats */}
-          <Card>
-            <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Report Summary
-            </h4>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-              <div className="p-4 bg-blue-50 dark:bg-gray-800 rounded-lg">
-                <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">Total Revenue</p>
-                <p className="text-lg font-bold text-blue-600 dark:text-blue-400 mt-1">
-                  {formatCurrency(report.totalRevenue)}
-                </p>
-              </div>
-              <div className="p-4 bg-green-50 dark:bg-gray-800 rounded-lg">
-                <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">Total Paid</p>
-                <p className="text-lg font-bold text-green-600 dark:text-green-400 mt-1">
-                  {formatCurrency(report.totalPaid)}
-                </p>
-              </div>
-              <div className="p-4 bg-yellow-50 dark:bg-gray-800 rounded-lg">
-                <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">Pending</p>
-                <p className="text-lg font-bold text-yellow-600 dark:text-yellow-400 mt-1">
-                  {formatCurrency(report.totalPending)}
-                </p>
-              </div>
-              <div className="p-4 bg-purple-50 dark:bg-gray-800 rounded-lg">
-                <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">Payment Count</p>
-                <p className="text-lg font-bold text-purple-600 dark:text-purple-400 mt-1">
-                  {report.paymentCount}
-                </p>
-              </div>
-              <div className="p-4 bg-indigo-50 dark:bg-gray-800 rounded-lg">
-                <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">Avg Payment</p>
-                <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400 mt-1">
-                  {formatCurrency(report.averagePaymentAmount)}
-                </p>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="bg-white/5 backdrop-blur-xl border border-white/5 p-5 rounded-3xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 blur-3xl -mr-10 -mt-10" />
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Revenue</p>
+              <p className="text-xl font-black text-white">{formatCurrency(report.totalRevenue)}</p>
+              <p className="text-[10px] text-gray-600 mt-1">Platform Total</p>
             </div>
-          </Card>
+            <div className="bg-white/5 backdrop-blur-xl border border-white/5 p-5 rounded-3xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/10 blur-3xl -mr-10 -mt-10" />
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Paid</p>
+              <p className="text-xl font-black text-emerald-400">{formatCurrency(report.totalPaid)}</p>
+              <p className="text-[10px] text-gray-600 mt-1">On-chain Settled</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur-xl border border-white/5 p-5 rounded-3xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-20 h-20 bg-amber-500/10 blur-3xl -mr-10 -mt-10" />
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Pending</p>
+              <p className="text-xl font-black text-amber-500">{formatCurrency(report.totalPending)}</p>
+              <p className="text-[10px] text-gray-600 mt-1">In Processing</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur-xl border border-white/5 p-5 rounded-3xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-20 h-20 bg-indigo-500/10 blur-3xl -mr-10 -mt-10" />
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Transactions</p>
+              <p className="text-xl font-black text-white">{report.paymentCount}</p>
+              <p className="text-[10px] text-gray-600 mt-1">Total Events</p>
+            </div>
+            <div className="bg-white/5 backdrop-blur-xl border border-white/5 p-5 rounded-3xl relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-20 h-20 bg-purple-500/10 blur-3xl -mr-10 -mt-10" />
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Avg Distribution</p>
+              <p className="text-xl font-black text-white">{formatCurrency(report.averagePaymentAmount)}</p>
+              <p className="text-[10px] text-gray-600 mt-1">Per Recipient</p>
+            </div>
+          </div>
 
-          {/* Revenue by Source */}
-          {report.sources && report.sources.length > 0 && (
-            <Card>
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Revenue by Source
-              </h4>
-              <div className="space-y-2">
-                {report.sources.map((source, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-                  >
-                    <div className="flex items-center gap-3 flex-1">
-                      <Badge variant="info">{source.source}</Badge>
-                      <div className="flex-1">
-                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                          <div
-                            className="bg-blue-600 h-2 rounded-full"
-                            style={{ width: `${Math.min(source.percentage, 100)}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        {formatCurrency(source.amount)}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {formatPercentage(source.percentage)} · {source.paymentCount} payments
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {/* Revenue by Project */}
-          {report.projects && report.projects.length > 0 && (
-            <Card>
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Revenue by Project
-              </h4>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200 dark:border-gray-700">
-                      <th className="px-4 py-3 text-left font-semibold text-gray-900 dark:text-white">
-                        Project
-                      </th>
-                      <th className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">
-                        Total
-                      </th>
-                      <th className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">
-                        Paid
-                      </th>
-                      <th className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white">
-                        Pending
-                      </th>
-                      <th className="px-4 py-3 text-center font-semibold text-gray-900 dark:text-white">
-                        Contributors
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.projects.map((project, idx) => (
-                      <tr key={idx} className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                        <td className="px-4 py-3 text-gray-900 dark:text-white font-medium">
-                          {project.projectName}
+          {/* Revenue by Project (Screenshot 1) */}
+          <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/5 overflow-hidden">
+            <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between">
+              <h4 className="text-sm font-black text-white uppercase tracking-widest">Revenue by Project</h4>
+              <Badge variant="outline" className="bg-white/5 text-gray-400 border-white/10 font-black">LUNIM ECOSYSTEM</Badge>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-white/5 bg-white/[0.02]">
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">Project</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Total</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Contributors</th>
+                    <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Share (%)</th>
+                    <th className="px-6 py-4"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.projects.map((project, idx) => {
+                    const sharePercent = ((project.totalRevenue / report.totalRevenue) * 100).toFixed(1);
+                    return (
+                      <tr key={idx} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors group">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-xs font-bold text-indigo-400">
+                              {project.projectName.charAt(0)}
+                            </div>
+                            <span className="text-sm font-bold text-gray-200 group-hover:text-white transition-colors">{project.projectName}</span>
+                          </div>
                         </td>
-                        <td className="px-4 py-3 text-right text-gray-900 dark:text-white">
-                          {formatCurrency(project.totalRevenue)}
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-sm font-black text-white">{formatCurrency(project.totalRevenue)}</span>
                         </td>
-                        <td className="px-4 py-3 text-right text-green-600 dark:text-green-400">
-                          {formatCurrency(project.paidRevenue)}
+                        <td className="px-6 py-4 text-center">
+                          <span className="text-sm font-bold text-gray-400">{project.contributorCount}</span>
                         </td>
-                        <td className="px-4 py-3 text-right text-yellow-600 dark:text-yellow-400">
-                          {formatCurrency(project.pendingRevenue)}
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-sm font-black text-indigo-400">{sharePercent}%</span>
                         </td>
-                        <td className="px-4 py-3 text-center text-gray-900 dark:text-white">
-                          {project.contributorCount}
+                        <td className="px-6 py-4 text-right">
+                          <svg className="w-4 h-4 text-gray-600 group-hover:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          )}
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
           {/* Export Options */}
           <Card>

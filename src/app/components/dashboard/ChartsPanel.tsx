@@ -32,9 +32,10 @@ interface RevenueData {
 
 interface ChartsPanelProps {
   walletAddress?: string;
+  projectId?: string | null;
 }
 
-const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress }) => {
+const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress, projectId }) => {
   const [revenue, setRevenue] = useState<RevenueData[]>([]);
   const [timeframe, setTimeframe] = useState<'6'|'12'|'ytd'>('6');
   const [cumulative, setCumulative] = useState(false);
@@ -45,15 +46,18 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress }) => {
     if (walletAddress) {
       url.searchParams.set('address', walletAddress);
     }
+    if (projectId) {
+      url.searchParams.set('projectId', projectId);
+    }
 
     fetch(url.toString(), { cache: 'no-store' })
       .then(r => r.json())
-      .then(data => { 
+      .then(data => {
         const items = data.revenue ? data.revenue : (Array.isArray(data) ? data : []);
-        setRevenue(items); 
+        setRevenue(items);
       })
       .catch(() => { setRevenue([]); });
-  }, [walletAddress]);
+  }, [walletAddress, projectId]);
 
   useEffect(() => {
     fetchRevenue();
@@ -70,7 +74,13 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress }) => {
       if (isNaN(d.getTime())) return;
       const key = `${d.getFullYear()}-${d.getMonth()}`;
       monthly[key] = (monthly[key] || 0) + Number(r.amount || 0);
-      const src = r.source || 'Direct Payment';
+      
+      let src = '';
+      if (!projectId || projectId === 'all') {
+        src = r.projectName || 'Unknown Project';
+      } else {
+        src = r.source || 'Direct Payment';
+      }
       sourceMap[src] = (sourceMap[src] || 0) + Number(r.amount || 0);
     });
 
@@ -219,10 +229,12 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress }) => {
       <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl p-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-fuchsia-500/5 pointer-events-none" />
         <div className="mb-6 relative z-10">
-          <h2 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-fuchsia-400">Revenue by Source</h2>
+          <h2 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-fuchsia-400">
+            {(!projectId || projectId === 'all') ? 'Revenue by Project' : 'Revenue by Source'}
+          </h2>
         </div>
-        <div className="relative z-10 flex items-center justify-center h-[280px]">
-          <div className="w-full max-w-[280px]">
+        <div className="relative z-10 flex items-center justify-center h-[340px]">
+          <div className="w-full max-w-[320px]">
             <Doughnut
               data={{
                 labels: sourceSegments.map(s => s.label),

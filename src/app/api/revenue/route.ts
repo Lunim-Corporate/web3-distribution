@@ -8,6 +8,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const address = searchParams.get('address');
   const isWeb3 = searchParams.get('web3') === 'true';
+  const projectId = searchParams.get('projectId');
 
   try {
     // If Web3 mode is active and we have an address, mix in protocol data
@@ -18,27 +19,67 @@ export async function GET(request: Request) {
 
     let query = supabaseAdmin
       .from('payments')
-      .select('*, projects(name), users!inner(name, wallet_address)')
+      .select('*')
       .order('created_at', { ascending: false });
 
-    if (address) {
-      query = query.eq('users.wallet_address', address);
-    }
-
-    const { data, error } = await query;
+    const { data: rawPayments, error } = await query;
 
     if (error) throw error;
-    
-    const formatted = (data || []).map((p) => {
-      const pr = p as Record<string, unknown>;
+
+    let payments = rawPayments || [];
+
+    // Manually fetch and filter by users if address is provided
+    let usersMap: Record<string, {name: string, wallet_address: string}> = {};
+    if (payments.length > 0) {
+      const userIds = Array.from(new Set(payments.map(p => p.user_id).filter(Boolean)));
+      if (userIds.length > 0) {
+        const { data: users } = await supabaseAdmin
+          .from('users')
+          .select('id, name, wallet_address')
+          .in('id', userIds);
+        
+        if (users) {
+          usersMap = users.reduce((acc: any, u) => {
+            acc[u.id] = u;
+            return acc;
+          }, {});
+        }
+      }
+    }
+
+    if (address) {
+      payments = payments.filter(p => usersMap[p.user_id]?.wallet_address === address);
+    }
+
+    if (projectId && projectId !== 'all') {
+      payments = payments.filter(p => p.project_id === projectId);
+    }
+
+    // Manually fetch projects
+    let projectsMap: Record<string, string> = {};
+    if (payments.length > 0) {
+      const projectIds = Array.from(new Set(payments.map(p => p.project_id).filter(Boolean)));
+      if (projectIds.length > 0) {
+        const { data: projects } = await supabaseAdmin
+          .from('projects')
+          .select('id, name')
+          .in('id', projectIds);
+        
+        if (projects) {
+          projectsMap = projects.reduce((acc: any, proj) => {
+            acc[proj.id] = proj.name;
+            return acc;
+          }, {});
+        }
+      }
+    }
+
+    const formatted = payments.map((pr) => {
       const amount = Number(pr.amount ?? 0) / 100;
       const status = normalizePaymentStatus(pr.status ?? 'completed');
 
-      const projectsRow = pr['projects'] as Record<string, unknown> | undefined;
-      const projectName = projectsRow?.name || 'Unknown Project';
-
-      const usersRow = pr['users'] as Record<string, unknown> | undefined;
-      const recipientName = usersRow?.name || 'Unknown';
+      const projectName = projectsMap[pr.project_id] || 'Unknown Project';
+      const recipientName = usersMap[pr.user_id]?.name || 'Unknown';
 
       return {
         id: String(pr.id ?? ''),

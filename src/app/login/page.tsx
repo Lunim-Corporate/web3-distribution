@@ -83,7 +83,7 @@ export default function LoginPage() {
         <div className="relative z-40 p-12">
           <div className="flex border-l-2 border-blue-500/30 pl-4 py-1">
             <div>
-              <p className="text-sm font-bold text-white tracking-widest uppercase mb-1">Moonstone Network</p>
+              <p className="text-sm font-bold text-white tracking-widest uppercase mb-1">LUNIM Network</p>
               <p className="text-xs text-blue-400 font-mono">v2.4.0 • Live Sync Active</p>
             </div>
           </div>
@@ -106,7 +106,7 @@ export default function LoginPage() {
             <div className="inline-flex items-center justify-center w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl shadow-2xl shadow-blue-500/50 mb-4">
               <span className="text-2xl text-white">💎</span>
             </div>
-            <h1 className="text-3xl font-black text-white tracking-tight">Moonstone</h1>
+            <h1 className="text-3xl font-black text-white tracking-tight">LUNIM</h1>
           </div>
 
           <div className="bg-slate-900/40 backdrop-blur-2xl border border-slate-700/50 rounded-3xl p-8 sm:p-10 shadow-[0_0_40px_rgba(0,0,0,0.5)]">

@@ -11,7 +11,13 @@ export default function AdminPage() {
   const { listUsers, setUserRole, inviteUser } = useAuth();
   
   const [users, setUsers] = useState<User[]>([]);
-  const [invite, setInvite] = useState({ name: '', email: '', role: 'creator' as Role });
+  const [projects, setProjects] = useState<any[]>([]);
+  const [contributors, setContributors] = useState<any[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+
+  const [invite, setInvite] = useState({ name: '', email: '', role: 'creator' as Role, wallet_address: '', projectId: '', percentage: 0 });
+  const [newProject, setNewProject] = useState({ name: '', total_revenue: 0 });
+  
   const [isLoading, setIsLoading] = useState(true);
   const [isInviting, setIsInviting] = useState(false);
 
@@ -29,108 +35,189 @@ export default function AdminPage() {
       try {
         const next = await listUsers();
         setUsers(next);
+        await fetchProjects();
       } finally {
         setIsLoading(false);
       }
     })();
   }, [user, router, listUsers]);
 
+  useEffect(() => {
+    if (selectedProjectId) {
+      fetchContributors(selectedProjectId);
+    } else {
+      setContributors([]);
+    }
+  }, [selectedProjectId]);
+
+  const fetchProjects = async () => {
+    try {
+      const res = await fetch('/api/projects');
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(data);
+      }
+    } catch(e) {}
+  };
+
+  const fetchContributors = async (projectId: string) => {
+    try {
+      const res = await fetch(`/api/dashboard/data?projectId=${projectId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setContributors(data.contributors || []);
+      }
+    } catch(e) {}
+  };
+
   const refresh = async () => {
     const next = await listUsers();
     setUsers(next);
+    if (selectedProjectId) await fetchContributors(selectedProjectId);
+  };
+
+  const handleCreateProject = async () => {
+    if (!newProject.name) return toast.error('Project name required');
+    try {
+      const res = await fetch('/api/admin-actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create_project', payload: newProject })
+      });
+      if (!res.ok) throw new Error('Failed');
+      toast.success('Project created');
+      setNewProject({ name: '', total_revenue: 0 });
+      await fetchProjects();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleEditPercentage = async (contributorId: string, percentage: number) => {
+    try {
+      const res = await fetch('/api/admin-actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'edit_contributor', payload: { contributor_id: contributorId, percentage } })
+      });
+      if (!res.ok) throw new Error('Failed');
+      toast.success('Updated percentage');
+      if (selectedProjectId) fetchContributors(selectedProjectId);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleAddUser = async () => {
+    const email = invite.email.trim();
+    const name = (invite.name || email.split('@')[0]).trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if(!emailRegex.test(email)) {
+      toast.error('Please enter a valid email address.');
+      return;
+    }
+    setIsInviting(true);
+    toast.loading('Creating user...', { id: 'invite' });
+    try {
+      const res = await fetch('/api/admin-actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add_user', payload: { ...invite, name, email } })
+      });
+      if (!res.ok) throw new Error('Failed to create user and contributor');
+      toast.success('User and contributor added!', { id: 'invite' });
+      setInvite({ name:'', email:'', role:'creator', wallet_address: '', projectId: selectedProjectId, percentage: 0 });
+      await refresh();
+    } catch (e: any) {
+      toast.error(e.message, { id: 'invite' });
+    } finally {
+      setIsInviting(false);
+    }
   };
 
   if (isLoading || !user || user.role !== 'admin') return null;
 
   return (
-    <main className="p-8 max-w-4xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold">Manage Users</h1>
-      <p className="text-gray-600">Invite users and manage roles.</p>
+    <main className="p-8 max-w-6xl mx-auto space-y-8 pb-20">
+      <div>
+        <h1 className="text-3xl font-black text-white">Admin Dashboard</h1>
+        <p className="text-gray-400">Manage projects, rights holders, and revenue shares.</p>
+      </div>
 
-      <div className="rounded border border-gray-200 dark:border-gray-700 p-4 space-y-3">
-        <h2 className="font-semibold">Invite User</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <input className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700" placeholder="Name" value={invite.name} onChange={(e)=>setInvite({...invite, name: e.target.value})} />
-          <input className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700" placeholder="Email" value={invite.email} onChange={(e)=>setInvite({...invite, email: e.target.value})} />
-          <select className="px-3 py-2 rounded border border-gray-300 dark:border-gray-700" value={invite.role} onChange={(e)=>setInvite({...invite, role: e.target.value as Role})}>
-            <option value="admin">admin</option>
-            <option value="creator">creator</option>
-            <option value="contributor">contributor</option>
-          </select>
-          <button
-            className="px-3 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
-            disabled={isInviting}
-            onClick={()=>{
-              void (async () => {
-                const email = invite.email.trim();
-                const name = (invite.name || email.split('@')[0]).trim();
-                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                if(!emailRegex.test(email)) {
-                  toast.error('Please enter a valid email address.');
-                  return;
-                }
-                
-                setIsInviting(true);
-                toast.loading('Sending invite...', { id: 'invite' });
-                try {
-                  await inviteUser(email, name, invite.role);
-                  toast.success(`Invite sent to ${email} as ${invite.role}.`, { id: 'invite' });
-                  setInvite({ name:'', email:'', role:'creator' });
-                  await refresh();
-                } catch (e: unknown) {
-                  const msg = e instanceof Error ? e.message : 'Failed to send invite';
-                  toast.error(msg, { id: 'invite' });
-                } finally {
-                  setIsInviting(false);
-                }
-              })();
-            }}
-          >
-            {isInviting ? "Sending..." : "Send Invite"}
-          </button>
+      {/* CREATE PROJECT SECTION */}
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-4">
+        <h2 className="text-lg font-bold text-white">Create New Project</h2>
+        <div className="flex gap-4 items-center">
+          <input className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500" placeholder="Project Name" value={newProject.name} onChange={(e)=>setNewProject({...newProject, name: e.target.value})} />
+          <input type="number" className="w-48 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500" placeholder="Initial Revenue (USD)" value={newProject.total_revenue || ''} onChange={(e)=>setNewProject({...newProject, total_revenue: Number(e.target.value)})} />
+          <button onClick={handleCreateProject} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg transition-colors">Create Project</button>
         </div>
       </div>
-      <div className="rounded border border-gray-200 dark:border-gray-700">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-200 dark:border-gray-700">
-              <th className="text-left p-3">Name</th>
-              <th className="text-left p-3">Email</th>
-              <th className="text-left p-3">Role</th>
-              <th className="text-left p-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(u => (
-              <tr key={u.id} className="border-b border-gray-100 dark:border-gray-800">
-                <td className="p-3">{u.name}</td>
-                <td className="p-3 text-gray-600">{u.email}</td>
-                <td className="p-3">
-                  <span className="px-2 py-1 rounded text-xs bg-gray-100 dark:bg-gray-800">{u.role}</span>
-                </td>
-                <td className="p-3">
-                  <select
-                    defaultValue={u.role}
-                    onChange={(e) => {
-                      void (async () => {
-                        await setUserRole(u.id, e.target.value as Role);
-                        await refresh();
-                      })();
-                    }}
-                    className="px-2 py-1 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900"
-                  >
-                    <option value="admin">admin</option>
-                    <option value="creator">creator</option>
-                    <option value="contributor">contributor</option>
-                  </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        {/* ADD USER / CONTRIBUTOR */}
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-4">
+          <h2 className="text-lg font-bold text-white">Add New Rights Holder</h2>
+          <div className="grid grid-cols-2 gap-4">
+            <input className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white" placeholder="Name" value={invite.name} onChange={(e)=>setInvite({...invite, name: e.target.value})} />
+            <input className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white" placeholder="Email" value={invite.email} onChange={(e)=>setInvite({...invite, email: e.target.value})} />
+            <input className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white col-span-2" placeholder="Wallet Address (0x...)" value={invite.wallet_address} onChange={(e)=>setInvite({...invite, wallet_address: e.target.value})} />
+            
+            <select className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white" value={invite.projectId} onChange={(e)=>setInvite({...invite, projectId: e.target.value})}>
+              <option value="">Select Project...</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            
+            <input type="number" className="bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white" placeholder="Revenue Share (%)" value={invite.percentage || ''} onChange={(e)=>setInvite({...invite, percentage: Number(e.target.value)})} />
+            
+            <button disabled={isInviting} onClick={handleAddUser} className="col-span-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg disabled:opacity-50">
+              {isInviting ? "Adding..." : "Add to Project"}
+            </button>
+          </div>
+        </div>
+
+        {/* EDIT PROJECT CONTRIBUTORS */}
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-bold text-white">Edit Project Shares</h2>
+            <select className="bg-black/40 border border-white/10 rounded-lg px-4 py-1 text-sm text-white" value={selectedProjectId} onChange={(e)=>setSelectedProjectId(e.target.value)}>
+              <option value="">Select Project</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+          
+          {!selectedProjectId ? (
+            <p className="text-gray-500 text-sm">Select a project to view and edit its rights holders.</p>
+          ) : contributors.length === 0 ? (
+            <p className="text-gray-500 text-sm">No rights holders found for this project.</p>
+          ) : (
+            <div className="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+              {contributors.map((c: any) => (
+                <div key={c.id || c.user_id} className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5">
+                  <div>
+                    <p className="text-white font-bold text-sm">{c.name || 'Unknown'}</p>
+                    <p className="text-gray-500 text-xs font-mono truncate w-32">{c.wallet_address || 'No wallet'}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="number" 
+                      className="w-16 bg-black/40 border border-white/10 rounded px-2 py-1 text-white text-right"
+                      defaultValue={c.percentage}
+                      onBlur={(e) => {
+                        const val = Number(e.target.value);
+                        if (val !== c.percentage) handleEditPercentage(c.id, val);
+                      }}
+                    />
+                    <span className="text-gray-500 text-sm">%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+      
     </main>
   );
 }
-
-

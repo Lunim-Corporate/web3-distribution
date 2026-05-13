@@ -283,10 +283,10 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
     // Append time to ensure we capture the whole end date up to midnight
     const endOfDay = endDate.includes('T') ? endDate : `${endDate}T23:59:59.999Z`;
 
-    // Step 1: Fetch payments with projects and users
+    // Step 1: Fetch payments with projects
     let paymentQuery = supabase
       .from('payments')
-      .select('*, projects(id, name), users!inner(id, name, wallet_address)')
+      .select('*, projects(id, name)')
       .gte('payment_date', startDate)
       .lte('payment_date', endOfDay);
 
@@ -294,27 +294,23 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
       paymentQuery = paymentQuery.eq('project_id', projectId);
     }
 
-    if (walletAddress) {
-      paymentQuery = paymentQuery.eq('users.wallet_address', walletAddress);
-    }
-
     const { data: payments, error: paymentError } = await paymentQuery;
     if (paymentError) throw paymentError;
 
-    // Step 2: Fetch contributors if we have projects
+    // Step 2: Fetch contributors if we have projects (with user info)
     const projectIds = Array.from(new Set(payments?.map(p => p.project_id) || []));
     let contributors: any[] = [];
     if (projectIds.length > 0) {
       const { data: contribs, error: contribError } = await supabase
         .from('project_contributors')
-        .select('project_id, user_id, revenue_share')
+        .select('project_id, user_id, revenue_share, role, users(name)')
         .in('project_id', projectIds);
       if (!contribError) contributors = contribs || [];
     }
 
     // Aggregate data
     const sourceMap = new Map<string, { amount: number; count: number }>();
-    const projectMap = new Map<string, { revenue: number; paid: number; contributors: Set<string>; name: string }>();
+    const projectMap = new Map<string, { revenue: number; paid: number; contributors: Set<string>; name: string; rightsHolders: any[] }>();
     const uniqueTxHashes = new Set<string>();
     let totalRevenue = 0;
 
@@ -339,18 +335,25 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
       // By project
       if (payment.projects) {
         const projId = payment.projects.id;
-        const current = projectMap.get(projId) || { 
-          revenue: 0, 
-          paid: 0, 
+        const current = projectMap.get(projId) || {
+          revenue: 0,
+          paid: 0,
           contributors: new Set<string>(),
-          name: payment.projects.name || 'Unknown'
+          name: payment.projects.name || 'Unknown',
+          rightsHolders: []
         };
         
         current.revenue += amount;
         current.paid += amount;
         
         // Find contributors for this project
-        contributors.filter(c => c.project_id === projId).forEach(c => {
+        const projectContributors = contributors.filter(c => c.project_id === projId);
+        current.rightsHolders = projectContributors.map(c => ({
+          name: c.users?.name || 'Unknown',
+          role: c.role || 'Contributor',
+          percentage: c.revenue_share || 0
+        }));
+        projectContributors.forEach(c => {
           current.contributors.add(c.user_id);
         });
 
@@ -382,6 +385,7 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
         paidRevenue: data.paid,
         pendingRevenue: 0,
         contributorCount: data.contributors.size,
+        rightsHolders: data.rightsHolders || [],
       })),
       topContributors: [],
       trends: payments?.map((p) => ({

@@ -45,7 +45,7 @@ export async function GET(request: Request) {
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(24);
-    doc.text('MOONSTONE', 20, 25);
+    doc.text('LUNIM', 20, 25);
     doc.setFontSize(10);
     doc.text('CREATIVE RIGHTS PLATFORM — PLATFORM REPORT', 20, 32);
 
@@ -64,17 +64,31 @@ export async function GET(request: Request) {
     doc.text(`Total Pending: USD ${report.totalPending.toLocaleString()}`, 20, 94);
     doc.text(`Payment Count: ${report.paymentCount}`, 20, 102);
 
-    // Top Projects Section
+    // Projects & Rights Holders Section
     doc.setFontSize(14);
-    doc.text('RECENT PROJECTS & REVENUE', 20, 118);
+    doc.text('PROJECTS & RIGHTS HOLDERS', 20, 118);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     let y = 128;
-    
+
     if (report.projects && report.projects.length > 0) {
-      report.projects.slice(0, 15).forEach((proj: any) => {
-        if (y > 270) { doc.addPage(); y = 20; }
-        doc.text(`${proj.projectName}: USD ${proj.totalRevenue.toLocaleString()}`, 25, y);
+      report.projects.slice(0, 10).forEach((proj: any) => {
+        if (y > 250) { doc.addPage(); y = 20; }
+        doc.setFont('helvetica', 'bold');
+        doc.text(proj.projectName + ': USD ' + proj.totalRevenue.toLocaleString(), 25, y);
+        y += 6;
+
+        if (proj.rightsHolders && proj.rightsHolders.length > 0) {
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(100, 100, 100);
+          proj.rightsHolders.forEach((holder: any) => {
+            if (y > 280) { doc.addPage(); y = 20; }
+            const sharePercent = holder.percentage ? holder.percentage.toFixed(1) : '0.0';
+            doc.text('  → ' + holder.name + ' (' + holder.role + '): ' + sharePercent + '%', 30, y);
+            y += 5;
+          });
+          doc.setTextColor(0, 0, 0);
+        }
         y += 8;
       });
     } else {
@@ -88,7 +102,7 @@ export async function GET(request: Request) {
       doc.setFontSize(8);
       doc.setTextColor(150);
       doc.text(`Page ${i} of ${pageCount}`, 190, 287, { align: 'right' });
-      doc.text('Moonstone Creative Hub - Confidential', 20, 287);
+      doc.text('LUNIM Creative Hub - Confidential', 20, 287);
     }
 
     // BINARY OUTPUT
@@ -100,7 +114,7 @@ export async function GET(request: Request) {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="moonstone_${filenameSuffix}_${new Date().toISOString().slice(0, 10)}.pdf"`,
+        'Content-Disposition': `attachment; filename="lunim_${filenameSuffix}_${new Date().toISOString().slice(0, 10)}.pdf"`,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache'
       }

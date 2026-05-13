@@ -11,14 +11,31 @@ export async function GET() {
   try {
     const { data: payments, error } = await supabaseAdmin
       .from('payments')
-      .select('id, amount, status, created_at, projects(name)')
+      .select('id, amount, status, created_at, project_id')
       .order('created_at', { ascending: false })
       .limit(15);
 
     if (error) throw error;
 
+    const projectIds = Array.from(new Set((payments || []).map(p => p.project_id).filter(Boolean)));
+    let projectsMap: Record<string, string> = {};
+
+    if (projectIds.length > 0) {
+      const { data: projects } = await supabaseAdmin
+        .from('projects')
+        .select('id, name')
+        .in('id', projectIds);
+      
+      if (projects) {
+        projectsMap = projects.reduce((acc: Record<string, string>, proj) => {
+          acc[proj.id] = proj.name;
+          return acc;
+        }, {});
+      }
+    }
+
     const activities = (payments || []).map((p: any) => {
-      const projectName = p.projects?.name || 'Unknown Project';
+      const projectName = projectsMap[p.project_id] || 'Unknown Project';
       const amount = Number(p.amount || 0) / 100;
       const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 
