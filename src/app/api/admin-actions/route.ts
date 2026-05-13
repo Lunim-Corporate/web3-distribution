@@ -33,6 +33,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, user });
     }
     
+    if (action === 'edit_project') {
+      const { project_id, name, total_revenue } = payload;
+      const { data, error } = await supabaseAdmin.from('projects')
+        .update({ name, total_revenue })
+        .eq('id', project_id);
+      if (error) throw error;
+      return NextResponse.json({ success: true, data });
+    }
+
+    if (action === 'delete_project') {
+      const { project_id } = payload;
+      // Note: project_contributors and other linked data should be handled by DB foreign keys (on delete cascade)
+      const { error } = await supabaseAdmin.from('projects').delete().eq('id', project_id);
+      if (error) throw error;
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === 'delete_contributor') {
+      const { contributor_id } = payload;
+      const { error } = await supabaseAdmin.from('project_contributors').delete().eq('id', contributor_id);
+      if (error) throw error;
+      return NextResponse.json({ success: true });
+    }
+
     if (action === 'edit_contributor') {
       const { contributor_id, percentage } = payload;
       const { data, error } = await supabaseAdmin.from('project_contributors')

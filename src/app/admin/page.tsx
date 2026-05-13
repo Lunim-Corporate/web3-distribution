@@ -93,6 +93,39 @@ export default function AdminPage() {
     }
   };
 
+  const handleDeleteProject = async (projectId: string) => {
+    if (!confirm('Are you sure you want to delete this project? This will remove all associated contributors and data.')) return;
+    try {
+      const res = await fetch('/api/admin-actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete_project', payload: { project_id: projectId } })
+      });
+      if (!res.ok) throw new Error('Failed to delete project');
+      toast.success('Project deleted');
+      if (selectedProjectId === projectId) setSelectedProjectId('');
+      await fetchProjects();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  const handleDeleteContributor = async (contributorId: string) => {
+    if (!confirm('Remove this rights holder from the project?')) return;
+    try {
+      const res = await fetch('/api/admin-actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete_contributor', payload: { contributor_id: contributorId } })
+      });
+      if (!res.ok) throw new Error('Failed to remove contributor');
+      toast.success('Contributor removed');
+      if (selectedProjectId) fetchContributors(selectedProjectId);
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
   const handleEditPercentage = async (contributorId: string, percentage: number) => {
     try {
       const res = await fetch('/api/admin-actions', {
@@ -144,14 +177,29 @@ export default function AdminPage() {
         <p className="text-gray-400">Manage projects, rights holders, and revenue shares.</p>
       </div>
 
-      {/* CREATE PROJECT SECTION */}
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 space-y-4">
-        <h2 className="text-lg font-bold text-white">Create New Project</h2>
+        <h2 className="text-lg font-bold text-white">Project Management</h2>
         <div className="flex gap-4 items-center">
           <input className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500" placeholder="Project Name" value={newProject.name} onChange={(e)=>setNewProject({...newProject, name: e.target.value})} />
           <input type="number" className="w-48 bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500" placeholder="Initial Revenue (USD)" value={newProject.total_revenue || ''} onChange={(e)=>setNewProject({...newProject, total_revenue: Number(e.target.value)})} />
           <button onClick={handleCreateProject} className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg transition-colors">Create Project</button>
         </div>
+
+        {projects.length > 0 && (
+          <div className="pt-4 border-t border-white/5">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Existing Projects</p>
+            <div className="flex flex-wrap gap-2">
+              {projects.map(p => (
+                <div key={p.id} className="flex items-center gap-2 bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
+                  <span className="text-sm text-white font-medium">{p.name}</span>
+                  <button onClick={() => handleDeleteProject(p.id)} className="text-gray-500 hover:text-red-400 transition-colors p-0.5">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -194,10 +242,15 @@ export default function AdminPage() {
           ) : (
             <div className="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
               {contributors.map((c: any) => (
-                <div key={c.id || c.user_id} className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5">
-                  <div>
-                    <p className="text-white font-bold text-sm">{c.name || 'Unknown'}</p>
-                    <p className="text-gray-500 text-xs font-mono truncate w-32">{c.wallet_address || 'No wallet'}</p>
+                <div key={c.id || c.user_id} className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5 group">
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => handleDeleteContributor(c.id)} className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-all p-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                    <div>
+                      <p className="text-white font-bold text-sm">{c.name || 'Unknown'}</p>
+                      <p className="text-gray-500 text-xs font-mono truncate w-32">{c.wallet_address || 'No wallet'}</p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <input 
