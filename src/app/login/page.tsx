@@ -144,6 +144,19 @@ export default function LoginPage() {
                 />
               </div>
 
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('admin@lunim.io');
+                    setPassword('admin123');
+                  }}
+                  className="text-xs text-blue-400 hover:text-blue-300 transition-colors font-medium"
+                >
+                  Quick Fill (Demo)
+                </button>
+              </div>
+
               {error && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold rounded-xl px-4 py-3.5">
                   {error}

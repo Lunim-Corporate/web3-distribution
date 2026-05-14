@@ -137,7 +137,6 @@ export default function AdminDashboard() {
                  <DistributeRevenuePanel
                     isConnected={isConnected}
                     walletAddress={walletAddress}
-                    connectWallet={connectWallet}
                     sendRevenue={sendRevenue}
                     txStatus={txStatus}
                     lastTxHash={lastTxHash}

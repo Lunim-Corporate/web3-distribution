@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { generateRevenueReport } from '@/lib/database';
+import { generateRevenueReport } from '@/lib/reports.server';
 import type { RevenueReport, RevenueBySource, RevenueByProject, RevenueTrend } from '@/lib/types';
 
 export async function GET(request: Request) {
@@ -77,7 +77,6 @@ function generateReportCSV(report: RevenueReport): string {
   // Summary
   lines.push('SUMMARY');
   lines.push(`Total Revenue,${report.totalRevenue}`);
-  lines.push(`Total Paid,${report.totalPaid}`);
   lines.push(`Total Pending,${report.totalPending}`);
   lines.push(`Payment Count,${report.paymentCount}`);
   lines.push(`Average Payment,${report.averagePaymentAmount}`);

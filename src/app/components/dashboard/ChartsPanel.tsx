@@ -109,18 +109,31 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress, projectId }) =
     const trimmed = hasRevenue ? vals.slice(0, monthsCount) : demo.slice(-monthsCount);
     const trend = cumulative ? trimmed.reduce((acc, v, i) => { acc.push((acc[i-1]||0) + v); return acc; }, [] as number[]) : trimmed;
     
-    // BUG FIX #3: Filter null values for chart rendering - Chart.js handles nulls differently
     const displayTrend = [...trend, null, null, null];
-    const displayProjected = projVals.map(v => v === undefined ? null : v);  // Keep null for missing projections
+    const displayProjected = projVals.map(v => v === undefined ? null : v);
 
-    // top sources + other
-    const colors = ['#06b6d4','#f59e0b','#84cc16','#8b5cf6','#ef4444','#3b82f6'];
-    const sources = Object.entries(sourceMap).sort((a,b)=>b[1]-a[1]);
-    const top = sources.slice(0,5).map((s,i)=>({ label: s[0], value: s[1], color: colors[i%colors.length] }));
-    const otherTotal = sources.slice(5).reduce((s,a)=>s+a[1],0);
-    if (otherTotal > 0) top.push({ label: 'Other', value: otherTotal, color: colors[top.length%colors.length] });
+    // Build segments for the Doughnut chart
+    const contributorMap: Record<string, number> = {};
+    revenue.forEach(r => {
+      const name = r.recipientName || 'Unknown';
+      contributorMap[name] = (contributorMap[name] || 0) + r.amount;
+    });
 
-    return { labels: lbls, trendData: displayTrend, projectedData: displayProjected, sourceSegments: top };
+    const segments = Object.entries(contributorMap)
+      .sort((a, b) => b[1] - a[1])
+      .map(([label, value], i) => ({
+        label,
+        value,
+        color: ['#06b6d4','#f59e0b','#84cc16','#8b5cf6','#ef4444','#3b82f6'][i % 6]
+      }));
+
+    const topSegments = segments.slice(0, 5);
+    const otherTotal = segments.slice(5).reduce((sum, s) => sum + s.value, 0);
+    if (otherTotal > 0) {
+      topSegments.push({ label: 'Other Contributors', value: otherTotal, color: '#64748b' });
+    }
+
+    return { labels: lbls, trendData: displayTrend, projectedData: displayProjected, sourceSegments: topSegments };
   }, [revenue, timeframe, cumulative]);
 
   return (
@@ -136,7 +149,7 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress, projectId }) =
               value={timeframe}
               onChange={(e) => {
                 const v = e.target.value;
-                if (v === '6' || v === '12' || v === 'ytd') setTimeframe(v);
+                if (v === '6' || v === '12' || v === 'ytd') setTimeframe(v as any);
               }}
               className="px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-white/90 text-sm focus:ring-1 focus:ring-emerald-500 outline-none backdrop-blur-md"
             >
@@ -146,7 +159,7 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress, projectId }) =
             </select>
             <label className="ml-4 text-sm text-gray-400 flex items-center gap-2 cursor-pointer hover:text-white transition-colors">
               <input type="checkbox" checked={cumulative} onChange={e=>setCumulative(e.target.checked)} className="accent-emerald-500 w-4 h-4 rounded bg-white/10 border-white/20"/>
-              Cumulative Check
+              Cumulative
             </label>
           </div>
 
@@ -191,16 +204,8 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress, projectId }) =
                     borderWidth: 1,
                     padding: 12,
                     callbacks: {
-                      label: (ctx: unknown) => {
-                        const c = ctx as { parsed?: { y?: number } | number };
-                        const parsed = c.parsed;
-                        const value =
-                          typeof parsed === 'number'
-                            ? parsed
-                            : parsed && typeof parsed === 'object'
-                              ? (parsed as { y?: number }).y ?? 0
-                              : 0;
-                        // BUG FIX #4: Use USD formatting for consistency
+                      label: (ctx: any) => {
+                        const value = ctx.parsed.y ?? 0;
                         return formatCurrency(Number(value) || 0, 'USD');
                       },
                     },
@@ -216,7 +221,7 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress, projectId }) =
                   y: { 
                     beginAtZero: true, 
                     grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                    ticks: { color: 'rgba(255, 255, 255, 0.5)', font: { family: 'ui-monospace, monospace' }, callback: (v: string | number) => formatCurrency(Number(v), 'USD') } 
+                    ticks: { color: 'rgba(255, 255, 255, 0.5)', font: { family: 'ui-monospace, monospace' }, callback: (v: any) => formatCurrency(Number(v), 'USD') } 
                   },
                 },
                 elements: { line: { borderWidth: 3 }, point: { hitRadius: 10 } },
@@ -230,29 +235,31 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress, projectId }) =
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-fuchsia-500/5 pointer-events-none" />
         <div className="mb-6 relative z-10">
           <h2 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-fuchsia-400">
-            {(!projectId || projectId === 'all') ? 'Revenue by Project' : 'Revenue by Source'}
+            Ecosystem Share
           </h2>
         </div>
-        <div className="relative z-10 flex items-center justify-center h-[340px]">
-          <div className="w-full max-w-[320px]">
+        <div className="relative z-10 flex items-center justify-center h-[400px]">
+          <div className="w-full max-w-[380px]">
             <Doughnut
               data={{
                 labels: sourceSegments.map(s => s.label),
-                datasets: [{ data: sourceSegments.length ? sourceSegments.map(s=>s.value) : [1], backgroundColor: sourceSegments.length ? sourceSegments.map(s=>s.color) : ['rgba(255,255,255,0.05)'], borderWidth: 0, hoverOffset: 4 }]
+                datasets: [{ data: sourceSegments.length ? sourceSegments.map(s=>s.value) : [1], backgroundColor: sourceSegments.length ? sourceSegments.map(s=>s.color) : ['rgba(255,255,255,0.05)'], borderWidth: 0, hoverOffset: 8 }]
               }}
               options={{
-                cutout: '75%',
+                cutout: '70%',
                 plugins: {
-                  legend: { position: 'bottom' as const, labels: { color: 'rgba(255,255,255,0.7)', font: { family: 'ui-monospace, monospace', size: 11 }, padding: 20, usePointStyle: true } },
+                  legend: { position: 'bottom' as const, labels: { color: 'rgba(255,255,255,0.7)', font: { family: 'ui-monospace, monospace', size: 12 }, padding: 20, usePointStyle: true } },
                   tooltip: {
                     backgroundColor: 'rgba(15, 23, 42, 0.9)',
                     borderColor: 'rgba(255,255,255,0.1)',
                     borderWidth: 1,
                     padding: 12,
                     callbacks: {
-                      label: (ctx: { label?: string; raw?: unknown }) => {
+                      label: (ctx: any) => {
                         const rawValue = typeof ctx.raw === 'number' ? ctx.raw : 0;
-                        return ` ${ctx.label ?? 'Value'}: ${formatCurrency(rawValue, 'USD')}`;
+                        const total = ctx.dataset.data.reduce((a: number, b: number) => a + b, 0);
+                        const percentage = ((rawValue / total) * 100).toFixed(1);
+                        return ` ${ctx.label ?? 'Value'}: ${formatCurrency(rawValue, 'USD')} (${percentage}%)`;
                       },
                     },
                   },

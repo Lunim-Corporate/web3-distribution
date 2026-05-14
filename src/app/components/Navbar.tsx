@@ -223,7 +223,7 @@ export const Navbar: React.FC = () => {
                             <div className="p-4 text-center text-sm text-gray-500">No recent transactions</div>
                           ) : (
                             recentTransactions.map((tx, i) => (
-                              <div key={i} className="px-4 py-3 border-b border-gray-800 hover:bg-white/5 transition-colors">
+                              <div key={i} onClick={() => { setNotificationsOpen(false); window.location.href = '/dashboard?tab=revenue'; }} className="px-4 py-3 border-b border-gray-800 hover:bg-white/5 transition-colors cursor-pointer">
                                 <div className="flex justify-between items-center mb-1">
                                   <span className="text-[10px] font-bold text-emerald-400 uppercase">Payment Distributed</span>
                                   <span className="text-[10px] text-gray-500">{new Date(tx.created_at).toLocaleDateString()}</span>
@@ -276,6 +276,7 @@ export const Navbar: React.FC = () => {
                                   localStorage.setItem('demo_private_key', account.privateKey);
                                   window.dispatchEvent(new CustomEvent('wallet-changed', { detail: account.address }));
                                   setWalletDropdownOpen(false);
+                                  if (!isOnDashboard) window.location.href = '/dashboard';
                                 }}
                                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
                                   walletAddress === account.address
@@ -306,6 +307,7 @@ export const Navbar: React.FC = () => {
                                 onClick={() => {
                                   open();
                                   setWalletDropdownOpen(false);
+                                  if (!isOnDashboard) window.location.href = '/dashboard';
                                 }}
                                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-800 border border-transparent transition-all"
                               >
@@ -332,6 +334,7 @@ export const Navbar: React.FC = () => {
                               onClick={() => {
                                 open();
                                 setWalletDropdownOpen(false);
+                                if (!isOnDashboard) window.location.href = '/dashboard';
                               }}
                               className="w-full mt-2 flex items-center justify-center gap-2 px-3 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-bold hover:brightness-110 transition-all"
                             >
@@ -436,14 +439,14 @@ export const Navbar: React.FC = () => {
                             className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 transition-colors"
                           >
                             <span className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-sm">👤</span>
-                            Profile & Settings
+                            Profiles and Settings
                           </Link>
                           <Link
                             href="/dashboard"
                             className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 transition-colors"
                           >
                             <span className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-sm">📊</span>
-                            Dashboard
+                            Dashboards
                           </Link>
                           {user.role === 'admin' && (
                             <Link

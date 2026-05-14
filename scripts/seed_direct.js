@@ -1,5 +1,10 @@
-const axios = require('axios');
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const contributorsPool = [
   { name: 'Zara Kimani', role: 'Director', email: 'zara.kimani@moonstone.io', wallet_address: '0xA1b2C3d4E5f6A7B8C9D0E1F2a3B4c5D6e7F8a9B0' },
@@ -46,11 +51,15 @@ function generateTxHash() {
 }
 
 async function seed() {
-  const SERVER_URL = `http://localhost:${process.env.PORT || 3001}`; // Using 3001 as default for development
-
-  console.log(`\n🌱 Seeding LUNIM Dashboard with Premium Data...`);
+  console.log(`\n🧹 Cleaning up database...`);
+  // Use .not('id', 'is', null) to delete all
+  await supabase.from('payments').delete().not('id', 'is', null);
+  await supabase.from('activities').delete().not('id', 'is', null);
+  await supabase.from('project_contributors').delete().not('id', 'is', null);
+  await supabase.from('projects').delete().not('id', 'is', null);
   
-  let totalUSD = 0;
+  console.log(`🌱 Direct Supabase Seeding with Premium Data...`);
+  
   let totalHolders = 0;
 
   for (let i = 0; i < projectsData.length; i++) {
@@ -61,50 +70,80 @@ async function seed() {
     const basePercent = Math.floor((100 / holders.length) * 10) / 10;
     const remainder = parseFloat((100 - (basePercent * holders.length)).toFixed(1));
 
-    const projectPayload = {
+    // Create Project
+    const { data: project, error: pErr } = await supabase.from('projects').insert({
       name: p.name,
       type: p.type,
       description: `Premium ${p.type} Project`,
       contract_address: '0x0000000000000000000000000000000000000000',
-      rightsHolders: holders.map((c, idx) => ({
-        ...c,
-        percentage: idx === 0 ? parseFloat((basePercent + remainder).toFixed(1)) : basePercent
-      }))
-    };
+      total_revenue: p.amount * 100, // Cents
+      status: 'active'
+    }).select().single();
 
-    try {
-      // 1. Create Project
-      const projRes = await axios.post(`${SERVER_URL}/api/projects`, projectPayload);
-      const projectId = projRes.data.id;
-      console.log(`✅ Project: ${p.name} (${p.contributors} holders)`);
-
-      // 2. Record Payments (Total matches screenshot)
-      // We'll split the total into 2 transactions for variety, total 9-10 across all projects
-      const txCount = i === 0 ? 1 : 2; 
-      const amountPerTx = p.amount / txCount;
-
-      for (let j = 0; j < txCount; j++) {
-        await axios.post(`${SERVER_URL}/api/payments/record`, {
-          projectId,
-          amountEth: amountPerTx / 3500, // Roughly 0.1 - 2.0 ETH
-          totalUSD: amountPerTx,
-          txHash: generateTxHash(),
-          source: 'Client Revenue'
-        });
-        totalUSD += amountPerTx;
-      }
-      
-    } catch (err) {
-      console.error(`❌ Error seeding ${p.name}:`, err.response?.data?.error || err.message);
+    if (pErr) {
+      console.error(`❌ Project ${p.name} failed:`, pErr.message);
+      continue;
     }
+
+    console.log(`✅ Project: ${p.name}`);
+
+    // Create Contributors
+    const contributorRows = [];
+    for (let j = 0; j < holders.length; j++) {
+      const h = holders[j];
+      const pct = j === 0 ? parseFloat((basePercent + remainder).toFixed(1)) : basePercent;
+      
+      const { data: user } = await supabase.from('users').upsert({
+        email: h.email,
+        name: h.name,
+        wallet_address: h.wallet_address
+      }, { onConflict: 'email' }).select().single();
+
+      contributorRows.push({
+        project_id: project.id,
+        user_id: user.id,
+        revenue_share: pct,
+        role: h.role,
+        total_earned: Math.round((pct / 100) * p.amount * 100)
+      });
+    }
+
+    await supabase.from('project_contributors').insert(contributorRows);
+
+    // Record Payments (Total 9-10 across all)
+    const txCount = i === 0 ? 1 : 2; 
+    const amountPerTx = (p.amount * 100) / txCount;
+
+    const paymentRows = [];
+    for (let j = 0; j < txCount; j++) {
+      const txHash = generateTxHash();
+      contributorRows.forEach(c => {
+        paymentRows.push({
+          project_id: project.id,
+          user_id: c.user_id,
+          amount: Math.round((c.revenue_share / 100) * amountPerTx),
+          tx_hash: txHash,
+          status: 'completed',
+          source: 'Client Payment',
+          split_percentage: c.revenue_share,
+          payment_date: new Date().toISOString(),
+          created_at: new Date().toISOString() // Explicitly set for report generator
+        });
+      });
+
+      // Add Activity for this transaction
+      await supabase.from('activities').insert({
+        project_id: project.id,
+        activity_type: 'payment_recorded',
+        description: `Distribution of $${(amountPerTx / 100).toLocaleString()} processed for ${p.name}`,
+        created_at: new Date().toISOString()
+      });
+    }
+
+    await supabase.from('payments').insert(paymentRows);
   }
 
-  console.log('\n------------------------------------------');
-  console.log(`📊 Final Seed Stats:`);
-  console.log(`   Total Distributed: $${totalUSD.toLocaleString()}`);
-  console.log(`   Total Contributors: ${totalHolders}`);
-  console.log(`   Projects Created: ${projectsData.length}`);
-  console.log('------------------------------------------\n');
+  console.log('\n✨ Seeding Complete!');
 }
 
 seed();

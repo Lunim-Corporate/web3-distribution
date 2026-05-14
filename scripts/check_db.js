@@ -1,13 +1,14 @@
-require('dotenv').config({ path: '.env.local' });
-const { Pool } = require('pg');
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/postgres'
-});
-
-async function fix() {
-  // If the user is using Supabase cloud, we might not have DATABASE_URL.
-  // Wait, I can just use Supabase to fetch everything separately if this fails.
-  console.log('Database URL available?', !!process.env.DATABASE_URL);
+async function check() {
+  const { data: projects } = await supabase.from('projects').select('id, name, total_revenue');
+  console.log('Projects:', projects);
+  
+  const { data: payments } = await supabase.from('payments').select('id, amount, project_id');
+  const total = (payments || []).reduce((sum, p) => sum + Number(p.amount), 0);
+  console.log('Total Payments Amount (cents):', total);
+  console.log('Total Payments Amount (USD):', total / 100);
 }
-fix().catch(console.error);
+check();

@@ -29,7 +29,7 @@ const TABS = [
   { id: 'revenue', label: 'Revenue', icon: '💰' },
   { id: 'rights-holders', label: 'Rights Holders', icon: '👥' },
   { id: 'reports', label: 'Reports', icon: '📄' },
-  { id: 'distribute', label: 'Distribute', icon: '💎' },
+  { id: 'distribute', label: 'Distribute', icon: '⇌' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -374,7 +374,6 @@ export default function UnifiedDashboard() {
               <RevenueTab
                 transactions={transactions}
                 totalRevenue={totalRevenue}
-                totalPaid={totalRevenue}
                 projectsList={projectsList}
               />
             </div>
@@ -393,10 +392,25 @@ export default function UnifiedDashboard() {
                 </button>
               </div>
 
-              {/* Split Configuration */}
+              {/* Filter / Search Bar can go here */}
+              <div className="flex items-center gap-4 mb-4">
+                 <div className="flex-1 max-w-sm relative">
+                    <input type="text" placeholder="Search rights holders..." className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-sm text-white focus:outline-none focus:border-indigo-500/50" />
+                 </div>
+                 <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Sort:</span>
+                    <select className="bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-sm text-white focus:outline-none">
+                       <option value="name" className="bg-slate-900">Name</option>
+                       <option value="percentage" className="bg-slate-900">Allocation</option>
+                       <option value="revenue" className="bg-slate-900">Revenue</option>
+                    </select>
+                 </div>
+              </div>
+
+              {/* Split Configuration Grid */}
               <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 p-6">
-                <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-4">Split Configuration</h3>
-                <div className="space-y-3">
+                <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6">Split Configuration</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {rightsHolders.map((holder: any, idx: number) => (
                     <RightsHolderRow key={holder.id || idx} holder={holder} transactions={transactions} />
                   ))}
@@ -415,15 +429,12 @@ export default function UnifiedDashboard() {
           {/* ─── DISTRIBUTE TAB ────────────────────────────────── */}
           {activeTab === 'distribute' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+              {/* Left — Distribute Panel */}
               <div className="lg:col-span-5">
-                <div className="mb-4">
-                  <h2 className="text-xl font-black text-white">Revenue Distribution Hub</h2>
-                  <p className="text-sm text-gray-500 mt-1">Showcase how smart contracts automate revenue splits in real-time.</p>
-                </div>
                 <DistributeRevenuePanel
                   isConnected={isConnected}
                   walletAddress={contractWallet || ''}
-                  connectWallet={connectWallet}
                   sendRevenue={sendRevenue}
                   txStatus={txStatus}
                   lastTxHash={lastTxHash}
@@ -437,39 +448,103 @@ export default function UnifiedDashboard() {
                   onProjectChange={(id) => handleProjectChange(id)}
                 />
               </div>
-              <div className="lg:col-span-7">
-                <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest">Recipient Allocation</h3>
-                    <span className="text-xs font-bold text-indigo-400">{rightsHolders.length} PAYEES</span>
+
+              {/* Right — Premium Allocation Breakdown */}
+              <div className="lg:col-span-7 space-y-4">
+                <div className="flex items-center justify-between px-1">
+                  <div>
+                    <h3 className="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Allocation Breakdown</h3>
+                    <p className="text-[10px] text-gray-600 mt-0.5">
+                      {projectId ? `${projectName} · 100% distributed across ${rightsHolders.length} holders` : 'Select a project to view allocations'}
+                    </p>
                   </div>
+                  {projectId && rightsHolders.length > 0 && (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                      <span className="text-[10px] text-emerald-400">✓</span>
+                      <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">
+                        {rightsHolders.reduce((s: number, h: any) => s + Number(h.percentage || 0), 0).toFixed(0)}% Allocated
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {!projectId ? (
+                  <div className="bg-white/5 border border-white/10 rounded-3xl p-12 text-center">
+                    <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-3xl mx-auto mb-4">🔒</div>
+                    <p className="text-sm font-black text-white mb-1">No Project Selected</p>
+                    <p className="text-xs text-gray-500">Choose a project from the top dropdown to view its allocation structure.</p>
+                  </div>
+                ) : (
                   <div className="space-y-3">
                     {rightsHolders.map((holder: any, idx: number) => {
-                      const ethShare = distributeAmount
-                        ? (Number(distributeAmount) * Number(holder.percentage) / 100)
+                      const colors = PROJECT_COLORS;
+                      const colorClass = colors[idx % colors.length];
+                      const usdShare = distributeAmount && Number(distributeAmount) > 0
+                        ? (Number(distributeAmount) * 3500 * Number(holder.percentage)) / 100
                         : 0;
                       return (
-                        <div key={holder.id || idx} className="flex items-center justify-between p-3 bg-white/5 rounded-xl border border-white/5">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-indigo-500/20 flex items-center justify-center text-xs font-bold text-indigo-400">
-                              {holder.name?.charAt(0)}
+                        <motion.div
+                          key={holder.id || idx}
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: idx * 0.06 }}
+                          className="bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl p-5 hover:bg-white/[0.07] transition-all group"
+                        >
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${colorClass} flex items-center justify-center text-white font-black text-base shadow-lg flex-shrink-0`}>
+                                {holder.name?.charAt(0) || '?'}
+                              </div>
+                              <div>
+                                <p className="text-sm font-black text-white">{holder.name}</p>
+                                <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mt-0.5">{holder.role}</p>
+                                {holder.wallet_address && holder.wallet_address !== '0x...' && (
+                                  <p className="text-[10px] font-mono text-gray-700 mt-0.5 truncate max-w-[160px]">
+                                    {holder.wallet_address.slice(0,8)}…{holder.wallet_address.slice(-6)}
+                                  </p>
+                                )}
+                              </div>
                             </div>
-                            <div>
-                              <p className="text-sm font-bold text-white">{holder.name}</p>
-                              <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">{holder.role}</p>
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-2xl font-black text-white">{Number(holder.percentage).toFixed(1)}%</p>
+                              {usdShare > 0 && (
+                                <p className="text-xs font-black font-mono text-emerald-400 mt-0.5">
+                                  +{new Intl.NumberFormat('en-US', {style:'currency',currency:'USD',maximumFractionDigits:0}).format(usdShare)}
+                                </p>
+                              )}
                             </div>
                           </div>
-                          <div className="text-right">
-                            <span className="text-sm font-bold text-white">{holder.percentage}%</span>
-                            {ethShare > 0 && (
-                              <p className="text-[10px] font-mono text-gray-400">{ethShare.toFixed(4)} Ξ</p>
-                            )}
+                          <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              animate={{ width: `${Number(holder.percentage)}%` }}
+                              transition={{ duration: 0.7, delay: idx * 0.06 + 0.1, ease: 'easeOut' }}
+                              className={`h-full bg-gradient-to-r ${colorClass} rounded-full`}
+                            />
                           </div>
-                        </div>
+                        </motion.div>
                       );
                     })}
+
+                    {rightsHolders.length > 0 && (
+                      <div className="flex items-center justify-between px-2 pt-2">
+                        <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
+                          {rightsHolders.length} Rights Holders
+                        </span>
+                        <div className="flex items-center gap-3">
+                          {distributeAmount && Number(distributeAmount) > 0 && (
+                            <span className="text-sm font-black font-mono text-white">
+                              {new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:0}).format(Number(distributeAmount)*3500)}
+                            </span>
+                          )}
+                          <div className="px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                            <span className="text-xs font-black text-emerald-400">100% ✓</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
+                )}
               </div>
             </div>
           )}

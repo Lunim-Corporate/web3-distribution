@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 const formatUSD = (amount) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(amount || 0));
 
-export const RevenueTab = ({ transactions, totalRevenue, totalPaid, projectsList }) => {
+export const RevenueTab = ({ transactions, totalRevenue, projectsList }) => {
   const [expandedTx, setExpandedTx] = useState(null);
 
   const totalDistributed = transactions.reduce((sum, tx) => sum + Number(tx.total_amount || 0), 0);
@@ -17,19 +17,40 @@ export const RevenueTab = ({ transactions, totalRevenue, totalPaid, projectsList
   return (
     <div className="space-y-6">
       {/* Top Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl">
           <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Revenue</p>
           <p className="text-3xl font-black text-white tracking-tight">{formatUSD(totalRevenue || totalDistributed)}</p>
         </div>
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl">
-          <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Paid</p>
-          <p className="text-3xl font-black text-white tracking-tight">{formatUSD(totalPaid || 0)}</p>
-        </div>
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl">
           <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Transactions</p>
           <p className="text-3xl font-black text-white tracking-tight">{transactions.length}</p>
         </div>
+      </div>
+
+      {/* Filters Section */}
+      <div className="flex flex-col md:flex-row gap-4 mb-2">
+        <div className="flex-1 relative">
+          <input 
+            type="text" 
+            placeholder="Search transactions..." 
+            className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-colors" 
+          />
+        </div>
+        <select className="bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-colors min-w-[160px]">
+          <option value="all" className="bg-slate-900">All Projects</option>
+          {projectsList?.map((p: any) => (
+            <option key={p.id} value={p.id} className="bg-slate-900">{p.name}</option>
+          ))}
+        </select>
+        <select className="bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-colors min-w-[160px]">
+          <option value="all" className="bg-slate-900">All Rights Holders</option>
+        </select>
+        <select className="bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-colors min-w-[160px]">
+          <option value="all" className="bg-slate-900">All Time</option>
+          <option value="30d" className="bg-slate-900">Last 30 Days</option>
+          <option value="90d" className="bg-slate-900">Last 90 Days</option>
+        </select>
       </div>
 
       {/* Transactions Table */}

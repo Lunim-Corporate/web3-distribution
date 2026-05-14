@@ -6,13 +6,13 @@ export async function POST(request: Request) {
     const { projectId, amountEth, totalUSD, txHash, source } = await request.json();
 
     if (!projectId || !totalUSD || !txHash) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing required fields: projectId, totalUSD, txHash' }, { status: 400 });
     }
 
-    // 1. Fetch contributors
+    // 1. Fetch contributors for this project
     const { data: contributors, error: cErr } = await supabaseAdmin
       .from('project_contributors')
-      .select('*')
+      .select('id, user_id, revenue_share, total_earned')
       .eq('project_id', projectId);
 
     if (cErr) throw cErr;
@@ -20,7 +20,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No contributors found for this project' }, { status: 404 });
     }
 
-    // 2. Prepare payment rows (in cents)
+    const now = new Date().toISOString();
+
+    // 2. Prepare and insert payment rows (one per contributor)
     const paymentRows = contributors.map((c) => {
       const shareUSD = (Number(c.revenue_share) / 100) * totalUSD;
       const shareInCents = Math.round(shareUSD * 100);
@@ -32,14 +34,15 @@ export async function POST(request: Request) {
         status: 'completed',
         source: source || 'Demo Mode',
         split_percentage: c.revenue_share,
+        payment_date: now,
+        created_at: now,
       };
     });
 
-    // 3. Insert payments
     const { error: pErr } = await supabaseAdmin.from('payments').insert(paymentRows);
     if (pErr) throw pErr;
 
-    // 4. Update project total_revenue
+    // 3. Update project total_revenue
     const { data: project } = await supabaseAdmin
       .from('projects')
       .select('total_revenue')
@@ -54,9 +57,38 @@ export async function POST(request: Request) {
       .update({ total_revenue: newTotal })
       .eq('id', projectId);
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Payment record API error:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    // 4. Update total_earned for each contributor
+    for (const c of contributors) {
+      const shareEarned = Math.round((Number(c.revenue_share) / 100) * totalCents);
+      await supabaseAdmin
+        .from('project_contributors')
+        .update({ total_earned: (Number(c.total_earned) || 0) + shareEarned })
+        .eq('id', c.id);
+    }
+
+    // 5. Log activity
+    const { data: projName } = await supabaseAdmin
+      .from('projects')
+      .select('name')
+      .eq('id', projectId)
+      .single();
+
+    await supabaseAdmin.from('activities').insert([{
+      project_id: projectId,
+      activity_type: 'payment_recorded',
+      description: `Revenue Influx: $${totalUSD.toLocaleString()} distributed across ${contributors.length} rights holders for ${projName?.name || 'project'}.`,
+    }]).catch(() => {}); // Non-critical, don't fail
+
+    return NextResponse.json({ 
+      success: true,
+      totalUSD,
+      contributorsUpdated: contributors.length,
+      txHash,
+    });
+  } catch (error: any) {
+    console.error('[Payment Record] Error:', error?.message || error);
+    return NextResponse.json({ error: error?.message || 'Internal Server Error' }, { status: 500 });
   }
 }
+
+export const dynamic = 'force-dynamic';

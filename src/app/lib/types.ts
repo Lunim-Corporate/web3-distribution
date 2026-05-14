@@ -152,7 +152,6 @@ export interface RevenueReport {
     endDate: string;
   };
   totalRevenue: number;
-  totalPaid: number;
   totalPending: number;
   averagePaymentAmount: number;
   paymentCount: number;

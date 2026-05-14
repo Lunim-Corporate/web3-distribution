@@ -78,39 +78,6 @@ function generateTxHash() {
   return hash;
 }
 
-// ------------------------------------------------------------------
-// Check if Live Mode infrastructure is available
-// ------------------------------------------------------------------
-async function isLiveModeAvailable() {
-  // Check 1: MetaMask present?
-  if (typeof window === 'undefined' || !window.ethereum) return false;
-
-  // Check 2: Express backend reachable?
-  try {
-    const res = await fetch(LIVE_API_BASE.replace('/api', '/'), {
-      signal: AbortSignal.timeout(2000),
-    });
-    if (!res.ok) return false;
-  } catch {
-    return false;
-  }
-
-  // Check 3: Hardhat node reachable?
-  try {
-    const res = await fetch('http://127.0.0.1:8545', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', method: 'net_version', params: [], id: 1 }),
-      signal: AbortSignal.timeout(2000),
-    });
-    if (!res.ok) return false;
-  } catch {
-    return false;
-  }
-
-  return true;
-}
-
 // ==================================================================
 // MAIN HOOK
 // ==================================================================
@@ -129,40 +96,7 @@ export function useRevenueContract(projectId) {
   const [txStatus, setTxStatus] = useState('idle'); // 'idle'|'pending'|'confirmed'|'error'
   const [lastTxHash, setLastTxHash] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [isDemoMode, setIsDemoMode] = useState(true); // Start in demo, upgrade to live if possible
-
-  const modeChecked = useRef(false);
-
-  // ────────────────────────────────────────────────────────────────
-  // Detect mode on mount — and auto-connect in Demo Mode
-  // ────────────────────────────────────────────────────────────────
-  // ────────────────────────────────────────────────────────────────
-  // Sync demo mode with the global LIVE/DEMO toggle in the Navbar
-  // ────────────────────────────────────────────────────────────────
-  useEffect(() => {
-    // Read initial value from localStorage (set by Navbar toggle)
-    const stored = localStorage.getItem('demo_mode');
-    if (stored !== null) {
-      setIsDemoMode(stored === 'true');
-    }
-
-    const onDemoChanged = (e) => setIsDemoMode(e.detail);
-    window.addEventListener('demo-mode-changed', onDemoChanged);
-    return () => window.removeEventListener('demo-mode-changed', onDemoChanged);
-  }, []);
-
-  // Also do the live-infrastructure check on first mount
-  useEffect(() => {
-    if (modeChecked.current) return;
-    modeChecked.current = true;
-    isLiveModeAvailable().then((live) => {
-      if (live) {
-        console.log('🟢 Moonstone: Live infrastructure detected');
-      } else {
-        console.log('🟡 Moonstone: Demo Mode — wallet managed by WalletProvider');
-      }
-    });
-  }, []);
+  const [isDemoMode, setIsDemoMode] = useState(true);
 
   // ────────────────────────────────────────────────────────────────
   // Data refresh — works for BOTH modes
@@ -175,39 +109,37 @@ export function useRevenueContract(projectId) {
       if (!res.ok) throw new Error('Failed to fetch dashboard data');
       const { projects, contributors, payments } = await res.json();
 
+      const globalTotalRevenue = projects.reduce((sum, p) => sum + (Number(p.total_revenue) || 0), 0);
+
       const activeProj = projectId && projectId !== 'all' 
         ? projects.find(p => p.id === projectId) 
-        : (projects.length > 0 ? projects[0] : null);
+        : { id: 'all', name: 'All Projects', total_revenue: globalTotalRevenue };
 
-      // Map to the shape the dashboard expects
-      const userToRhMap = {};
-      const rights_holders = contributors.map((c) => {
-        const rh = {
-          id: c.id,
-          user_id: c.user_id,
-          name: c.name || 'Unknown',
-          role: c.role,
-          wallet_address: c.wallet_address || '',
-          percentage: c.revenue_share || 0,
-          total_received: 0,
-          project_id: c.project_id,
-          projectName: projects.find(p => p.id === c.project_id)?.name || 'Project'
-        };
-        if (c.user_id) userToRhMap[c.user_id] = rh;
-        return rh;
-      });
-
-      // Deduplicate for global view
+      // Group and Aggregate for rights holders
       const uniqueRightsHoldersMap = new Map();
-      rights_holders.forEach(rh => {
-        const key = rh.user_id || rh.name;
-        if (!uniqueRightsHoldersMap.has(key)) {
-          uniqueRightsHoldersMap.set(key, rh);
-        }
-      });
-      const finalRightsHolders = Array.from(uniqueRightsHoldersMap.values());
 
-      // Group into transactions
+      // First pass: create mapping of contributors
+      contributors.forEach((c) => {
+        const key = c.user_id || c.name;
+        if (!uniqueRightsHoldersMap.has(key)) {
+          uniqueRightsHoldersMap.set(key, {
+            id: c.id,
+            user_id: c.user_id,
+            name: c.name || 'Unknown',
+            role: c.role || 'Contributor',
+            wallet_address: c.wallet_address || '',
+            percentage: c.revenue_share || 0,
+            total_received: 0,
+            projectCount: 0,
+            global_share: 0,
+            distributions: []
+          });
+        }
+        const existing = uniqueRightsHoldersMap.get(key);
+        existing.projectCount += 1;
+      });
+
+      // Second pass: add transaction data
       const txMap = {};
       (payments || []).forEach((p) => {
         const hash = p.tx_hash || `mock-${p.id}`;
@@ -215,7 +147,7 @@ export function useRevenueContract(projectId) {
           txMap[hash] = {
             id: hash,
             tx_hash: hash,
-            created_at: p.created_at,
+            created_at: p.created_at || p.payment_date,
             status: p.status || 'confirmed',
             source: p.source || 'Client Payment',
             project_id: p.project_id,
@@ -226,23 +158,43 @@ export function useRevenueContract(projectId) {
         const paymentAmountUSD = (Number(p.amount) || 0) / 100;
         txMap[hash].total_amount += paymentAmountUSD;
 
-        const rh = userToRhMap[p.user_id] || {};
-        txMap[hash].transaction_splits.push({
-          id: p.id,
-          name: rh.name || 'Unknown',
-          role: rh.role || 'Contributor',
-          percentage: rh.percentage || 0,
-          amount_eth: paymentAmountUSD,
-        });
+        const rh = uniqueRightsHoldersMap.get(p.user_id || p.user_name);
+        if (rh) {
+          txMap[hash].transaction_splits.push({
+            id: p.id,
+            name: rh.name,
+            role: rh.role,
+            percentage: p.split_percentage || rh.percentage || 0,
+            amount_eth: paymentAmountUSD, // Named amount_eth for UI compatibility
+          });
 
-        if (rh.id) {
-          rh.total_received = (rh.total_received || 0) + paymentAmountUSD;
+          rh.total_received += paymentAmountUSD;
+          rh.distributions.push({
+            id: hash,
+            amount: paymentAmountUSD,
+            date: p.created_at || p.payment_date,
+            source: p.source
+          });
         }
       });
 
+      // Calculate Global Share (%) for each contributor
+      const totalRevenueUSD = globalTotalRevenue / 100;
+      uniqueRightsHoldersMap.forEach(rh => {
+        if (totalRevenueUSD > 0) {
+          rh.global_share = (rh.total_received / totalRevenueUSD) * 100;
+        }
+        // If we are in "All Projects" view, we override 'percentage' with 'global_share' for the UI
+        if (!projectId || projectId === 'all') {
+          rh.percentage = rh.global_share.toFixed(2);
+        }
+      });
+
+      const finalRightsHolders = Array.from(uniqueRightsHoldersMap.values());
+
       const total_revenue = projectId && projectId !== 'all' 
         ? (Number(activeProj?.total_revenue) || 0) / 100
-        : projects.reduce((sum, p) => sum + (Number(p.total_revenue) || 0), 0) / 100;
+        : totalRevenueUSD;
 
       const dashboardData = {
         ...(activeProj || {}),
@@ -256,8 +208,8 @@ export function useRevenueContract(projectId) {
       setTransactions(Object.values(txMap));
       setAllProjectsState(projects);
 
-    } catch (err) {
-      console.error('Data refresh error:', err);
+    } catch (error) {
+      console.error('refreshDashboardData error:', error);
     }
   }, [projectId, isDemoMode]);
 
@@ -266,21 +218,27 @@ export function useRevenueContract(projectId) {
     refreshDashboardData();
   }, [refreshDashboardData]);
 
+  // Sync mode and wallet changes
+  useEffect(() => {
+    const onDemoChanged = (e) => setIsDemoMode(e.detail);
+    window.addEventListener('demo-mode-changed', onDemoChanged);
+    
+    const onWalletChanged = () => refreshDashboardData();
+    window.addEventListener('wallet-changed', onWalletChanged);
+
+    return () => {
+      window.removeEventListener('demo-mode-changed', onDemoChanged);
+      window.removeEventListener('wallet-changed', onWalletChanged);
+    };
+  }, [refreshDashboardData]);
+
   // ────────────────────────────────────────────────────────────────
-  // CONNECT WALLET
+  // ACTIONS
   // ────────────────────────────────────────────────────────────────
+
   const connectWallet = async () => {
     setTxStatus('idle');
     setErrorMessage('');
-
-    if (isDemoMode) {
-      // Demo Mode: simulate a wallet address via the unified provider if possible
-      // or just stay as is. Actually, we'll use the unified connect.
-      await connectWalletUnified();
-      return;
-    }
-
-    // Live Mode: Use unified connector
     try {
       await connectWalletUnified();
     } catch (err) {
@@ -290,9 +248,6 @@ export function useRevenueContract(projectId) {
     }
   };
 
-  // ────────────────────────────────────────────────────────────────
-  // SEND REVENUE
-  // ────────────────────────────────────────────────────────────────
   const sendRevenue = async (amountEth) => {
     if (!isConnected || !projectId) return;
 
@@ -303,7 +258,6 @@ export function useRevenueContract(projectId) {
     }
   };
 
-  // ── DEMO MODE TRANSACTION ──────────────────────────────────────
   const sendRevenueDemoMode = async (amountEth) => {
     const txHash = generateTxHash();
     try {
@@ -311,7 +265,7 @@ export function useRevenueContract(projectId) {
       setErrorMessage('');
       setLastTxHash(txHash);
 
-      // Simulate blockchain processing delay (1.8 seconds)
+      // Simulate blockchain processing delay
       await new Promise((resolve) => setTimeout(resolve, 1800));
 
       const totalUSD = Number(amountEth) * ETH_USD_RATE;
@@ -334,7 +288,6 @@ export function useRevenueContract(projectId) {
       }
 
       setTxStatus('confirmed');
-
       window.dispatchEvent(new CustomEvent('payment-recorded', {
         detail: { projectId, txHash, totalUSD, timestamp: Date.now() }
       }));
@@ -347,10 +300,8 @@ export function useRevenueContract(projectId) {
     }
   };
 
-  // ── LIVE MODE TRANSACTION ──────────────────────────────────────
   const sendRevenueLiveMode = async (amountEth) => {
     let currentTxHash = '';
-
     try {
       setTxStatus('pending');
       setErrorMessage('');
@@ -360,13 +311,12 @@ export function useRevenueContract(projectId) {
       const contract = new Contract(RevenueRightsABI.address, RevenueRightsABI.abi, signer);
       const value = parseEther(amountEth.toString());
 
-      // STEP 1 — Call contract.distributeRevenue
       const tx = await contract.distributeRevenue({ value });
       currentTxHash = tx.hash;
       setLastTxHash(tx.hash);
 
-      // STEP 2 — Call POST /api/transactions/initiate
-      const initiateRes = await fetch(`${LIVE_API_BASE}/transactions/initiate`, {
+      // Initiate on backend
+      await fetch(`${LIVE_API_BASE}/transactions/initiate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -377,14 +327,8 @@ export function useRevenueContract(projectId) {
         }),
       });
 
-      if (!initiateRes.ok) {
-        console.warn('Backend initiate failed, continuing but fallback listener will be needed.');
-      }
-
-      // STEP 3 — Await tx.wait()
       const receipt = await tx.wait();
 
-      // STEP 4 — Parse HolderPaid events
       const iface = new Interface(RevenueRightsABI.abi);
       const holderPaidTopic = iface.getEvent('HolderPaid').topicHash;
 
@@ -401,7 +345,6 @@ export function useRevenueContract(projectId) {
           };
         });
 
-      // STEP 5 — Call POST /api/transactions/confirm
       const confirmRes = await fetch(`${LIVE_API_BASE}/transactions/confirm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -419,87 +362,51 @@ export function useRevenueContract(projectId) {
       }
 
       setTxStatus('confirmed');
-
-      // STEP 6 — Refresh Dashboard Data
       await refreshDashboardData();
     } catch (err) {
       console.error(err);
       setTxStatus('error');
-
-      if (err.code === 'ACTION_REJECTED') {
-        setErrorMessage('Transaction cancelled by user');
-      } else if (err.message?.includes('insufficient funds')) {
-        setErrorMessage('Insufficient funds in connected wallet');
-      } else {
-        setErrorMessage(err.message || 'An unexpected error occurred');
-      }
-
-      // STEP 7 — Call POST /api/transactions/fail
-      if (currentTxHash) {
-        try {
-          await fetch(`${LIVE_API_BASE}/transactions/fail`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ txHash: currentTxHash }),
-          });
-        } catch (failErr) {
-          console.error('Failed to mark tx as failed:', failErr);
-        }
-      }
+      setErrorMessage(err.code === 'ACTION_REJECTED' ? 'Transaction cancelled' : err.message || 'Error occurred');
     }
   };
 
-  // ── UPDATE SPLIT (ROSTER CHANGE) ──────────────────────────────
   const updateSplitOnChain = async (newRoster) => {
     if (!isConnected || !projectId) return;
 
-    if (isDemoMode) {
-      setTxStatus('pending');
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      // In demo mode, we just update Supabase shares
-      for (const member of newRoster) {
-        await supabaseDirect
-          .from('project_contributors')
-          .update({ revenue_share: member.revenue_share })
-          .eq('id', member.id);
-      }
-      setTxStatus('confirmed');
-      await refreshDashboardData();
-      return;
-    }
-
-    // Live Mode logic using Splits SDK
     try {
       setTxStatus('pending');
-      const splitsClient = await getSplitsClient(window.ethereum);
-      
-      const recipients = newRoster.map(r => ({
-        address: r.users?.wallet_address,
-        percentAllocation: r.revenue_share
-      }));
+      if (isDemoMode) {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        for (const member of newRoster) {
+          await supabaseDirect
+            .from('project_contributors')
+            .update({ revenue_share: member.revenue_share })
+            .eq('id', member.id);
+        }
+      } else {
+        const splitsClient = await getSplitsClient(window.ethereum);
+        const recipients = newRoster.map(r => ({
+          address: r.users?.wallet_address,
+          percentAllocation: r.revenue_share
+        }));
+        const splitAddress = project?.contract_address;
+        if (!splitAddress) throw new Error("No split address found");
 
-      // NOTE: 0xSplits updateSplit expects basis points or specific format
-      // We use the SDK's higher-level methods
-      const splitAddress = project?.contract_address;
-      if (!splitAddress) throw new Error("No split address found for this project");
+        const response = await splitsClient.updateSplit({
+          splitAddress,
+          recipients,
+          distributorFeePercent: 0,
+        });
+        setLastTxHash(response.event.transactionHash);
 
-      const response = await splitsClient.updateSplit({
-        splitAddress,
-        recipients,
-        distributorFeePercent: 0, // Default for now
-      });
-
-      setLastTxHash(response.event.transactionHash);
-      setTxStatus('confirmed');
-      
-      // Update DB to reflect confirmed on-chain state
-      for (const member of newRoster) {
-        await supabaseDirect
-          .from('project_contributors')
-          .update({ revenue_share: member.revenue_share })
-          .eq('id', member.id);
+        for (const member of newRoster) {
+          await supabaseDirect
+            .from('project_contributors')
+            .update({ revenue_share: member.revenue_share })
+            .eq('id', member.id);
+        }
       }
-      
+      setTxStatus('confirmed');
       await refreshDashboardData();
     } catch (err) {
       console.error('Split update failed:', err);

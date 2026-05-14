@@ -60,7 +60,6 @@ export async function GET(request: Request) {
     
     doc.setFont('helvetica', 'bold');
     doc.text(`Total Revenue: USD ${report.totalRevenue.toLocaleString()}`, 20, 78);
-    doc.text(`Total Paid: USD ${report.totalPaid.toLocaleString()}`, 20, 86);
     doc.text(`Total Pending: USD ${report.totalPending.toLocaleString()}`, 20, 94);
     doc.text(`Payment Count: ${report.paymentCount}`, 20, 102);
 

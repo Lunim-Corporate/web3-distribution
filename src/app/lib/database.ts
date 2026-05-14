@@ -283,12 +283,12 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
     // Append time to ensure we capture the whole end date up to midnight
     const endOfDay = endDate.includes('T') ? endDate : `${endDate}T23:59:59.999Z`;
 
-    // Step 1: Fetch payments with projects
+    // Step 1: Fetch payments using created_at (works for both seeded and live payments)
     let paymentQuery = supabase
       .from('payments')
-      .select('*, projects(id, name)')
-      .gte('payment_date', startDate)
-      .lte('payment_date', endOfDay);
+      .select('*')
+      .gte('created_at', startDate)
+      .lte('created_at', endOfDay);
 
     if (projectId) {
       paymentQuery = paymentQuery.eq('project_id', projectId);
@@ -297,7 +297,15 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
     const { data: payments, error: paymentError } = await paymentQuery;
     if (paymentError) throw paymentError;
 
-    // Step 2: Fetch contributors if we have projects (with user info)
+    // Step 2: Fetch all projects for mapping
+    const { data: projects, error: projectError } = await supabase.from('projects').select('id, name');
+    if (projectError) throw projectError;
+    const projectLookup = (projects || []).reduce((acc: any, p) => {
+      acc[p.id] = p;
+      return acc;
+    }, {});
+
+    // Step 3: Fetch contributors if we have projects (with user info)
     const projectIds = Array.from(new Set(payments?.map(p => p.project_id) || []));
     let contributors: any[] = [];
     if (projectIds.length > 0) {
@@ -333,13 +341,14 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
       });
 
       // By project
-      if (payment.projects) {
-        const projId = payment.projects.id;
+      const projData = projectLookup[payment.project_id];
+      if (projData) {
+        const projId = projData.id;
         const current = projectMap.get(projId) || {
           revenue: 0,
           paid: 0,
           contributors: new Set<string>(),
-          name: payment.projects.name || 'Unknown',
+          name: projData.name || 'Unknown',
           rightsHolders: []
         };
         
@@ -368,7 +377,6 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
       generatedAt: new Date().toISOString(),
       reportPeriod: { startDate, endDate },
       totalRevenue,
-      totalPaid: totalRevenue,
       totalPending: 0,
       averagePaymentAmount: transactionCount > 0 ? totalRevenue / transactionCount : 0,
       paymentCount: transactionCount,
@@ -392,7 +400,7 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
         date: p.payment_date,
         amount: (Number(p.amount) || 0) / 100,
         source: p.source,
-        projectName: p.projects?.name || 'Unknown',
+        projectName: projectLookup[p.project_id]?.name || 'Unknown',
       })) || [],
     };
   } catch (error) {

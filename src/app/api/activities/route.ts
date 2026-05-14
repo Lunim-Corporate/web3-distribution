@@ -9,52 +9,45 @@ import { supabaseAdmin } from '@/lib/supabaseServer';
  */
 export async function GET() {
   try {
-    const { data: payments, error } = await supabaseAdmin
-      .from('payments')
-      .select('id, amount, status, created_at, project_id')
+    // 1. Fetch explicit activities
+    const { data: activities, error: actError } = await supabaseAdmin
+      .from('activities')
+      .select('*, projects(name)')
       .order('created_at', { ascending: false })
-      .limit(15);
+      .limit(10);
 
-    if (error) throw error;
+    if (actError) throw actError;
 
-    const projectIds = Array.from(new Set((payments || []).map(p => p.project_id).filter(Boolean)));
-    let projectsMap: Record<string, string> = {};
+    // 2. Fetch recent payments to ensure they are represented (backup in case activity log missed)
+    const { data: payments, error: payError } = await supabaseAdmin
+      .from('payments')
+      .select('*, projects(name)')
+      .order('created_at', { ascending: false })
+      .limit(10);
 
-    if (projectIds.length > 0) {
-      const { data: projects } = await supabaseAdmin
-        .from('projects')
-        .select('id, name')
-        .in('id', projectIds);
-      
-      if (projects) {
-        projectsMap = projects.reduce((acc: Record<string, string>, proj) => {
-          acc[proj.id] = proj.name;
-          return acc;
-        }, {});
-      }
-    }
+    if (payError) throw payError;
 
-    const activities = (payments || []).map((p: any) => {
-      const projectName = projectsMap[p.project_id] || 'Unknown Project';
-      const amount = Number(p.amount || 0) / 100;
-      const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+    // 3. Merge and format
+    const paymentActivities = (payments || []).map(p => ({
+      id: `pay-${p.id}`,
+      project_id: p.project_id,
+      activity_type: 'payment_recorded',
+      description: `Revenue Influx: Web3 payment of $${(Number(p.amount)/100).toLocaleString()} confirmed for ${p.projects?.name || 'Project'}.`,
+      created_at: p.created_at,
+      is_synthetic: true
+    }));
 
-      return {
-        id: p.id,
-        activity_type: 'payment_recorded',
-        description: `Distribution of ${usd} processed for ${projectName}`,
-        amount,
-        created_at: p.created_at,
-        status: p.status,
-      };
-    });
+    const combined = [...(activities || []), ...paymentActivities]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 15);
 
-    return NextResponse.json(activities);
+    return NextResponse.json(combined);
   } catch (error) {
     console.error('Error fetching activities:', error);
-    return NextResponse.json([], { status: 200 }); // Return empty array on failure
+    return NextResponse.json([], { status: 200 });
   }
 }
+
 
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';

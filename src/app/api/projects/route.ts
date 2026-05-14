@@ -15,8 +15,9 @@ export async function GET() {
     return NextResponse.json(data || []);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Error';
+    console.error('Projects API Error:', msg);
     if (msg === 'Unauthorized') return NextResponse.json({ error: msg }, { status: 401 });
-    return NextResponse.json([], { status: 200 });
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 

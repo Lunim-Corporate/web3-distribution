@@ -86,90 +86,83 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
   };
 
   return (
-    <div className="space-y-6">
-      {/* Report Generator Card */}
-      <Card>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          📊 Revenue Report Generator
+    <div className="space-y-8">
+      {/* Report Generator Header */}
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
+        <h3 className="text-xl font-black text-white tracking-tight mb-6">
+          <span className="mr-2">📊</span> Revenue Report Generator
         </h3>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Start Date
-              </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                End Date
-              </label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-              />
-            </div>
+        <div className="flex flex-col md:flex-row items-end gap-4">
+          <div className="flex-1 w-full">
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
+              Start Date
+            </label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-colors"
+            />
           </div>
-
-          <Button
-            className="w-full md:w-auto mt-4 md:mt-0"
+          <div className="flex-1 w-full">
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
+              End Date
+            </label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-colors"
+            />
+          </div>
+          <button
             onClick={handleGenerateReport}
             disabled={isLoading}
+            className="w-full md:w-auto px-8 py-3 rounded-xl font-bold uppercase tracking-widest text-sm transition-all shadow-lg active:scale-95 bg-indigo-500 hover:bg-indigo-400 text-white shadow-indigo-500/20 disabled:bg-white/10 disabled:text-gray-500 disabled:shadow-none"
           >
-            {isLoading ? 'Generating...' : 'Generate report'}
-          </Button>
+            {isLoading ? 'Generating...' : 'Generate Report'}
+          </button>
         </div>
-      </Card>
+      </div>
 
       {/* Report Results */}
       {report && (
-        <>
+        <div className="report-print-area space-y-8">
           {/* Summary Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white/5 backdrop-blur-xl border border-white/5 p-5 rounded-3xl relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 blur-3xl -mr-10 -mt-10" />
-              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Revenue</p>
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Distributed</p>
               <p className="text-xl font-black text-white">{formatCurrency(report.totalRevenue)}</p>
               <p className="text-[10px] text-gray-600 mt-1">Platform Total</p>
             </div>
             <div className="bg-white/5 backdrop-blur-xl border border-white/5 p-5 rounded-3xl relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/10 blur-3xl -mr-10 -mt-10" />
-              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Paid</p>
-              <p className="text-xl font-black text-emerald-400">{formatCurrency(report.totalPaid)}</p>
-              <p className="text-[10px] text-gray-600 mt-1">On-chain Settled</p>
-            </div>
-            <div className="bg-white/5 backdrop-blur-xl border border-white/5 p-5 rounded-3xl relative overflow-hidden group">
-              <div className="absolute top-0 right-0 w-20 h-20 bg-amber-500/10 blur-3xl -mr-10 -mt-10" />
-              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Pending</p>
-              <p className="text-xl font-black text-amber-500">{formatCurrency(report.totalPending)}</p>
-              <p className="text-[10px] text-gray-600 mt-1">In Processing</p>
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Rights Holders</p>
+              <p className="text-xl font-black text-white">{report.projects.reduce((sum, p) => sum + p.contributorCount, 0)}</p>
+              <p className="text-[10px] text-gray-600 mt-1">Active Contributors</p>
             </div>
             <div className="bg-white/5 backdrop-blur-xl border border-white/5 p-5 rounded-3xl relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-20 h-20 bg-indigo-500/10 blur-3xl -mr-10 -mt-10" />
               <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Transactions</p>
               <p className="text-xl font-black text-white">{report.paymentCount}</p>
-              <p className="text-[10px] text-gray-600 mt-1">Total Events</p>
+              <p className="text-[10px] text-gray-600 mt-1">On-chain Events</p>
             </div>
             <div className="bg-white/5 backdrop-blur-xl border border-white/5 p-5 rounded-3xl relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-20 h-20 bg-purple-500/10 blur-3xl -mr-10 -mt-10" />
-              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Avg Distribution</p>
-              <p className="text-xl font-black text-white">{formatCurrency(report.averagePaymentAmount)}</p>
-              <p className="text-[10px] text-gray-600 mt-1">Per Recipient</p>
+              <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Project Status</p>
+              <p className="text-xl font-black text-emerald-400">active</p>
+              <p className="text-[10px] text-gray-600 mt-1">Verified Sync</p>
             </div>
           </div>
 
-          {/* Revenue by Project (Screenshot 1) */}
-          <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/5 overflow-hidden">
+          {/* Revenue by Project */}
+          <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/5 overflow-hidden shadow-2xl">
             <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between">
               <h4 className="text-sm font-black text-white uppercase tracking-widest">Revenue by Project</h4>
-              <Badge variant="outline" className="bg-white/5 text-gray-400 border-white/10 font-black">LUNIM ECOSYSTEM</Badge>
+              <span className="bg-white/10 text-gray-400 border border-white/5 font-black text-[10px] px-2 py-1 rounded-lg">
+                {report.projects.length === 1 ? 'SPECIFIC PROJECT' : 'LUNIM ECOSYSTEM'}
+              </span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left">
@@ -179,12 +172,11 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
                     <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Total</th>
                     <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">Contributors</th>
                     <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Share (%)</th>
-                    <th className="px-6 py-4"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {report.projects.map((project, idx) => {
-                    const sharePercent = ((project.totalRevenue / report.totalRevenue) * 100).toFixed(1);
+                    const sharePercent = report.totalRevenue > 0 ? ((project.totalRevenue / report.totalRevenue) * 100).toFixed(1) : '0.0';
                     return (
                       <tr key={idx} className="border-b border-white/5 hover:bg-white/[0.03] transition-colors group">
                         <td className="px-6 py-4">
@@ -204,9 +196,6 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
                         <td className="px-6 py-4 text-right">
                           <span className="text-sm font-black text-indigo-400">{sharePercent}%</span>
                         </td>
-                        <td className="px-6 py-4 text-right">
-                          <svg className="w-4 h-4 text-gray-600 group-hover:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                        </td>
                       </tr>
                     );
                   })}
@@ -216,37 +205,72 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
           </div>
 
           {/* Export Options */}
-          <Card>
-            <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Export Report
-            </h4>
-            <div className="flex gap-4">
-              <div className="flex-1">
-                <select
-                  value={exportFormat}
-                  onChange={(e) => setExportFormat(e.target.value as 'json' | 'csv')}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="csv">CSV (Excel/Spreadsheet)</option>
-                  <option value="json">JSON (Raw Data)</option>
-                </select>
-              </div>
-              <Button variant="primary" onClick={handleExportReport}>
-                📥 Download {exportFormat.toUpperCase()}
-              </Button>
+          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl print:hidden flex items-center justify-between">
+            <div>
+              <h4 className="text-base font-black text-white">Export Report Data</h4>
+              <p className="text-sm text-gray-500 mt-1">Download your data for accounting or generate a print-ready PDF.</p>
             </div>
-          </Card>
-        </>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => { setExportFormat('csv'); handleExportReport(); }}
+                className="px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-all shadow-lg active:scale-95 bg-white/10 hover:bg-white/20 text-white"
+              >
+                📥 Download CSV
+              </button>
+              <button
+                onClick={() => window.print()}
+                className="px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-all shadow-lg active:scale-95 bg-indigo-500 hover:bg-indigo-400 text-white shadow-indigo-500/20"
+              >
+                📄 Generate PDF
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Empty State */}
       {!report && (
-        <Card className="text-center py-12">
-          <p className="text-gray-600 dark:text-gray-400">
-            Select a date range and click &quot;Generate Report&quot; to view revenue analytics
+        <div className="bg-white/5 border border-white/5 rounded-3xl p-12 flex flex-col items-center justify-center text-center">
+          <span className="text-4xl mb-4 opacity-50">📅</span>
+          <h3 className="text-lg font-black text-white mb-2">No Report Data</h3>
+          <p className="text-sm text-gray-500 max-w-sm">
+            Select a date range and click "Generate Report" above to compile revenue and distribution analytics.
           </p>
-        </Card>
+        </div>
       )}
+
+      {/* CSS for print styling */}
+      <style jsx global>{`
+        @media print {
+          body {
+            background: white !important;
+            color: black !important;
+          }
+          /* Hide everything except the report print area */
+          body > *:not(#__next) {
+            display: none !important;
+          }
+          #navbar, .sidebar-nav, .tab-navigation, .print\\:hidden {
+            display: none !important;
+          }
+          .report-print-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 20px;
+          }
+          /* Fix colors for print */
+          .report-print-area * {
+            color: black !important;
+            border-color: #ddd !important;
+          }
+          .bg-white\\/5 {
+            background-color: transparent !important;
+            border: 1px solid #eee !important;
+          }
+        }
+      `}</style>
     </div>
   );
 };
