@@ -6,6 +6,8 @@ import { toast } from 'react-hot-toast';
 const formatUSD = (amount: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(amount || 0));
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+
 interface RightsHolder {
   id: string;
   name: string;
@@ -28,7 +30,7 @@ export const RightsHolderRow: React.FC<{
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const res = await fetch(`http://localhost:4000/api/projects/contributors/${holder.id}`, {
+      const res = await fetch(`${API_BASE}/projects/contributors/${holder.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ revenue_share: Number(draftPercentage) })
@@ -48,7 +50,7 @@ export const RightsHolderRow: React.FC<{
   const handleRemove = async () => {
     if (!confirm(`Are you sure you want to remove ${holder.name}?`)) return;
     try {
-      const res = await fetch(`http://localhost:4000/api/projects/contributors/${holder.id}`, {
+      const res = await fetch(`${API_BASE}/projects/contributors/${holder.id}`, {
         method: 'DELETE'
       });
       if (!res.ok) throw new Error('Failed to remove contributor');
