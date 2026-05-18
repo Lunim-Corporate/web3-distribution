@@ -60,7 +60,7 @@ let RevenueRightsABI = null;
 try {
   RevenueRightsABI = require('../contracts/RevenueRights.json');
 } catch (e) {
-  console.warn('RevenueRights ABI not found — Demo Mode only');
+  console.warn('RevenueRights ABI not found — Demo Mode only', e);
 }
 
 const LIVE_API_BASE = 'http://localhost:4000/api';
