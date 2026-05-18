@@ -268,7 +268,7 @@ export const Navbar: React.FC = () => {
                   LUNIM
                 </span>
                 <span className="text-[9px] uppercase tracking-[0.25em] text-gray-400 dark:text-gray-500 font-semibold mt-0.5">
-                  Revenue & Rights
+                  Revenue & Rights Dashboard
                 </span>
               </div>
             </Link>

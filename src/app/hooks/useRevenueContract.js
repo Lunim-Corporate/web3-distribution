@@ -63,7 +63,7 @@ try {
   console.warn('RevenueRights ABI not found — Demo Mode only');
 }
 
-const LIVE_API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+const LIVE_API_BASE = 'http://localhost:4000/api';
 const ETH_USD_RATE = 3500; // 1 ETH = $3,500
 const LOCAL_HARDHAT_RPC = process.env.NEXT_PUBLIC_HARDHAT_RPC_URL || 'http://127.0.0.1:8545';
 
