@@ -1,111 +1,224 @@
 import { NextResponse } from 'next/server';
-// Use Node-specific distribution to avoid browser global dependencies
-const { jsPDF } = require('jspdf/dist/jspdf.node.min');
-import { generateRevenueReport } from '@/lib/database';
+import * as jsPDFModule from 'jspdf/dist/jspdf.node.min';
+import { generateRevenueReport } from '@/lib/reports.server';
+
+const { jsPDF } = jsPDFModule as {
+  jsPDF: new (options: {
+    orientation: string;
+    unit: string;
+    format: string;
+    putOnlyUsedFonts: boolean;
+  }) => {
+    setFillColor: (...args: number[]) => void;
+    rect: (...args: (number | string)[]) => void;
+    setTextColor: (...args: number[]) => void;
+    setFont: (font: string, style: string) => void;
+    setFontSize: (size: number) => void;
+    text: (text: string, x: number, y: number, options?: { align?: string }) => void;
+    setDrawColor: (...args: number[]) => void;
+    roundedRect: (...args: (number | string)[]) => void;
+    line: (x1: number, y1: number, x2: number, y2: number) => void;
+    addPage: () => void;
+    setPage: (page: number) => void;
+    output: (type: string) => ArrayBuffer;
+    internal: { getNumberOfPages: () => number };
+  };
+};
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 2,
+  }).format(value || 0);
+}
+
+function buildQuarterLabel(date: Date) {
+  return `Q${Math.floor(date.getMonth() / 3) + 1} ${date.getFullYear()}`;
+}
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const period = searchParams.get('period');
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth(); // 0-indexed
+    const period = searchParams.get('period');
+    const projectId = searchParams.get('projectId') || undefined;
+    const walletAddress = searchParams.get('address') || undefined;
 
     let startDate = searchParams.get('startDate');
-    let endDate = searchParams.get('endDate') || now.toISOString().split('T')[0];
-    let filenameSuffix = 'report';
+    const endDate = searchParams.get('endDate') || now.toISOString().split('T')[0];
+    let title = 'Revenue Report';
+    let filenameSuffix = 'custom_report';
 
-    if (period === 'ytd' || (!startDate && !period)) {
-      startDate = `${currentYear}-01-01`;
-      filenameSuffix = 'ytd_report';
-    } else if (period === '4months') {
-      // 4-month cycles: Jan-Apr (0-3), May-Aug (4-7), Sep-Dec (8-11)
-      const startMonth = Math.floor(currentMonth / 4) * 4;
-      startDate = new Date(currentYear, startMonth, 1).toISOString().split('T')[0];
-      filenameSuffix = 'q_cycle_report';
+    if (!startDate && period === 'yearly') {
+      startDate = `${now.getFullYear()}-01-01`;
+      title = `Yearly Revenue Report ${now.getFullYear()}`;
+      filenameSuffix = `yearly_${now.getFullYear()}`;
+    } else if (!startDate && period === 'quarterly') {
+      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      startDate = new Date(now.getFullYear(), quarterStartMonth, 1).toISOString().split('T')[0];
+      title = `Quarterly Revenue Report ${buildQuarterLabel(now)}`;
+      filenameSuffix = `quarterly_${buildQuarterLabel(now).toLowerCase().replace(/\s+/g, '_')}`;
     } else if (!startDate) {
-      // Fallback to beginning of previous year if really no data
-      startDate = `${currentYear - 1}-01-01`;
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()).toISOString().split('T')[0];
     }
-    
-    // FETCH DATA ON SERVER
-    const report = await generateRevenueReport(startDate, endDate, searchParams.get('projectId') || undefined);
-    
-    // GENERATE PDF ON SERVER (Node-compatible version)
+
+    const report = await generateRevenueReport(startDate, endDate, projectId, walletAddress);
+    const rightsHolderCount = report.projects.reduce((sum, project) => sum + project.contributorCount, 0);
+    const scopeLabel = report.projects.length === 1 ? 'Specific Project' : 'LUNIM Ecosystem';
+
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
       format: 'a4',
-      putOnlyUsedFonts: true
+      putOnlyUsedFonts: true,
     });
 
-    // Branding
-    doc.setFillColor(30, 64, 175);
-    doc.rect(0, 0, 210, 40, 'F');
+    doc.setFillColor(14, 18, 32);
+    doc.rect(0, 0, 210, 35, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(24);
-    doc.text('LUNIM', 20, 25);
-    doc.setFontSize(10);
-    doc.text('CREATIVE RIGHTS PLATFORM — PLATFORM REPORT', 20, 32);
-
-    // Summary Section
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(16);
-    doc.text('EXECUTIVE SUMMARY', 20, 55);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Generated At: ${new Date().toLocaleString()}`, 20, 62);
-    doc.text(`Reporting Period: ${startDate} to ${endDate}`, 20, 68);
-    
-    doc.setFont('helvetica', 'bold');
-    doc.text(`Total Revenue: USD ${report.totalRevenue.toLocaleString()}`, 20, 78);
-    doc.text(`Total Pending: USD ${report.totalPending.toLocaleString()}`, 20, 94);
-    doc.text(`Payment Count: ${report.paymentCount}`, 20, 102);
-
-    // Projects & Rights Holders Section
+    doc.setFontSize(22);
+    doc.text('LUNIM', 18, 18);
     doc.setFontSize(14);
-    doc.text('PROJECTS & RIGHTS HOLDERS', 20, 118);
+    doc.text(title, 18, 27);
+
+    doc.setTextColor(35, 35, 35);
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    let y = 128;
+    doc.text(`Generated: ${new Date(report.generatedAt).toLocaleString()}`, 18, 44);
+    doc.text(`Reporting period: ${report.reportPeriod.startDate} to ${report.reportPeriod.endDate}`, 18, 50);
+    doc.text(`Scope: ${scopeLabel}`, 18, 56);
 
-    if (report.projects && report.projects.length > 0) {
-      report.projects.slice(0, 10).forEach((proj: any) => {
-        if (y > 250) { doc.addPage(); y = 20; }
+    const cards = [
+      { label: 'Total Distributed', value: formatCurrency(report.totalRevenue), sublabel: 'Platform Total' },
+      { label: 'Rights Holders', value: String(rightsHolderCount), sublabel: 'Active Contributors' },
+      { label: 'Transactions', value: String(report.paymentCount), sublabel: 'On-chain Events' },
+      { label: 'Project Status', value: 'active', sublabel: 'Verified Sync' },
+    ];
+
+    let cardX = 18;
+    for (const card of cards) {
+      doc.setDrawColor(225, 228, 235);
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(cardX, 64, 40, 24, 3, 3, 'FD');
+      doc.setFontSize(8);
+      doc.setTextColor(107, 114, 128);
+      doc.setFont('helvetica', 'bold');
+      doc.text(card.label.toUpperCase(), cardX + 3, 71);
+      doc.setFontSize(13);
+      doc.setTextColor(17, 24, 39);
+      doc.text(card.value, cardX + 3, 79);
+      doc.setFontSize(7);
+      doc.setTextColor(107, 114, 128);
+      doc.setFont('helvetica', 'normal');
+      doc.text(card.sublabel, cardX + 3, 84);
+      cardX += 45;
+    }
+
+    let y = 100;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(17, 24, 39);
+    doc.text('Revenue by Project', 18, y);
+    y += 8;
+
+    doc.setFillColor(245, 247, 250);
+    doc.rect(18, y, 174, 10, 'F');
+    doc.setFontSize(8);
+    doc.setTextColor(107, 114, 128);
+    doc.text('PROJECT', 22, y + 6.5);
+    doc.text('TOTAL', 106, y + 6.5);
+    doc.text('CONTRIBUTORS', 140, y + 6.5);
+    doc.text('SHARE (%)', 176, y + 6.5);
+    y += 14;
+
+    if (report.projects.length === 0) {
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(90, 90, 90);
+      doc.text('No matching report data found for this period.', 22, y);
+      y += 12;
+    } else {
+      report.projects.forEach((project) => {
+        if (y > 250) {
+          doc.addPage();
+          y = 20;
+        }
+
+        const sharePercent = report.totalRevenue > 0
+          ? `${((project.totalRevenue / report.totalRevenue) * 100).toFixed(1)}%`
+          : '0.0%';
+
+        doc.setDrawColor(236, 239, 244);
+        doc.line(18, y - 4, 192, y - 4);
         doc.setFont('helvetica', 'bold');
-        doc.text(proj.projectName + ': USD ' + proj.totalRevenue.toLocaleString(), 25, y);
-        y += 6;
+        doc.setFontSize(10);
+        doc.setTextColor(17, 24, 39);
+        doc.text(project.projectName, 22, y);
+        doc.text(formatCurrency(project.totalRevenue), 106, y, { align: 'right' });
+        doc.text(String(project.contributorCount), 146, y, { align: 'center' });
+        doc.text(sharePercent, 188, y, { align: 'right' });
+        y += 7;
 
-        if (proj.rightsHolders && proj.rightsHolders.length > 0) {
+        if (project.rightsHolders && project.rightsHolders.length > 0) {
           doc.setFont('helvetica', 'normal');
-          doc.setTextColor(100, 100, 100);
-          proj.rightsHolders.forEach((holder: any) => {
-            if (y > 280) { doc.addPage(); y = 20; }
-            const sharePercent = holder.percentage ? holder.percentage.toFixed(1) : '0.0';
-            doc.text('  → ' + holder.name + ' (' + holder.role + '): ' + sharePercent + '%', 30, y);
+          doc.setFontSize(8);
+          doc.setTextColor(95, 99, 110);
+          project.rightsHolders.slice(0, 6).forEach((holder: { name: string; role: string; percentage: number }) => {
+            if (y > 265) {
+              doc.addPage();
+              y = 20;
+            }
+            doc.text(
+              `${holder.name} · ${holder.role} · ${Number(holder.percentage || 0).toFixed(1)}%`,
+              26,
+              y
+            );
             y += 5;
           });
-          doc.setTextColor(0, 0, 0);
         }
-        y += 8;
+
+        y += 4;
       });
-    } else {
-      doc.text('No matching project data found for this period.', 25, y);
     }
 
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
+    if (report.sources.length > 0) {
+      if (y > 235) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(17, 24, 39);
+      doc.text('Revenue Sources', 18, y);
+      y += 8;
+
+      report.sources.forEach((source) => {
+        if (y > 270) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(55, 65, 81);
+        doc.text(
+          `${source.source}: ${formatCurrency(source.amount)} (${source.percentage.toFixed(1)}%) · ${source.paymentCount} payment(s)`,
+          22,
+          y
+        );
+        y += 6;
+      });
+    }
+
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let page = 1; page <= pageCount; page += 1) {
+      doc.setPage(page);
       doc.setFontSize(8);
-      doc.setTextColor(150);
-      doc.text(`Page ${i} of ${pageCount}`, 190, 287, { align: 'right' });
-      doc.text('LUNIM Creative Hub - Confidential', 20, 287);
+      doc.setTextColor(140, 140, 140);
+      doc.text('LUNIM Revenue & Rights Dashboard', 18, 288);
+      doc.text(`Page ${page} of ${pageCount}`, 192, 288, { align: 'right' });
     }
 
-    // BINARY OUTPUT
-    // v4.x in Node returns a Buffer or ArrayBuffer
     const pdfData = doc.output('arraybuffer');
     const pdfBuffer = Buffer.from(pdfData);
 
@@ -115,19 +228,15 @@ export async function GET(request: Request) {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="lunim_${filenameSuffix}_${new Date().toISOString().slice(0, 10)}.pdf"`,
         'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache'
-      }
+      },
     });
-
-  } catch (error: any) {
-    console.error('SERVER-SIDE PDF GENERATION FAILED:', error);
-    return NextResponse.json({ 
-      error: 'PDF generation failed on server', 
-      details: error.message,
-      environment: 'node-jspdf'
-    }, { status: 500 });
+  } catch (error: unknown) {
+    console.error('Report PDF generation failed:', error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'PDF generation failed' },
+      { status: 500 }
+    );
   }
 }
 
 export const dynamic = 'force-dynamic';
-

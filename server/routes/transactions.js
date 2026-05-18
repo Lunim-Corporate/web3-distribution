@@ -73,7 +73,7 @@ router.post(
         }
 
         const ETH_USD_RATE = 3500;
-        const amountUsd = Number(split.amountEth) * ETH_USD_RATE;
+        const amountUsd = Math.round(Number(split.amountEth) * ETH_USD_RATE * 100); // USD in cents
 
         // Insert payment record
         await supabase.from('payments').insert([{
@@ -82,7 +82,7 @@ router.post(
            amount: amountUsd,
            tx_hash: txHash,
            status: 'completed',
-           source: 'Smart Contract',
+           source: 'Blockchain',
            split_percentage: split.percentage || 0
         }]);
         

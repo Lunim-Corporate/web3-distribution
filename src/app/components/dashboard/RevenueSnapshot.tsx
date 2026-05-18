@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { formatCurrency } from '@/lib/utils';
 import { useSplits } from '@/hooks/useSplits';
 
@@ -14,10 +14,25 @@ export const RevenueSnapshot: React.FC<{
 }> = ({ activeProjectId, projectsList, walletAddress }) => {
   const { earnings } = useSplits(walletAddress);
   const [revenue, setRevenue] = useState<any[]>([]);
+  const [isDemoMode, setIsDemoMode] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
+    }
+    const onDemoChanged = () => {
+      setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
+    };
+    window.addEventListener('demo-mode-changed', onDemoChanged);
+    return () => window.removeEventListener('demo-mode-changed', onDemoChanged);
+  }, []);
 
   const fetchRevenue = React.useCallback(() => {
     const url = new URL('/api/revenue', window.location.origin);
     url.searchParams.set('ts', Date.now().toString());
+    const mode = isDemoMode ? 'demo' : 'live';
+    url.searchParams.set('mode', mode);
+
     if (walletAddress) {
       url.searchParams.set('address', walletAddress);
       url.searchParams.set('web3', 'true');
@@ -30,7 +45,7 @@ export const RevenueSnapshot: React.FC<{
         else setRevenue(data);
       })
       .catch(() => setRevenue([]));
-  }, [walletAddress]);
+  }, [walletAddress, isDemoMode]);
 
   React.useEffect(() => {
     fetchRevenue();
@@ -123,11 +138,7 @@ export const RevenueSnapshot: React.FC<{
                     {share}%
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button className="text-gray-500 hover:text-white transition-colors">
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    </button>
+
                   </td>
                 </tr>
               );

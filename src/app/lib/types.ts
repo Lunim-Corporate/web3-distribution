@@ -175,6 +175,11 @@ export interface RevenueByProject {
   paidRevenue: number;
   pendingRevenue: number;
   contributorCount: number;
+  rightsHolders?: {
+    name: string;
+    role: string;
+    percentage: number;
+  }[];
 }
 
 export interface TopContributor {

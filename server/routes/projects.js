@@ -230,4 +230,45 @@ router.post('/', async (req, res) => {
   }
 });
 
+// PATCH /api/projects/contributors/:id - Update contributor share
+router.patch('/contributors/:id', validate([
+  body('revenue_share').isNumeric().withMessage('Revenue share must be a number')
+]), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { revenue_share } = req.body;
+    
+    const { data, error } = await supabase
+      .from('project_contributors')
+      .update({ revenue_share })
+      .eq('id', id)
+      .select()
+      .single();
+      
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error('Error updating contributor:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/projects/contributors/:id - Remove contributor
+router.delete('/contributors/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const { error } = await supabase
+      .from('project_contributors')
+      .delete()
+      .eq('id', id);
+      
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error removing contributor:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

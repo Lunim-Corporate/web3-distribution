@@ -5,8 +5,47 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useWeb3Modal } from '@web3modal/ethers/react';
-import { useEnsName } from '@/hooks/useEnsResolver';
 import { useWallet } from '@/lib/wallet';
+import { toast } from 'react-hot-toast';
+
+
+type WalletProviderLike = {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  providers?: WalletProviderLike[];
+  providerMap?: Map<unknown, WalletProviderLike>;
+  isMetaMask?: boolean;
+  isCoinbaseWallet?: boolean;
+  isRainbow?: boolean;
+  isTrust?: boolean;
+  isPhantom?: boolean;
+};
+
+type DashboardPayment = {
+  id?: string;
+  tx_hash?: string;
+  created_at: string;
+  amount?: number;
+  project_id?: string;
+  projectName?: string;
+  total_batch_amount?: number;
+  count?: number;
+};
+
+function getBrowserEthereum(): WalletProviderLike | null {
+  if (typeof window === 'undefined') return null;
+  return ((window as Window & { ethereum?: WalletProviderLike }).ethereum ?? null);
+}
+
+function getErrorCode(error: unknown): number | undefined {
+  return typeof error === 'object' && error !== null && 'code' in error
+    ? Number((error as { code?: unknown }).code)
+    : undefined;
+}
+
+function getStoredLiveWalletId(): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem('selected_live_wallet');
+}
 
 // Hardhat demo accounts for demo mode - USE PLACEHOLDERS FOR SECURITY
 const HARDHAT_ACCOUNTS = [
@@ -17,14 +56,61 @@ const HARDHAT_ACCOUNTS = [
   { address: '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65', name: 'Account 5 (Investor)', privateKey: '0x...REPLACE_WITH_HARDHAT_PK_5' },
 ];
 
-// Wallet options for live mode
+// Wallet options for live mode with dynamic icons and official links
 const LIVE_WALLETS = [
-  { id: 'metamask', name: 'MetaMask', icon: 'https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg' },
-  { id: 'coinbase', name: 'Coinbase Wallet', icon: 'https://upload.wikimedia.org/wikipedia/commons/4/46/Coinbase_Wallet.svg' },
-  { id: 'rainbow', name: 'Rainbow', icon: 'https://rainbow.me/rainbow.svg' },
-  { id: 'trust', name: 'Trust Wallet', icon: 'https://assets.trustwallet.com/trust-logo.svg' },
-  { id: 'phantom', name: 'Phantom', icon: 'https://phantom.app/favicon.svg' },
+  { id: 'metamask', name: 'MetaMask', icon: '/wallet-icons/metamask.svg', fallback: 'M', url: 'https://metamask.io/download/' },
+  { id: 'coinbase', name: 'Coinbase Wallet', icon: '/wallet-icons/coinbase.svg', fallback: 'C', url: 'https://www.coinbase.com/wallet' },
+  { id: 'rainbow', name: 'Rainbow', icon: '/wallet-icons/rainbow.svg', fallback: 'R', url: 'https://rainbow.me/' },
+  { id: 'trust', name: 'Trust Wallet', icon: '/wallet-icons/trust.svg', fallback: 'T', url: 'https://trustwallet.com/' },
+  { id: 'phantom', name: 'Phantom', icon: '/wallet-icons/phantom.svg', fallback: 'P', url: 'https://phantom.app/' },
 ];
+
+// Detect wallet provider from ethereum
+function detectWalletProvider(): { id: string; name: string; icon: string; fallback: string; url: string } | null {
+  const eth = getBrowserEthereum();
+  if (!eth) return null;
+  
+  // Handle EIP-6963 or multi-provider arrays
+  const providers = eth.providers || (eth.providerMap ? Array.from(eth.providerMap.values()) : null);
+  const preferredWalletId = getStoredLiveWalletId();
+
+  if (preferredWalletId) {
+    const preferredWallet = LIVE_WALLETS.find((wallet) => wallet.id === preferredWalletId);
+    const preferredProvider = preferredWallet ? getSpecificWalletProvider(preferredWallet.id) : null;
+    if (preferredWallet && preferredProvider) {
+      return preferredWallet;
+    }
+  }
+  
+  const isMetaMask = eth.isMetaMask || (providers?.some((p) => p.isMetaMask));
+  const isCoinbase = eth.isCoinbaseWallet || (providers?.some((p) => p.isCoinbaseWallet));
+  const isRainbow = eth.isRainbow || (providers?.some((p) => p.isRainbow));
+  const isTrust = eth.isTrust || (providers?.some((p) => p.isTrust));
+  const isPhantom = eth.isPhantom || (providers?.some((p) => p.isPhantom));
+
+  if (isMetaMask) return LIVE_WALLETS.find(w => w.id === 'metamask') || null;
+  if (isCoinbase) return LIVE_WALLETS.find(w => w.id === 'coinbase') || null;
+  if (isRainbow) return LIVE_WALLETS.find(w => w.id === 'rainbow') || null;
+  if (isTrust) return LIVE_WALLETS.find(w => w.id === 'trust') || null;
+  if (isPhantom) return LIVE_WALLETS.find(w => w.id === 'phantom') || null;
+  
+  return null;
+}
+
+function getSpecificWalletProvider(walletId: string) {
+  const eth = getBrowserEthereum();
+  if (!eth) return null;
+  const providers = eth.providers || (eth.providerMap ? Array.from(eth.providerMap.values()) : []);
+  const providerList = providers.length > 0 ? providers : [eth];
+
+  return providerList.find((provider) =>
+    (walletId === 'metamask' && provider.isMetaMask) ||
+    (walletId === 'coinbase' && provider.isCoinbaseWallet) ||
+    (walletId === 'rainbow' && provider.isRainbow) ||
+    (walletId === 'trust' && provider.isTrust) ||
+    (walletId === 'phantom' && provider.isPhantom)
+  ) || null;
+}
 
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
@@ -35,24 +121,32 @@ export const Navbar: React.FC = () => {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [walletDropdownOpen, setWalletDropdownOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+  const [recentTransactions, setRecentTransactions] = useState<DashboardPayment[]>([]);
   const profileRef = useRef<HTMLDivElement>(null);
   const walletDropdownRef = useRef<HTMLDivElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
-  const { open, close } = useWeb3Modal();
+  useWeb3Modal();
+  const [detectedWallet, setDetectedWallet] = useState<{ id: string; name: string; icon: string; fallback: string } | null>(null);
+
+  const {
+    account: walletAddress,
+    isConnected: walletConnected,
+    disconnectWallet,
+  } = useWallet();
+
+  const selectedDemoAccount = isDemoMode
+    ? HARDHAT_ACCOUNTS.find((account) => account.address === walletAddress) ?? null
+    : null;
 
   useEffect(() => {
-    const mode = isDemoMode ? 'demo' : 'live';
-    fetch(`/api/dashboard/data?projectId=all&mode=${mode}`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.payments) {
-          const sorted = d.payments.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-          setRecentTransactions(sorted.slice(0, 5));
-        }
-      })
-      .catch(e => console.error(e));
-  }, [isDemoMode]);
+    if (isDemoMode) {
+      setDetectedWallet(null);
+      return;
+    }
+
+    const wallet = detectWalletProvider();
+    setDetectedWallet(wallet);
+  }, [isDemoMode, walletAddress, walletConnected]);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
@@ -63,6 +157,7 @@ export const Navbar: React.FC = () => {
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
+
   useEffect(() => {
     setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
     const onDemoChanged = () => setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
@@ -70,28 +165,66 @@ export const Navbar: React.FC = () => {
     return () => window.removeEventListener('demo-mode-changed', onDemoChanged);
   }, []);
 
-  // Handle click outside wallet dropdown
+  // Handle click outside dropdowns
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (walletDropdownRef.current && !walletDropdownRef.current.contains(e.target as Node)) {
         setWalletDropdownOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+      if (notificationRef.current && !notificationRef.current.contains(e.target as Node)) {
+        setNotificationsOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  // Unified wallet state via our bridge
-  const { 
-    account: walletAddress, 
-    isConnected: walletConnected, 
-    connectWallet, 
-    switchNetwork,
-    getNetworkName,
-    chainId
-  } = useWallet();
-  
-  const ensName = useEnsName(walletAddress ?? null);
+  // Listen for payment events to update notifications
+  const refreshNotifications = React.useCallback(() => {
+    const mode = isDemoMode ? 'demo' : 'live';
+    fetch(`/api/dashboard/data?projectId=all&mode=${mode}`)
+      .then(r => r.json())
+      .then(d => {
+          // Group by tx_hash for notification bell to avoid project duplicates
+          const groupedMap = new Map<string, DashboardPayment>();
+          ((d.payments || []) as DashboardPayment[]).forEach((p) => {
+            const hash = p.tx_hash || `no-hash-${p.id}`;
+            if (!groupedMap.has(hash)) {
+              groupedMap.set(hash, { ...p, total_batch_amount: 0, count: 0 });
+            }
+            const item = groupedMap.get(hash);
+            if (!item) return;
+            item.total_batch_amount = (Number(item.total_batch_amount) || 0) + (Number(p.amount) || 0) / 100;
+            item.count = (Number(item.count) || 0) + 1;
+          });
+          const groupedList = Array.from(groupedMap.values())
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          
+          setRecentTransactions(groupedList.slice(0, 5));
+      })
+      .catch(e => console.error(e));
+  }, [isDemoMode]);
+
+  useEffect(() => {
+    refreshNotifications();
+    
+    const onPaymentRecorded = () => refreshNotifications();
+    const onPaymentPending = (e: Event) => {
+      // Optionally show a "Processing..." notification
+      console.log("Payment pending:", (e as CustomEvent).detail);
+    };
+
+    window.addEventListener('payment-recorded', onPaymentRecorded);
+    window.addEventListener('payment-pending', onPaymentPending);
+    
+    return () => {
+      window.removeEventListener('payment-recorded', onPaymentRecorded);
+      window.removeEventListener('payment-pending', onPaymentPending);
+    };
+  }, [refreshNotifications]);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 8);
@@ -99,15 +232,6 @@ export const Navbar: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
-        setProfileOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -149,12 +273,16 @@ export const Navbar: React.FC = () => {
               </div>
             </Link>
 
-            {/* If NOT on dashboard, show a simple label */}
-            {!isOnDashboard && (
-              <div className="hidden lg:flex items-center gap-6">
+            {/* Main Navigation Links */}
+            {user && (
+              <div className="hidden lg:flex items-center gap-1 ml-8">
                 <Link
                   href="/dashboard"
-                  className="text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                    isOnDashboard 
+                      ? 'bg-indigo-500/10 text-indigo-500 shadow-sm shadow-indigo-500/10' 
+                      : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-900'
+                  }`}
                 >
                   Dashboard
                 </Link>
@@ -187,16 +315,7 @@ export const Navbar: React.FC = () => {
                     </button>
                   </div>
 
-                  {/* Dashboard / Apps Icon */}
-                  <Link
-                    href="/dashboard"
-                    className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all"
-                    title="Dashboard"
-                  >
-                    <svg className="w-[18px] h-[18px]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
-                    </svg>
-                  </Link>
+
 
                   {/* Notifications */}
                   <div className="relative" ref={notificationRef}>
@@ -223,13 +342,30 @@ export const Navbar: React.FC = () => {
                             <div className="p-4 text-center text-sm text-gray-500">No recent transactions</div>
                           ) : (
                             recentTransactions.map((tx, i) => (
-                              <div key={i} onClick={() => { setNotificationsOpen(false); window.location.href = '/dashboard?tab=revenue'; }} className="px-4 py-3 border-b border-gray-800 hover:bg-white/5 transition-colors cursor-pointer">
-                                <div className="flex justify-between items-center mb-1">
-                                  <span className="text-[10px] font-bold text-emerald-400 uppercase">Payment Distributed</span>
-                                  <span className="text-[10px] text-gray-500">{new Date(tx.created_at).toLocaleDateString()}</span>
+                              <div key={tx.id || i} className="px-4 py-4 border-b border-gray-800/50 hover:bg-white/[0.03] transition-all cursor-pointer relative group">
+                                <button 
+                                  onClick={(e) => { 
+                                    e.stopPropagation();
+                                    setRecentTransactions(prev => prev.filter(t => t.id !== tx.id));
+                                  }} 
+                                  className="absolute top-1/2 -translate-y-1/2 right-3 text-gray-500 hover:text-rose-400 bg-white/5 hover:bg-rose-500/10 rounded-full w-7 h-7 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-all z-10 border border-white/5"
+                                  title="Dismiss notification"
+                                >
+                                  ✕
+                                </button>
+                                <div onClick={() => { setNotificationsOpen(false); window.location.href = `/dashboard?tab=reports&project=${tx.project_id}`; }}>
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400 text-xs font-bold border border-indigo-500/20">
+                                      {tx.projectName?.charAt(0) || 'P'}
+                                    </div>
+                                    <div className="flex flex-col min-w-0">
+                                      <span className="text-sm font-black text-gray-100 truncate pr-6">{tx.projectName || 'Unknown Project'}</span>
+                                      <span className="text-[10px] text-gray-500 font-mono">
+                                        {new Date(tx.created_at).toLocaleDateString()} · ${Number(tx.total_batch_amount || 0).toLocaleString()}
+                                      </span>
+                                    </div>
+                                  </div>
                                 </div>
-                                <p className="text-xs text-gray-300">Amount: <span className="font-mono text-white">${(Number(tx.amount || 0) / 100).toFixed(2)}</span></p>
-                                <p className="text-[9px] font-mono text-gray-500 truncate mt-1">Tx: {tx.tx_hash}</p>
                               </div>
                             ))
                           )}
@@ -238,20 +374,59 @@ export const Navbar: React.FC = () => {
                     )}
                   </div>
 
+
+
                   {/* Wallet Icon Button with Dropdown */}
                   <div className="relative" ref={walletDropdownRef}>
                     <button
-                      onClick={() => setWalletDropdownOpen(!walletDropdownOpen)}
-                      className="flex items-center gap-2 p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
+                      onClick={() => setWalletDropdownOpen((open) => !open)}
+                      className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-all relative ${
+                        walletConnected ? 'bg-indigo-500/10 border-indigo-500/20' : 'bg-white/5 border-white/10 hover:bg-white/10'
+                      } border`}
                       title="Wallet"
                     >
-                      {/* Wallet Icon SVG */}
-                      <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H8.25a2.25 2.25 0 00-2.25 2.25c0 .696.306 1.344.82 1.808l6.408 5.233c.344.28.808.28 1.152 0l6.408-5.233c.514-.464.82-1.112.82-1.808a2.25 2.25 0 00-2.25-2.25H15M9 12h6m-6 3h6M9 6h6" />
-                      </svg>
+                      {/* Dynamic wallet icon based on detected provider or default */}
+                      <div className="flex items-center gap-2">
+                        {isDemoMode && walletConnected ? (
+                          <div className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold text-white bg-gradient-to-br from-amber-500 to-orange-500">
+                            {selectedDemoAccount ? selectedDemoAccount.name.charAt(8) : 'D'}
+                          </div>
+                        ) : walletConnected && detectedWallet ? (
+                          <div className="w-5 h-5 flex items-center justify-center">
+                            <img 
+                              src={detectedWallet.icon} 
+                              alt={detectedWallet.name} 
+                              className="w-5 h-5 rounded-sm object-contain"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                target.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                            <div className="hidden w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold text-white bg-gradient-to-br from-indigo-500 to-purple-500">
+                              {detectedWallet.fallback}
+                            </div>
+                          </div>
+                        ) : walletConnected ? (
+                          <div className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold text-white bg-gradient-to-br from-indigo-500 to-purple-500">
+                            {walletAddress?.charAt(2).toUpperCase() || 'W'}
+                          </div>
+                        ) : (
+                          <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H8.25a2.25 2.25 0 00-2.25 2.25c0 .696.306 1.344.82 1.808l6.408 5.233c.344.28.808.28 1.152 0l6.408-5.233c.514-.464.82-1.112.82-1.808a2.25 2.25 0 00-2.25-2.25H15M9 12h6m-6 3h6M9 6h6" />
+                          </svg>
+                        )}
+                        
+                        {walletConnected && walletAddress && (
+                          <span className="text-[11px] font-mono font-bold text-gray-200 hidden sm:inline-block">
+                            {walletAddress.substring(0, 6)}...{walletAddress.substring(38)}
+                          </span>
+                        )}
+                      </div>
+
                       {/* Green dot when connected */}
                       {walletConnected && (
-                        <span className="absolute top-1 right-1 w-2 h-2 bg-emerald-400 rounded-full border border-gray-900" />
+                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-gray-900 shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
                       )}
                     </button>
 
@@ -268,34 +443,35 @@ export const Navbar: React.FC = () => {
                         {isDemoMode ? (
                           <div className="p-2">
                             <p className="px-3 py-2 text-[10px] font-bold text-amber-400 uppercase">Hardhat Test Accounts</p>
-                            {HARDHAT_ACCOUNTS.map((account) => (
-                              <button
-                                key={account.address}
-                                onClick={() => {
-                                  localStorage.setItem('demo_wallet', account.address);
-                                  localStorage.setItem('demo_private_key', account.privateKey);
-                                  window.dispatchEvent(new CustomEvent('wallet-changed', { detail: account.address }));
-                                  setWalletDropdownOpen(false);
-                                  if (!isOnDashboard) window.location.href = '/dashboard';
-                                }}
-                                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
-                                  walletAddress === account.address
-                                    ? 'bg-emerald-500/20 border border-emerald-500/30'
-                                    : 'hover:bg-gray-800 border border-transparent'
-                                }`}
-                              >
-                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-xs font-bold">
-                                  {account.name.charAt(8)}
-                                </div>
-                                <div className="text-left">
-                                  <p className="text-sm font-medium text-white">{account.name}</p>
-                                  <p className="text-[10px] font-mono text-gray-400">{account.address.substring(0, 10)}...{account.address.substring(38)}</p>
-                                </div>
-                                {walletAddress === account.address && (
-                                  <span className="ml-auto w-2 h-2 bg-emerald-400 rounded-full" />
-                                )}
-                              </button>
-                            ))}
+                            <div className="space-y-1">
+                              {HARDHAT_ACCOUNTS.map((account) => (
+                                <button
+                                  key={account.address}
+                                  onClick={() => {
+                                    localStorage.setItem('demo_wallet', account.address);
+                                    localStorage.setItem('demo_private_key', account.privateKey);
+                                    window.dispatchEvent(new CustomEvent('wallet-changed', { detail: account.address }));
+                                    setWalletDropdownOpen(false);
+                                  }}
+                                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
+                                    walletAddress === account.address
+                                      ? 'bg-emerald-500/20 border border-emerald-500/30'
+                                      : 'hover:bg-gray-800 border border-transparent'
+                                  }`}
+                                >
+                                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white text-xs font-bold">
+                                    {account.name.charAt(8)}
+                                  </div>
+                                  <div className="text-left">
+                                    <p className="text-sm font-medium text-white">{account.name}</p>
+                                    <p className="text-[10px] font-mono text-gray-400">{account.address.substring(0, 10)}...{account.address.substring(38)}</p>
+                                  </div>
+                                  {walletAddress === account.address && (
+                                    <span className="ml-auto w-2 h-2 bg-emerald-400 rounded-full" />
+                                  )}
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         ) : (
                           /* Live Mode - Wallet Options */
@@ -304,71 +480,143 @@ export const Navbar: React.FC = () => {
                             {LIVE_WALLETS.map((wallet) => (
                               <button
                                 key={wallet.id}
-                                onClick={() => {
-                                  open();
+                                onClick={async () => {
                                   setWalletDropdownOpen(false);
-                                  if (!isOnDashboard) window.location.href = '/dashboard';
+
+                                  const loadingToast = toast.loading(`Connecting to ${wallet.name}...`);
+
+                                  try {
+                                    const provider = getSpecificWalletProvider(wallet.id);
+                                    if (!provider) {
+                                      toast.dismiss(loadingToast);
+                                      toast.error(`${wallet.name} is not installed on this browser`);
+                                      window.open(wallet.url, '_blank', 'noopener,noreferrer');
+                                      return;
+                                    }
+
+                                    localStorage.removeItem('demo_wallet');
+                                    localStorage.removeItem('demo_private_key');
+                                    localStorage.setItem('selected_live_wallet', wallet.id);
+
+                                    try {
+                                      await provider.request({
+                                        method: 'wallet_requestPermissions',
+                                        params: [{ eth_accounts: {} }]
+                                      });
+                                    } catch (permissionErr) {
+                                      const permissionCode = getErrorCode(permissionErr);
+                                      if (permissionCode === 4001 || permissionCode === -32002) {
+                                        throw permissionErr;
+                                      }
+                                    }
+
+                                    const accounts = await provider.request({
+                                      method: 'eth_requestAccounts',
+                                      params: []
+                                    }) as string[];
+
+                                    if (accounts && accounts.length > 0) {
+                                      setDetectedWallet(wallet);
+                                      window.dispatchEvent(new CustomEvent('wallet-changed', { detail: accounts[0] }));
+                                      toast.success(`${wallet.name} connected`, { id: loadingToast });
+                                      return;
+                                    }
+
+                                    localStorage.removeItem('selected_live_wallet');
+                                    toast.error(`No ${wallet.name} account was selected`, { id: loadingToast });
+                                  } catch (err: unknown) {
+                                    if (getErrorCode(err) === 4001) {
+                                      toast.error('Connection rejected', { id: loadingToast });
+                                    } else if (getErrorCode(err) === -32002) {
+                                      toast.error('Connection request already pending. Check your wallet extension.', { id: loadingToast });
+                                    } else {
+                                      console.error('Connection failed:', err);
+                                      localStorage.removeItem('selected_live_wallet');
+                                      toast.error(`Unable to connect ${wallet.name}`, { id: loadingToast });
+                                    }
+                                  }
                                 }}
-                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-800 border border-transparent transition-all"
+                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-800 border border-transparent transition-all group"
                               >
-                                <img
-                                  src={wallet.icon}
-                                  alt={wallet.name}
-                                  className="w-8 h-8 rounded-lg"
-                                  onError={(e) => {
-                                    // Fallback to first letter if image fails
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = 'none';
-                                    target.nextElementSibling?.classList.remove('hidden');
-                                  }}
-                                />
-                                <span className="hidden w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white">
-                                  {wallet.name.charAt(0)}
-                                </span>
-                                <p className="text-sm font-medium text-white">{wallet.name}</p>
+                                <div className="relative">
+                                  <img
+                                    src={wallet.icon}
+                                    alt={wallet.name}
+                                    className="w-8 h-8 rounded-lg group-hover:scale-110 transition-transform"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      target.style.display = 'none';
+                                      target.nextElementSibling?.classList.remove('hidden');
+                                    }}
+                                  />
+                                  <span className="hidden w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-sm font-bold text-white">
+                                    {wallet.name.charAt(0)}
+                                  </span>
+                                </div>
+                                <div className="flex-1 text-left">
+                                  <p className="text-sm font-medium text-white group-hover:text-indigo-300 transition-colors">{wallet.name}</p>
+                                  <p className="text-[10px] text-gray-500">
+                                    {walletConnected && detectedWallet?.id === wallet.id ? 'Connected' : 'Open connector'}
+                                  </p>
+                                </div>
+                                {walletConnected && detectedWallet?.id === wallet.id && (
+                                  <span className="ml-auto w-2 h-2 bg-emerald-400 rounded-full" />
+                                )}
                               </button>
                             ))}
+                          </div>
+                        )}
 
-                            {/* Connect Wallet Button for Live Mode */}
-                            <button
-                              onClick={() => {
-                                open();
-                                setWalletDropdownOpen(false);
-                                if (!isOnDashboard) window.location.href = '/dashboard';
-                              }}
-                              className="w-full mt-2 flex items-center justify-center gap-2 px-3 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-bold hover:brightness-110 transition-all"
-                            >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                              </svg>
-                              Connect Wallet
-                            </button>
+                        {!walletConnected && (
+                          <div className="px-4 py-3 border-t border-gray-700 bg-gray-800/40">
+                            <p className="text-[10px] text-gray-500">
+                              {isDemoMode
+                                ? 'Choose a local Hardhat wallet for demo transactions.'
+                                : 'Choose a wallet first. The selected address will appear here and on the dashboard after connection.'}
+                            </p>
                           </div>
                         )}
 
                         {/* Connected Wallet Info */}
                         {walletConnected && walletAddress && (
                           <div className="p-3 border-t border-gray-700 bg-gray-800/50">
-                            <p className="text-[10px] font-bold text-gray-500 uppercase mb-2">Connected Wallet</p>
-                            <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                              <p className="text-xs font-mono text-gray-300">{walletAddress.substring(0, 10)}...{walletAddress.substring(38)}</p>
+                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 px-1">Active Connection</p>
+                            <div className="flex items-center gap-3 px-3 py-2 bg-gray-900 rounded-xl border border-gray-700 shadow-sm">
+                              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_5px_rgba(52,211,153,0.5)]" />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[11px] font-mono text-gray-300 truncate">{walletAddress}</p>
+                                <p className="text-[10px] text-gray-500">{isDemoMode ? 'Demo wallet' : detectedWallet?.name || 'Live wallet'}</p>
+                              </div>
                             </div>
-                            <p className="text-[10px] text-gray-500 mt-1">{getNetworkName(chainId)}</p>
+                            <button
+                              onClick={() => {
+                                localStorage.removeItem('demo_wallet');
+                                localStorage.removeItem('demo_private_key');
+                                localStorage.removeItem('selected_live_wallet');
+                                setWalletDropdownOpen(false);
+                                void disconnectWallet();
+                              }}
+                              className="w-full mt-3 flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-400 border border-rose-500/20 hover:bg-rose-500/10 transition-all"
+                            >
+                              Disconnect
+                            </button>
                           </div>
                         )}
                       </div>
                     )}
                   </div>
 
+
                   {/* Divider */}
                   <div className="w-px h-6 bg-gray-200 dark:bg-gray-800 mx-1" />
 
-                  {/* User profile */}
+                  {/* User profile dropdown */}
                   <div className="relative" ref={profileRef}>
                     <button
                       onClick={() => setProfileOpen(!profileOpen)}
-                      className="flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-900 transition-all duration-200 group"
+                      className={`flex items-center gap-2.5 pl-2 pr-3 py-1.5 rounded-2xl transition-all duration-200 group ${
+                        profileOpen ? 'bg-gray-100 dark:bg-gray-900' : 'hover:bg-gray-50 dark:hover:bg-gray-900'
+                      }`}
                     >
                       <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 via-blue-500 to-cyan-400 flex items-center justify-center text-white text-xs font-bold shadow-sm group-hover:shadow-md transition-shadow">
                         {(user.name || user.email || 'U').charAt(0).toUpperCase()}
@@ -389,81 +637,47 @@ export const Navbar: React.FC = () => {
                       </svg>
                     </button>
 
-                    {/* Profile Dropdown */}
+                    {/* Profile Dropdown Menu */}
                     {profileOpen && (
-                      <div
-                        className="absolute right-0 mt-2 w-64 rounded-2xl shadow-2xl shadow-black/10 border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden"
+                      <div 
+                        className="absolute right-0 mt-2 w-64 rounded-2xl shadow-2xl shadow-black/20 border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 overflow-hidden z-50"
                         style={{ animation: 'dropdownFadeIn 0.2s ease-out' }}
                       >
-                        <div className="p-4 bg-gradient-to-br from-violet-50 via-blue-50 to-cyan-50 dark:from-violet-950/30 dark:via-blue-950/30 dark:to-cyan-950/30">
-                          <div className="flex items-center gap-3">
-                            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-violet-500 via-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold shadow-md">
-                              {(user.name || user.email || 'U').charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-gray-900 dark:text-white">{user.name || 'User'}</p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[160px]">{user.email}</p>
-                            </div>
-                          </div>
+                        {/* Dropdown Header */}
+                        <div className="px-5 py-4 bg-gray-50/50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-800">
+                          <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{user.name || 'Creative User'}</p>
+                          <p className="text-[11px] text-gray-500 truncate">{user.email}</p>
                         </div>
 
-                        {walletConnected && walletAddress && (
-                          <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-                            <p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Connected Wallet</p>
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                              <p className="text-xs font-mono text-gray-300 truncate">{walletAddress.substring(0, 10)}...{walletAddress.substring(38)}</p>
-                            </div>
-                            <button
-                              onClick={() => {
-                                // First clear local storage
-                                localStorage.removeItem('demo_wallet');
-                                localStorage.removeItem('demo_private_key');
-                                // Call disconnectWallet hook
-                                if (disconnectWallet) disconnectWallet();
-                                // Close web3modal completely
-                                close();
-                                // Notify app to refresh wallet state
-                                window.dispatchEvent(new CustomEvent('wallet-changed'));
-                                setProfileOpen(false);
-                              }}
-                              className="text-xs text-rose-500 hover:text-rose-400 font-bold transition-colors"
-                            >
-                              Disconnect Wallet
-                            </button>
-                          </div>
-                        )}
+                        {/* Menu Links */}
                         <div className="p-2">
-                          <Link
-                            href="/profile"
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 transition-colors"
-                          >
-                            <span className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-sm">👤</span>
-                            Profiles and Settings
-                          </Link>
-                          <Link
-                            href="/dashboard"
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 transition-colors"
-                          >
-                            <span className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-sm">📊</span>
-                            Dashboards
-                          </Link>
                           {user.role === 'admin' && (
                             <Link
                               href="/admin"
-                              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 transition-colors"
+                              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900 hover:text-emerald-600 dark:hover:text-emerald-400 transition-all group"
                             >
-                              <span className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-sm">⚙️</span>
+                              <span className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:scale-110 transition-transform">🛠️</span>
                               Admin Panel
                             </Link>
                           )}
+                          
+                          <Link
+                            href="/profile"
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900 hover:text-blue-600 dark:hover:text-blue-400 transition-all group"
+                          >
+                            <span className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">👤</span>
+                            Profile & Settings
+                          </Link>
+
                         </div>
-                        <div className="p-2 border-t border-gray-100 dark:border-gray-800">
+
+                        {/* Sign Out Section */}
+                        <div className="p-2 bg-gray-50/50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-800">
                           <button
                             onClick={() => void logout()}
-                            className="flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors"
+                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-all group"
                           >
-                            <span className="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-950/30 flex items-center justify-center text-sm">🚪</span>
+                            <span className="w-8 h-8 rounded-lg bg-rose-500/10 flex items-center justify-center text-rose-500 group-hover:scale-110 transition-transform">🚪</span>
                             Sign Out
                           </button>
                         </div>
@@ -531,14 +745,44 @@ export const Navbar: React.FC = () => {
                       <p className="text-[11px] text-gray-400 capitalize">{user.role}</p>
                     </div>
                   </div>
-                  <Link href="/profile" className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                  <Link
+                    href="/profile"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  >
                     <span>👤</span> Profile
                   </Link>
+                  <Link
+                    href="/profile?tab=settings"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    <span>⚙️</span> Settings
+                  </Link>
                   {user.role === 'admin' && (
-                    <Link href="/admin" className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                      <span>⚙️</span> Admin Panel
+                    <Link
+                      href="/admin"
+                      onClick={() => setMobileOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    >
+                      <span>🛠️</span> Admin Panel
                     </Link>
                   )}
+                  {walletConnected && (
+                    <div className="mx-4 my-2 px-3 py-2 bg-emerald-500/5 border border-emerald-500/10 rounded-xl flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                        <span className="text-[10px] font-mono text-emerald-400">{walletAddress?.slice(0, 6)}...{walletAddress?.slice(-4)}</span>
+                      </div>
+                      <button 
+                        onClick={() => void disconnectWallet()}
+                        className="text-[10px] font-bold text-rose-500 uppercase tracking-widest"
+                      >
+                        Disconnect
+                      </button>
+                    </div>
+                  )}
+
                   <button
                     onClick={() => void logout()}
                     className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors"
@@ -560,6 +804,8 @@ export const Navbar: React.FC = () => {
           </div>
         </div>
       </nav>
+
+
 
       {/* CSS for dropdown animation */}
       <style jsx global>{`

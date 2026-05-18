@@ -294,12 +294,14 @@ const DistributeRevenuePanel: React.FC<DistributeRevenuePanelProps> = ({
                        txStatus === 'pending' ? 'Transaction Processing…' :
                        'Transaction Failed'}
                     </p>
+                    
                     {txStatus === 'confirmed' && (
                       <p className="text-xs text-gray-400 mt-1">
                         {formatUSD(amountUSD)} distributed across {rightsHolders.length} rights holders.
                         Dashboard and charts updated.
                       </p>
                     )}
+                    
                     {txStatus === 'pending' && (
                       <div className="mt-3">
                         <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
@@ -311,13 +313,67 @@ const DistributeRevenuePanel: React.FC<DistributeRevenuePanelProps> = ({
                         <p className="text-[10px] text-gray-600 mt-1">Awaiting blockchain confirmation…</p>
                       </div>
                     )}
-                    {errorMessage && <p className="text-xs text-red-400 mt-1">{errorMessage}</p>}
-                    {lastTxHash && (
+                    
+                    {txStatus === 'error' && (
+                      <div className="mt-2 space-y-2">
+                        <p className="text-xs text-red-400 leading-relaxed font-medium">
+                          {errorMessage.toLowerCase().includes('insufficient funds') 
+                            ? "You don't have enough ETH to cover this transaction. Please lower the amount or get more test ETH."
+                            : errorMessage.toLowerCase().includes('user rejected') || errorMessage.toLowerCase().includes('action_rejected')
+                            ? "The transaction was cancelled in MetaMask."
+                            : errorMessage.toLowerCase().includes('network') || errorMessage.toLowerCase().includes('chain')
+                            ? "Incorrect Network. Please switch your MetaMask to Base Sepolia."
+                            : errorMessage || "A blockchain error occurred. Please try again."}
+                        </p>
+                        
+                        {(errorMessage.toLowerCase().includes('insufficient funds')) && (
+                          <div className="flex flex-col gap-2 mt-3">
+                            <a 
+                              href="https://faucet.quicknode.com/base/sepolia" 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 bg-indigo-500/10 w-fit px-3 py-1.5 rounded-lg border border-indigo-500/20 transition-all hover:bg-indigo-500/20"
+                            >
+                              🚰 Get Free Base Sepolia ETH
+                            </a>
+                            <p className="text-[9px] text-gray-500 italic">
+                              * Tip: Distribute a smaller amount (e.g. 0.001 ETH) for initial testing.
+                            </p>
+                          </div>
+                        )}
+                        
+                        {(errorMessage.toLowerCase().includes('network') || errorMessage.toLowerCase().includes('chain')) && (
+                          <button
+                            onClick={() => {
+                              const ethereum = (window as any).ethereum;
+                              if (!ethereum) {
+                                toast.error('No injected wallet provider found');
+                                return;
+                              }
+                              ethereum.request({
+                                method: 'wallet_switchEthereumChain',
+                                params: [{ chainId: '0x14a34' }], // 84532 in hex
+                              });
+                            }}
+                            className="text-[10px] font-bold text-white bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 rounded-lg transition-all"
+                          >
+                            Switch to Base Sepolia
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {lastTxHash && txStatus !== 'error' && (
                       <div className="mt-2 pt-2 border-t border-white/5">
                         <span className="text-[10px] uppercase font-bold text-gray-600 mr-1">Tx:</span>
-                        <span className="text-[10px] font-mono text-indigo-400 break-all">
+                        <a 
+                          href={`https://sepolia.basescan.org/tx/${lastTxHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] font-mono text-indigo-400 hover:underline break-all"
+                        >
                           {lastTxHash.slice(0, 24)}…
-                        </span>
+                        </a>
                       </div>
                     )}
                   </div>

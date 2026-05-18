@@ -1,28 +1,30 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import { formatCurrency, formatDate, formatPercentage } from '@/lib/utils';
+import React, { useCallback, useState } from 'react';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import type { RevenueReport } from '@/lib/types';
 import toast from 'react-hot-toast';
 
 interface ReportGeneratorProps {
   walletAddress?: string;
+  projectId?: string | null;
 }
 
-export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress }) => {
+export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress, projectId }) => {
   const [startDate, setStartDate] = useState<string>(
     new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0]
   );
   const [endDate, setEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [report, setReport] = useState<RevenueReport | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [exportFormat, setExportFormat] = useState<'json' | 'csv'>('csv');
+  const [hasGeneratedBefore, setHasGeneratedBefore] = useState(false);
 
-  const handleGenerateReport = async () => {
-    if (!startDate || !endDate) {
+  // Re-fetch report when projectId changes if we already have one showing
+  const handleGenerateReport = useCallback(async (overrideStartDate?: string, overrideEndDate?: string) => {
+    const effectiveStartDate = overrideStartDate ?? startDate;
+    const effectiveEndDate = overrideEndDate ?? endDate;
+
+    if (!effectiveStartDate || !effectiveEndDate) {
       toast.error('Please select both start and end dates');
       return;
     }
@@ -30,8 +32,11 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
     setIsLoading(true);
     try {
       const url = new URL('/api/reports', window.location.origin);
-      url.searchParams.set('startDate', startDate);
-      url.searchParams.set('endDate', endDate);
+      url.searchParams.set('startDate', effectiveStartDate);
+      url.searchParams.set('endDate', effectiveEndDate);
+      if (projectId) {
+        url.searchParams.set('projectId', projectId);
+      }
       if (walletAddress) {
         url.searchParams.set('address', walletAddress);
       }
@@ -39,16 +44,25 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
       const response = await fetch(url.toString());
       if (!response.ok) throw new Error('Failed to generate report');
       const { data } = await response.json();
+      setStartDate(effectiveStartDate);
+      setEndDate(effectiveEndDate);
       setReport(data);
+      setHasGeneratedBefore(true);
       toast.success('Report generated successfully');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to generate report');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [endDate, projectId, startDate, walletAddress]);
 
-  const handleExportReport = async () => {
+  React.useEffect(() => {
+    if (hasGeneratedBefore) {
+      void handleGenerateReport();
+    }
+  }, [projectId, hasGeneratedBefore, handleGenerateReport]);
+
+  const handleExportCsv = async () => {
     if (!report) {
       toast.error('Please generate a report first');
       return;
@@ -61,9 +75,9 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
         body: JSON.stringify({
           startDate,
           endDate,
-          projectId: report.reportPeriod.startDate === startDate ? undefined : undefined, // Keep existing interface
+          projectId,
           address: walletAddress,
-          format: exportFormat,
+          format: 'csv',
         }),
       });
 
@@ -73,17 +87,74 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `revenue-report-${formatDate(new Date(), 'short')}.${exportFormat}`;
+      a.download = `revenue-report-${formatDate(new Date(), 'short')}.csv`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
 
-      toast.success(`Report exported as ${exportFormat.toUpperCase()}`);
+      toast.success('Report exported as CSV');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Export failed');
     }
   };
+
+  const handleExportPdf = async () => {
+    if (!report) {
+      toast.error('Please generate a report first');
+      return;
+    }
+
+    try {
+      const url = new URL('/api/reports/export', window.location.origin);
+      url.searchParams.set('startDate', startDate);
+      url.searchParams.set('endDate', endDate);
+      if (projectId) {
+        url.searchParams.set('projectId', projectId);
+      }
+      if (walletAddress) {
+        url.searchParams.set('address', walletAddress);
+      }
+
+      const response = await fetch(url.toString());
+      if (!response.ok) throw new Error('Failed to generate PDF');
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = `lunim-report-${startDate}-to-${endDate}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(downloadUrl);
+      document.body.removeChild(a);
+
+      toast.success('PDF generated successfully');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to generate PDF');
+    }
+  };
+
+  const handlePresetReport = async (period: 'quarterly' | 'ytd') => {
+    const now = new Date();
+    let nextStartDate = '';
+    const nextEndDate = now.toISOString().split('T')[0];
+
+    if (period === 'ytd') {
+      // Year to Date: January 1st of current year to today
+      nextStartDate = `${now.getFullYear()}-01-01`;
+    } else {
+      // Quarterly: Start of current quarter to today
+      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      nextStartDate = new Date(now.getFullYear(), quarterStartMonth, 1).toISOString().split('T')[0];
+    }
+
+    await handleGenerateReport(nextStartDate, nextEndDate);
+  };
+
+  const rightsHolderCount = report
+    ? report.projects.reduce((sum, project) => sum + project.contributorCount, 0)
+    : 0;
 
   return (
     <div className="space-y-8">
@@ -92,6 +163,22 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
         <h3 className="text-xl font-black text-white tracking-tight mb-6">
           <span className="mr-2">📊</span> Revenue Report Generator
         </h3>
+        <div className="flex flex-wrap gap-3 mb-5">
+          <button
+            onClick={() => void handlePresetReport('quarterly')}
+            disabled={isLoading}
+            className="px-4 py-2 rounded-xl font-bold uppercase tracking-widest text-[11px] transition-all shadow-lg active:scale-95 bg-white/10 hover:bg-white/20 text-white disabled:bg-white/5 disabled:text-gray-500"
+          >
+            Quarterly Report
+          </button>
+          <button
+            onClick={() => void handlePresetReport('ytd')}
+            disabled={isLoading}
+            className="px-4 py-2 rounded-xl font-bold uppercase tracking-widest text-[11px] transition-all shadow-lg active:scale-95 bg-white/10 hover:bg-white/20 text-white disabled:bg-white/5 disabled:text-gray-500"
+          >
+            Year to Date
+          </button>
+        </div>
         <div className="flex flex-col md:flex-row items-end gap-4">
           <div className="flex-1 w-full">
             <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
@@ -139,7 +226,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
             <div className="bg-white/5 backdrop-blur-xl border border-white/5 p-5 rounded-3xl relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/10 blur-3xl -mr-10 -mt-10" />
               <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Rights Holders</p>
-              <p className="text-xl font-black text-white">{report.projects.reduce((sum, p) => sum + p.contributorCount, 0)}</p>
+              <p className="text-xl font-black text-white">{rightsHolderCount}</p>
               <p className="text-[10px] text-gray-600 mt-1">Active Contributors</p>
             </div>
             <div className="bg-white/5 backdrop-blur-xl border border-white/5 p-5 rounded-3xl relative overflow-hidden group">
@@ -212,13 +299,13 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
             </div>
             <div className="flex items-center gap-4">
               <button
-                onClick={() => { setExportFormat('csv'); handleExportReport(); }}
+                onClick={() => void handleExportCsv()}
                 className="px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-all shadow-lg active:scale-95 bg-white/10 hover:bg-white/20 text-white"
               >
                 📥 Download CSV
               </button>
               <button
-                onClick={() => window.print()}
+                onClick={() => void handleExportPdf()}
                 className="px-6 py-3 rounded-xl font-bold uppercase tracking-widest text-xs transition-all shadow-lg active:scale-95 bg-indigo-500 hover:bg-indigo-400 text-white shadow-indigo-500/20"
               >
                 📄 Generate PDF
@@ -234,7 +321,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress 
           <span className="text-4xl mb-4 opacity-50">📅</span>
           <h3 className="text-lg font-black text-white mb-2">No Report Data</h3>
           <p className="text-sm text-gray-500 max-w-sm">
-            Select a date range and click "Generate Report" above to compile revenue and distribution analytics.
+            Select a date range and click &quot;Generate Report&quot; above to compile revenue and distribution analytics.
           </p>
         </div>
       )}

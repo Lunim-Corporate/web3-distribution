@@ -45,7 +45,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { getSplitsClient } from '@/lib/web3/client';
 import { useWallet } from '@/lib/wallet';
-import { BrowserProvider, Contract, parseEther, formatEther, Interface } from 'ethers';
+import { BrowserProvider, Contract, JsonRpcProvider, parseEther, formatEther, Interface } from 'ethers';
 
 // ------------------------------------------------------------------
 // Supabase client for direct writes in Demo Mode
@@ -65,6 +65,7 @@ try {
 
 const LIVE_API_BASE = 'http://localhost:4000/api';
 const ETH_USD_RATE = 3500; // 1 ETH = $3,500
+const LOCAL_HARDHAT_RPC = process.env.NEXT_PUBLIC_HARDHAT_RPC_URL || 'http://127.0.0.1:8545';
 
 // ------------------------------------------------------------------
 // Generate a realistic-looking tx hash
@@ -96,8 +97,12 @@ export function useRevenueContract(projectId) {
   const [txStatus, setTxStatus] = useState('idle'); // 'idle'|'pending'|'confirmed'|'error'
   const [lastTxHash, setLastTxHash] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [isDemoMode, setIsDemoMode] = useState(true);
-
+  const [isDemoMode, setIsDemoMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('demo_mode') === 'true';
+    }
+    return false;
+  });
   // ────────────────────────────────────────────────────────────────
   // Data refresh — works for BOTH modes
   // ────────────────────────────────────────────────────────────────
@@ -120,11 +125,14 @@ export function useRevenueContract(projectId) {
 
       // First pass: create mapping of contributors
       contributors.forEach((c) => {
-        const key = c.user_id || c.name;
+        const key = `${c.project_id}_${c.user_id || c.name}`;
+        const proj = projects.find(p => p.id === c.project_id);
         if (!uniqueRightsHoldersMap.has(key)) {
           uniqueRightsHoldersMap.set(key, {
             id: c.id,
             user_id: c.user_id,
+            project_id: c.project_id,
+            projectName: proj ? proj.name : 'Unknown Project',
             name: c.name || 'Unknown',
             role: c.role || 'Contributor',
             wallet_address: c.wallet_address || '',
@@ -151,6 +159,7 @@ export function useRevenueContract(projectId) {
             status: p.status || 'confirmed',
             source: p.source || 'Client Payment',
             project_id: p.project_id,
+            projectName: p.projectName,
             total_amount: 0,
             transaction_splits: [],
           };
@@ -158,7 +167,7 @@ export function useRevenueContract(projectId) {
         const paymentAmountUSD = (Number(p.amount) || 0) / 100;
         txMap[hash].total_amount += paymentAmountUSD;
 
-        const rh = uniqueRightsHoldersMap.get(p.user_id || p.user_name);
+        const rh = uniqueRightsHoldersMap.get(`${p.project_id}_${p.user_id || p.user_name}`);
         if (rh) {
           txMap[hash].transaction_splits.push({
             id: p.id,
@@ -178,19 +187,16 @@ export function useRevenueContract(projectId) {
         }
       });
 
-      // Calculate Global Share (%) for each contributor
+      // Calculate Global Share (%) for each contributor (internal use only)
       const totalRevenueUSD = globalTotalRevenue / 100;
       uniqueRightsHoldersMap.forEach(rh => {
         if (totalRevenueUSD > 0) {
           rh.global_share = (rh.total_received / totalRevenueUSD) * 100;
         }
-        // If we are in "All Projects" view, we override 'percentage' with 'global_share' for the UI
-        if (!projectId || projectId === 'all') {
-          rh.percentage = rh.global_share.toFixed(2);
-        }
       });
 
-      const finalRightsHolders = Array.from(uniqueRightsHoldersMap.values());
+      const finalRightsHolders = Array.from(uniqueRightsHoldersMap.values())
+        .sort((a, b) => Number(b.total_received || 0) - Number(a.total_received || 0));
 
       const total_revenue = projectId && projectId !== 'all' 
         ? (Number(activeProj?.total_revenue) || 0) / 100
@@ -220,7 +226,9 @@ export function useRevenueContract(projectId) {
 
   // Sync mode and wallet changes
   useEffect(() => {
-    const onDemoChanged = (e) => setIsDemoMode(e.detail);
+    const onDemoChanged = () => {
+      setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
+    };
     window.addEventListener('demo-mode-changed', onDemoChanged);
     
     const onWalletChanged = () => refreshDashboardData();
@@ -249,7 +257,11 @@ export function useRevenueContract(projectId) {
   };
 
   const sendRevenue = async (amountEth) => {
-    if (!isConnected || !projectId) return;
+    if (!isConnected || !projectId || projectId === 'all') {
+      setTxStatus('error');
+      setErrorMessage(!isConnected ? 'Wallet not connected' : 'Select a specific project before distributing revenue');
+      return;
+    }
 
     if (isDemoMode) {
       await sendRevenueDemoMode(amountEth);
@@ -259,14 +271,35 @@ export function useRevenueContract(projectId) {
   };
 
   const sendRevenueDemoMode = async (amountEth) => {
-    const txHash = generateTxHash();
+    let txHash = '';
     try {
       setTxStatus('pending');
       setErrorMessage('');
-      setLastTxHash(txHash);
+      if (!walletAddress) {
+        throw new Error('Select a Hardhat demo wallet before distributing revenue');
+      }
 
-      // Simulate blockchain processing delay
-      await new Promise((resolve) => setTimeout(resolve, 1800));
+      const contractAddress = project?.contract_address || RevenueRightsABI?.address;
+      if (!contractAddress || !RevenueRightsABI?.abi) {
+        throw new Error('No local contract address found. Run npm run chain and npm run deploy:local first.');
+      }
+
+      const provider = new JsonRpcProvider(LOCAL_HARDHAT_RPC);
+      const network = await provider.getNetwork();
+      if (Number(network.chainId) !== 31337) {
+        throw new Error('Connected local RPC is not Hardhat chain 31337');
+      }
+
+      const signer = await provider.getSigner(walletAddress);
+      const contract = new Contract(contractAddress, RevenueRightsABI.abi, signer);
+      const tx = await contract.distributeRevenue({ value: parseEther(amountEth.toString()) });
+      txHash = tx.hash;
+      setLastTxHash(txHash);
+      window.dispatchEvent(new CustomEvent('payment-pending', {
+        detail: { projectId, txHash, amountEth, timestamp: Date.now() }
+      }));
+
+      await tx.wait();
 
       const totalUSD = Number(amountEth) * ETH_USD_RATE;
 
@@ -296,7 +329,12 @@ export function useRevenueContract(projectId) {
     } catch (err) {
       console.error('Demo transaction failed:', err);
       setTxStatus('error');
-      setErrorMessage(err.message || 'Demo transaction failed');
+      const message = err.message || 'Demo transaction failed';
+      setErrorMessage(
+        message.includes('ECONNREFUSED') || message.includes('connect') || message.includes('network')
+          ? 'Local Hardhat node is not reachable. Start it with npm run chain, deploy with npm run deploy:local, then try again.'
+          : message
+      );
     }
   };
 
@@ -305,15 +343,27 @@ export function useRevenueContract(projectId) {
     try {
       setTxStatus('pending');
       setErrorMessage('');
+      if (typeof window === 'undefined' || !window.ethereum) {
+        throw new Error('No injected wallet provider found. Install or unlock MetaMask.');
+      }
+
       const provider = new BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
 
-      const contract = new Contract(RevenueRightsABI.address, RevenueRightsABI.abi, signer);
+      const contractAddress = project?.contract_address || process.env.NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS || RevenueRightsABI.address;
+      if (!contractAddress) {
+        throw new Error('No contract address is configured for this project.');
+      }
+
+      const contract = new Contract(contractAddress, RevenueRightsABI.abi, signer);
       const value = parseEther(amountEth.toString());
 
       const tx = await contract.distributeRevenue({ value });
       currentTxHash = tx.hash;
       setLastTxHash(tx.hash);
+      window.dispatchEvent(new CustomEvent('payment-pending', {
+        detail: { projectId, txHash: tx.hash, amountEth, timestamp: Date.now() }
+      }));
 
       // Initiate on backend
       await fetch(`${LIVE_API_BASE}/transactions/initiate`, {
@@ -362,6 +412,9 @@ export function useRevenueContract(projectId) {
       }
 
       setTxStatus('confirmed');
+      window.dispatchEvent(new CustomEvent('payment-recorded', {
+        detail: { projectId, txHash: tx.hash, amountEth, timestamp: Date.now() }
+      }));
       await refreshDashboardData();
     } catch (err) {
       console.error(err);

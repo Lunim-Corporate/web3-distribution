@@ -20,6 +20,7 @@ export default function AdminPage() {
   const [newProject, setNewProject] = useState({ name: '', type: 'Film', status: 'Active' });
   const [invite, setInvite] = useState({ name: '', email: '', wallet_address: '', percentage: 0 });
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
@@ -100,7 +101,26 @@ export default function AdminPage() {
     setContributors(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
   };
 
+  const getProjectedTotal = (targetId: string, nextPercentage: number) => {
+    return contributors.reduce((sum, contributor) => {
+      if (contributor.id === targetId) return sum + nextPercentage;
+      return sum + Number(contributor.percentage || contributor.revenue_share || 0);
+    }, 0);
+  };
+
   const saveContributor = async (c: any) => {
+    const nextPercentage = Number(c.percentage ?? c.revenue_share ?? 0);
+    if (!Number.isFinite(nextPercentage) || nextPercentage < 0 || nextPercentage > 100) {
+      toast.error('Allocation must be between 0% and 100%');
+      return;
+    }
+
+    const projectedTotal = getProjectedTotal(c.id, nextPercentage);
+    if (projectedTotal > 100.000001) {
+      toast.error(`This update would push the project to ${projectedTotal.toFixed(2)}%`);
+      return;
+    }
+
     setIsActionLoading(true);
     try {
       const res = await fetch('/api/admin-actions', {
@@ -110,6 +130,7 @@ export default function AdminPage() {
           action: 'edit_contributor', 
           payload: { 
             contributor_id: c.id, 
+            user_id: c.user_id,
             percentage: Number(c.percentage || c.revenue_share),
             name: c.name,
             wallet_address: c.wallet_address
@@ -126,8 +147,43 @@ export default function AdminPage() {
     }
   };
 
+  const handleRemoveContributor = async (id: string) => {
+    if (!confirm('Are you sure you want to remove this rights holder?')) return;
+    setIsActionLoading(true);
+    try {
+      const res = await fetch('/api/admin-actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'delete_contributor', 
+          payload: { contributor_id: id } 
+        })
+      });
+      if (!res.ok) throw new Error('Removal failed');
+      toast.success('Rights holder removed');
+      fetchContributors(selectedProjectId!);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
   const handleAddRightsHolder = async () => {
-    if (!invite.email || !selectedProjectId) return toast.error('Details missing');
+    if (!invite.name || !invite.email || !invite.wallet_address || !selectedProjectId) {
+      return toast.error('Name, email, wallet address, and project are required');
+    }
+
+    const nextPercentage = Number(invite.percentage || 0);
+    if (!Number.isFinite(nextPercentage) || nextPercentage < 0 || nextPercentage > 100) {
+      return toast.error('Allocation must be between 0% and 100%');
+    }
+
+    const projectedTotal = totalAllocation + nextPercentage;
+    if (projectedTotal > 100.000001) {
+      return toast.error(`This addition would push the project to ${projectedTotal.toFixed(2)}%`);
+    }
+
     setIsActionLoading(true);
     try {
       const res = await fetch('/api/admin-actions', {
@@ -232,49 +288,100 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                {contributors.map((c) => (
-                  <div key={c.id} className="bg-white/5 border border-white/10 rounded-3xl p-6 flex items-center gap-6 group hover:bg-white/[0.07] transition-all">
-                    <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center text-lg font-black text-gray-400 border border-white/10">
-                      {c.name.charAt(0)}
-                    </div>
-                    <div className="flex-1 grid grid-cols-12 gap-6 items-center">
-                      <div className="col-span-4">
-                        <label className="text-[9px] font-black text-gray-600 uppercase tracking-widest block mb-1">Full Name</label>
-                        <input 
-                          className="bg-transparent border-none text-white font-black text-lg p-0 w-full focus:ring-0"
-                          value={c.name}
-                          onChange={(e) => handleUpdateContributor(c.id, 'name', e.target.value)}
-                        />
+              <div className="space-y-3">
+                {contributors.map((c) => {
+                  const isEditing = editingId === c.id;
+                  const share = c.percentage || c.revenue_share || 0;
+                  
+                  return (
+                    <div key={c.id} className="bg-white/5 border border-white/10 rounded-3xl p-6 flex items-center gap-6 group hover:bg-white/[0.07] transition-all">
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-xl font-black text-white/50 border border-white/10 shadow-lg">
+                        {c.name.charAt(0)}
                       </div>
-                      <div className="col-span-5">
-                        <label className="text-[9px] font-black text-gray-600 uppercase tracking-widest block mb-1">Wallet Address</label>
-                        <input 
-                          className="bg-transparent border-none text-gray-400 font-mono text-xs p-0 w-full focus:ring-0"
-                          value={c.wallet_address}
-                          onChange={(e) => handleUpdateContributor(c.id, 'wallet_address', e.target.value)}
-                        />
-                      </div>
-                      <div className="col-span-3 text-right relative">
-                        <label className="text-[9px] font-black text-gray-600 uppercase tracking-widest block mb-1">Share %</label>
-                        <div className="flex items-center justify-end gap-2">
-                           <input 
-                             type="number"
-                             className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white font-black text-xl w-24 text-right focus:border-indigo-500 transition-all outline-none"
-                             value={c.percentage || c.revenue_share}
-                             onChange={(e) => handleUpdateContributor(c.id, 'percentage', e.target.value)}
-                           />
-                           <button 
-                             onClick={() => saveContributor(c)}
-                             className="p-3 bg-indigo-500 hover:bg-indigo-400 rounded-xl shadow-lg shadow-indigo-500/20 transition-all opacity-0 group-hover:opacity-100"
-                           >
-                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
-                           </button>
+                      
+                      <div className="flex-1 grid grid-cols-12 gap-8 items-center">
+                        <div className="col-span-3">
+                          <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest block mb-1.5">Full Name</label>
+                          {isEditing ? (
+                            <input 
+                              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white font-bold text-sm w-full focus:border-indigo-500 outline-none"
+                              value={c.name}
+                              onChange={(e) => handleUpdateContributor(c.id, 'name', e.target.value)}
+                            />
+                          ) : (
+                            <p className="text-white font-black text-lg truncate">{c.name}</p>
+                          )}
+                        </div>
+                        
+                        <div className="col-span-4">
+                          <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest block mb-1.5">Wallet Address</label>
+                          {isEditing ? (
+                            <input 
+                              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-gray-300 font-mono text-[10px] w-full focus:border-indigo-500 outline-none"
+                              value={c.wallet_address}
+                              onChange={(e) => handleUpdateContributor(c.id, 'wallet_address', e.target.value)}
+                            />
+                          ) : (
+                            <p className="text-gray-500 font-mono text-xs truncate">{c.wallet_address.slice(0, 10)}...{c.wallet_address.slice(-8)}</p>
+                          )}
+                        </div>
+                        
+                        <div className="col-span-2">
+                          <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest block mb-1.5">Share %</label>
+                          {isEditing ? (
+                            <div className="relative">
+                              <input 
+                                type="number"
+                                className="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white font-black text-xl w-full focus:border-indigo-500 transition-all outline-none"
+                                value={share}
+                                onChange={(e) => handleUpdateContributor(c.id, 'percentage', e.target.value)}
+                              />
+                            </div>
+                          ) : (
+                            <p className="text-emerald-400 font-black text-2xl tracking-tighter">{share}%</p>
+                          )}
+                        </div>
+
+                        <div className="col-span-3 flex items-center justify-end gap-6">
+                          {isEditing ? (
+                            <>
+                              <button 
+                                onClick={() => {
+                                  saveContributor(c);
+                                  setEditingId(null);
+                                }}
+                                className="text-[10px] font-black uppercase tracking-widest text-indigo-400 hover:text-indigo-300 transition-colors"
+                              >
+                                Save
+                              </button>
+                              <button 
+                                onClick={() => setEditingId(null)}
+                                className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-gray-300 transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button 
+                                onClick={() => setEditingId(c.id)}
+                                className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-indigo-400 transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button 
+                                onClick={() => handleRemoveContributor(c.id)}
+                                className="text-[10px] font-black uppercase tracking-widest text-gray-700 hover:text-rose-400 transition-colors"
+                              >
+                                Remove
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </>
@@ -296,6 +403,14 @@ export default function AdminPage() {
 
         <div className="space-y-6">
           <div className="space-y-4">
+            <div>
+              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Selected Project</label>
+              <input
+                className="w-full bg-black/20 border border-white/10 rounded-2xl px-5 py-4 text-gray-400 outline-none mt-1"
+                value={currentProject?.name || ''}
+                readOnly
+              />
+            </div>
             <div>
               <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Full Name</label>
               <input 
@@ -352,7 +467,7 @@ export default function AdminPage() {
                <span className="text-sm">ℹ️</span> System Note
             </p>
             <p className="text-[10px] text-gray-500 leading-relaxed font-medium">
-              Adding a new rights holder will not automatically dilute others in this view. Please ensure the total allocation across all recipients equals exactly 100% before saving.
+              Allocations are capped at 100% per project. This panel will block edits or new additions that would exceed the total across all rights holders.
             </p>
           </div>
         </div>

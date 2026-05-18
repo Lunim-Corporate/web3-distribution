@@ -1,7 +1,7 @@
 import { SplitsClient } from '@0xsplits/splits-sdk';
 import { BrowserProvider, JsonRpcProvider } from 'ethers';
 
-const SEPOLIA_CHAIN_ID = 11155111;
+const BASE_SEPOLIA_CHAIN_ID = 84532;
 
 let splitsClient: SplitsClient | null = null;
 
@@ -27,7 +27,7 @@ export const getSplitsClient = async (provider?: any) => {
   const signer = await ethersProvider.getSigner().catch(() => undefined);
 
   splitsClient = new SplitsClient({
-    chainId: SEPOLIA_CHAIN_ID,
+    chainId: BASE_SEPOLIA_CHAIN_ID,
     provider: ethersProvider,
     signer: signer,
   });

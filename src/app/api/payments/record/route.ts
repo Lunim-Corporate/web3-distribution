@@ -15,9 +15,12 @@ export async function POST(request: Request) {
       .select('id, user_id, revenue_share, total_earned')
       .eq('project_id', projectId);
 
+    console.log(`[Payment Record] Fetching contributors for projectId: ${projectId}`);
+    console.log(`[Payment Record] Found contributors:`, contributors?.length || 0);
+
     if (cErr) throw cErr;
     if (!contributors || contributors.length === 0) {
-      return NextResponse.json({ error: 'No contributors found for this project' }, { status: 404 });
+      return NextResponse.json({ error: `No contributors found for project ${projectId}` }, { status: 404 });
     }
 
     const now = new Date().toISOString();
@@ -32,7 +35,7 @@ export async function POST(request: Request) {
         amount: shareInCents,
         tx_hash: txHash,
         status: 'completed',
-        source: source || 'Demo Mode',
+        source: source || 'Client Payment',
         split_percentage: c.revenue_share,
         payment_date: now,
         created_at: now,
@@ -73,11 +76,15 @@ export async function POST(request: Request) {
       .eq('id', projectId)
       .single();
 
-    await supabaseAdmin.from('activities').insert([{
-      project_id: projectId,
-      activity_type: 'payment_recorded',
-      description: `Revenue Influx: $${totalUSD.toLocaleString()} distributed across ${contributors.length} rights holders for ${projName?.name || 'project'}.`,
-    }]).catch(() => {}); // Non-critical, don't fail
+    try {
+      await supabaseAdmin.from('activities').insert([{
+        project_id: projectId,
+        activity_type: 'payment_recorded',
+        description: `Revenue Influx: $${totalUSD.toLocaleString()} distributed across ${contributors.length} rights holders for ${projName?.name || 'project'}.`,
+      }]);
+    } catch (e) {
+      console.warn('Activity logging failed', e);
+    }
 
     return NextResponse.json({ 
       success: true,

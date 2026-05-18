@@ -7,63 +7,41 @@ export async function GET(request: Request) {
   const mode = searchParams.get('mode'); // 'demo' or 'live'
 
   try {
-    // 1. Fetch Projects
-    let projQuery = supabaseAdmin.from('projects').select('*');
-    if (projectId && projectId !== 'all') {
-      projQuery = projQuery.eq('id', projectId);
-    }
+    // 1. Fetch Projects - Always fetch all projects to populate selectors
+    const projQuery = supabaseAdmin.from('projects').select('*').order('created_at', { ascending: false });
+
     const { data: projects, error: pErr } = await projQuery;
     if (pErr) throw pErr;
 
     // 2. Fetch Contributors
-    // Try to fetch with users join
-    const { data: contributors, error: cErr } = await supabaseAdmin
-      .from('project_contributors')
-      .select('*, users(*)')
-      .eq(projectId && projectId !== 'all' ? 'project_id' : 'id', projectId && projectId !== 'all' ? projectId : '00000000-0000-0000-0000-000000000000') // Dummy if all
-      .or(projectId && projectId !== 'all' ? '' : 'id.neq.00000000-0000-0000-0000-000000000000');
-
-    // Actually, let's simplify the logic for readability and reliability
-    let finalContributors = [];
-    
+    let cQuery = supabaseAdmin.from('project_contributors').select('*, users(*)');
     if (projectId && projectId !== 'all') {
-      const { data: cData, error: ce } = await supabaseAdmin
-        .from('project_contributors')
-        .select('*, users(*)')
-        .eq('project_id', projectId);
-      
-      if (ce) {
-        console.warn('Contributors join failed, falling back to simple select:', ce.message);
-        const { data: sData } = await supabaseAdmin
-          .from('project_contributors')
-          .select('*')
-          .eq('project_id', projectId);
-        finalContributors = sData || [];
-      } else {
-        finalContributors = cData || [];
-      }
-    } else {
-      const { data: cData, error: ce } = await supabaseAdmin
-        .from('project_contributors')
-        .select('*, users(*)');
-      
-      if (ce) {
-        const { data: sData } = await supabaseAdmin
-          .from('project_contributors')
-          .select('*');
-        finalContributors = sData || [];
-      } else {
-        finalContributors = cData || [];
-      }
+      cQuery = cQuery.eq('project_id', projectId);
     }
+    const { data: finalContributors, error: cErr } = await cQuery;
+    if (cErr) console.warn('Contributors fetch error:', cErr.message);
 
-    // 3. Fetch Payments (Show all payments in both modes for consistency)
+    // 3. Fetch Payments
     let payQuery = supabaseAdmin.from('payments').select('*').order('created_at', { ascending: false });
     if (projectId && projectId !== 'all') {
       payQuery = payQuery.eq('project_id', projectId);
     }
+    
+    // Strict Mode Filtering:
+    // Live mode should only show actual blockchain-confirmed transactions.
+    // Demo mode shows everything else (Demo Mode, Client Payment, or Seeder data).
+    console.log(`[Dashboard Data API] Mode: ${mode}, ProjectId: ${projectId}`);
+    
+    if (mode === 'live') {
+      payQuery = payQuery.eq('source', 'Blockchain');
+    } else {
+      payQuery = payQuery.neq('source', 'Blockchain');
+    }
+
     const { data: payments, error: payErr } = await payQuery;
     if (payErr) throw payErr;
+    
+    console.log(`[Dashboard Data API] Found ${payments?.length || 0} payments`);
 
     // 4. Calculate Mode-Specific Revenue for Projects
     const projectsWithModeRevenue = (projects || []).map(p => {
@@ -82,14 +60,23 @@ export async function GET(request: Request) {
       return acc;
     }, {});
 
+    const safeContributors = finalContributors || [];
+
     return NextResponse.json({
       projects: projectsWithModeRevenue,
-      contributors: finalContributors.map(c => ({
+      contributors: safeContributors.map(c => ({
         ...c,
         name: c.users?.name || usersMap[c.user_id]?.name || 'Unknown',
         wallet_address: c.users?.wallet_address || usersMap[c.user_id]?.wallet_address || '0x...',
+        projectName: projects?.find(p => p.id === c.project_id)?.name || 'Unknown Project'
       })),
-      payments: payments || [],
+      payments: (payments || []).map(pay => {
+        const proj = projects?.find(p => p.id === pay.project_id);
+        return {
+          ...pay,
+          projectName: proj ? proj.name : 'Unknown Project'
+        };
+      }),
     });
   } catch (error: any) {
     console.error('Dashboard Data API Error:', error.message || error);

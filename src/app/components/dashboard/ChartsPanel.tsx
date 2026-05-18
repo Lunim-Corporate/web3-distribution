@@ -1,10 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Line, Doughnut } from 'react-chartjs-2';
 import { formatCurrency } from '@/lib/utils';
-import { formatCurrencyFromCentsGB } from '@/lib/currency';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -28,6 +26,7 @@ interface RevenueData {
   source: string;
   date: string;
   status: string;
+  txHash?: string;
 }
 
 interface ChartsPanelProps {
@@ -39,10 +38,25 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress, projectId }) =
   const [revenue, setRevenue] = useState<RevenueData[]>([]);
   const [timeframe, setTimeframe] = useState<'6'|'12'|'ytd'>('6');
   const [cumulative, setCumulative] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
+    }
+    const onDemoChanged = () => {
+      setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
+    };
+    window.addEventListener('demo-mode-changed', onDemoChanged);
+    return () => window.removeEventListener('demo-mode-changed', onDemoChanged);
+  }, []);
 
   const fetchRevenue = React.useCallback(() => {
     const url = new URL('/api/revenue', window.location.origin);
     url.searchParams.set('ts', Date.now().toString());
+    const mode = isDemoMode ? 'demo' : 'live';
+    url.searchParams.set('mode', mode);
+    
     if (walletAddress) {
       url.searchParams.set('address', walletAddress);
     }
@@ -57,7 +71,7 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress, projectId }) =
         setRevenue(items);
       })
       .catch(() => { setRevenue([]); });
-  }, [walletAddress, projectId]);
+  }, [walletAddress, projectId, isDemoMode]);
 
   useEffect(() => {
     fetchRevenue();
@@ -79,7 +93,11 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress, projectId }) =
       if (!projectId || projectId === 'all') {
         src = r.projectName || 'Unknown Project';
       } else {
-        src = r.source || 'Direct Payment';
+        // If specific project selected, show breakdown by individual transactions
+        // Format: "Tx: [hash] ([date])"
+        const dateStr = new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const shortHash = r.txHash ? `${r.txHash.slice(0, 6)}...` : 'Manual';
+        src = `Tx: ${shortHash} (${dateStr})`;
       }
       sourceMap[src] = (sourceMap[src] || 0) + Number(r.amount || 0);
     });
@@ -103,38 +121,52 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress, projectId }) =
       }
     }
 
-    // demo fallback when empty
-    const hasRevenue = revenue && revenue.length > 0;
-    const demo = [0,12000,8000,20000,4000,65000,5000,12000,25000,8000,15000,10000];
-    const trimmed = hasRevenue ? vals.slice(0, monthsCount) : demo.slice(-monthsCount);
+    const trimmed = vals.slice(0, monthsCount);
     const trend = cumulative ? trimmed.reduce((acc, v, i) => { acc.push((acc[i-1]||0) + v); return acc; }, [] as number[]) : trimmed;
     
     const displayTrend = [...trend, null, null, null];
     const displayProjected = projVals.map(v => v === undefined ? null : v);
 
-    // Build segments for the Doughnut chart
-    const contributorMap: Record<string, number> = {};
-    revenue.forEach(r => {
-      const name = r.recipientName || 'Unknown';
-      contributorMap[name] = (contributorMap[name] || 0) + r.amount;
-    });
+    // Helper to get consistent color for a name
+    const getThemeColor = (name: string, index: number) => {
+      const palette = [
+        '#FF3366', // Vibrant Rose/Red
+        '#00D2FF', // Electric Blue/Cyan
+        '#FF9900', // Bright Orange
+        '#00FF99', // Neon Green
+        '#9D00FF', // Deep Purple
+        '#FFE600', // Yellow
+        '#FF0099', // Hot Pink
+        '#0066FF', // Royal Blue
+        '#CCFF00', // Lime
+        '#FF3300', // Bright Red
+        '#00FFCC', // Turquoise
+        '#6600FF', // Indigo
+      ];
+      
+      // Use index directly to guarantee distinct colors for consecutive segments
+      return palette[index % palette.length];
+    };
 
-    const segments = Object.entries(contributorMap)
+    const segments = Object.entries(sourceMap)
       .sort((a, b) => b[1] - a[1])
       .map(([label, value], i) => ({
         label,
         value,
-        color: ['#06b6d4','#f59e0b','#84cc16','#8b5cf6','#ef4444','#3b82f6'][i % 6]
+        color: getThemeColor(label, i)
       }));
 
-    const topSegments = segments.slice(0, 5);
-    const otherTotal = segments.slice(5).reduce((sum, s) => sum + s.value, 0);
+    const topSegments = segments.slice(0, 6);
+    const otherTotal = segments.slice(6).reduce((sum, s) => sum + s.value, 0);
     if (otherTotal > 0) {
-      topSegments.push({ label: 'Other Contributors', value: otherTotal, color: '#64748b' });
+      topSegments.push({ label: 'Other', value: otherTotal, color: '#64748b' });
+    }
+    if (topSegments.length === 0) {
+      topSegments.push({ label: 'No Data', value: 1, color: '#374151' });
     }
 
     return { labels: lbls, trendData: displayTrend, projectedData: displayProjected, sourceSegments: topSegments };
-  }, [revenue, timeframe, cumulative]);
+  }, [revenue, timeframe, cumulative, projectId]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -235,25 +267,43 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress, projectId }) =
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-fuchsia-500/5 pointer-events-none" />
         <div className="mb-6 relative z-10">
           <h2 className="text-xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-fuchsia-400">
-            Ecosystem Share
+            {(!projectId || projectId === 'all') ? 'Project Distribution' : 'Revenue Sources'}
           </h2>
         </div>
-        <div className="relative z-10 flex items-center justify-center h-[400px]">
-          <div className="w-full max-w-[380px]">
+        <div className="relative z-10 flex items-center justify-center h-[320px]">
+          <div className="w-full h-full max-w-[280px]">
             <Doughnut
               data={{
                 labels: sourceSegments.map(s => s.label),
-                datasets: [{ data: sourceSegments.length ? sourceSegments.map(s=>s.value) : [1], backgroundColor: sourceSegments.length ? sourceSegments.map(s=>s.color) : ['rgba(255,255,255,0.05)'], borderWidth: 0, hoverOffset: 8 }]
+                datasets: [{ 
+                  data: sourceSegments.length ? sourceSegments.map(s=>s.value) : [1], 
+                  backgroundColor: sourceSegments.length ? sourceSegments.map(s=>s.color) : ['rgba(255,255,255,0.05)'], 
+                  borderWidth: 0, 
+                  hoverOffset: 12,
+                  spacing: 2
+                }]
               }}
               options={{
-                cutout: '70%',
+                cutout: '65%',
                 plugins: {
-                  legend: { position: 'bottom' as const, labels: { color: 'rgba(255,255,255,0.7)', font: { family: 'ui-monospace, monospace', size: 12 }, padding: 20, usePointStyle: true } },
+                  legend: { 
+                    position: 'bottom' as const, 
+                    labels: { 
+                      color: 'rgba(255,255,255,0.8)', 
+                      font: { family: 'ui-monospace, monospace', size: 12, weight: 600 }, 
+                      padding: 25, 
+                      usePointStyle: true,
+                      boxWidth: 6,
+                      boxHeight: 6
+                    } 
+                  },
                   tooltip: {
-                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
                     borderColor: 'rgba(255,255,255,0.1)',
                     borderWidth: 1,
                     padding: 12,
+                    titleFont: { size: 13, weight: 'bold' },
+                    bodyFont: { size: 13 },
                     callbacks: {
                       label: (ctx: any) => {
                         const rawValue = typeof ctx.raw === 'number' ? ctx.raw : 0;
@@ -266,6 +316,9 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress, projectId }) =
                 },
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                  padding: 5
+                }
               }}
             />
           </div>

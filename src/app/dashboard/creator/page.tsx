@@ -30,7 +30,7 @@ export default function CreatorDashboard() {
         const { data } = await supabase
           .from('projects')
           .select('id, name')
-          .eq('status', 'Active')
+          .or('status.eq.active,status.eq.Active,status.is.null')
           .order('created_at', { ascending: false });
         
         if (data && data.length > 0) {

@@ -1,0 +1,13 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="8" fill="#1A1F2E"/>
+  <path d="M16 8C16 8 10 12 10 16.5C10 19.5 12 22 16 24C20 22 22 19.5 22 16.5C22 12 16 8 16 8Z" fill="url(#phantomGrad)"/>
+  <path d="M14 14C14 12.5 15 11 16.5 11C18 11 19 12.5 19 14C19 16 16 18 16 20C16 18 14 16 14 14Z" fill="#1A1F2E"/>
+  <ellipse cx="13.5" cy="15" rx="1.5" ry="2" fill="white"/>
+  <ellipse cx="18.5" cy="15" rx="1.5" ry="2" fill="white"/>
+  <defs>
+    <linearGradient id="phantomGrad" x1="10" y1="8" x2="22" y2="24" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A855F7"/>
+      <stop offset="1" stop-color="#6366F1"/>
+    </linearGradient>
+  </defs>
+</svg>

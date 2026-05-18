@@ -9,6 +9,7 @@ export async function GET(request: Request) {
   const address = searchParams.get('address');
   const isWeb3 = searchParams.get('web3') === 'true';
   const projectId = searchParams.get('projectId');
+  const mode = searchParams.get('mode'); // 'demo' or 'live'
 
   try {
     // If Web3 mode is active and we have an address, mix in protocol data
@@ -21,6 +22,14 @@ export async function GET(request: Request) {
       .from('payments')
       .select('*')
       .order('created_at', { ascending: false });
+
+    // Strict Mode Filtering:
+    if (mode === 'live') {
+      query = query.eq('source', 'Blockchain');
+    } else {
+      // In Demo mode, we show everything that isn't explicitly 'Blockchain'
+      query = query.neq('source', 'Blockchain');
+    }
 
     const { data: rawPayments, error } = await query;
 
@@ -87,7 +96,7 @@ export async function GET(request: Request) {
         projectName,
         amount,
         txHash: String(pr.tx_hash ?? ''),
-        source: String(pr.source ?? pr.payment_method ?? 'Direct Payment'),
+        source: String(pr.source === 'Demo Mode' ? 'Client Payment' : (pr.source ?? pr.payment_method ?? 'Direct Payment')),
         date: String(pr.created_at ?? pr.payment_date ?? ''),
         status,
         recipientName,

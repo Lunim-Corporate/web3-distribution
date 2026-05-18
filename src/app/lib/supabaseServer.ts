@@ -7,7 +7,12 @@ if (!url || !serviceKey) {
   throw new Error('Missing Supabase server env variables');
 }
 
-export const supabaseAdmin = createClient(url, serviceKey);
+export const supabaseAdmin = createClient(url, serviceKey, {
+  auth: { persistSession: false },
+  global: {
+    fetch: (fetchUrl, options) => fetch(fetchUrl, { ...options, cache: 'no-store' })
+  }
+});
 
 export async function computeDistributions(
   projectId: string,

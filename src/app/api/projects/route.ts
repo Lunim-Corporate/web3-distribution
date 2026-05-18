@@ -8,7 +8,7 @@ export async function GET() {
     const { data, error } = await supabaseAdmin
       .from('projects')
       .select('*')
-      .eq('status', 'active')
+      .or('status.eq.active,status.eq.Active,status.is.null')
       .order('created_at', { ascending: false });
 
     if (error) throw error;

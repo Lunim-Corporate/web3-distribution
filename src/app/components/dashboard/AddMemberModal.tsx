@@ -31,7 +31,7 @@ export const AddMemberModal: React.FC<AddMemberModalProps> = ({ projectId, onClo
     try {
       // 1. Ensure user exists (Upsert logic or check)
       // For this implementation, we'll try to find user by wallet or create a shell user
-      let { data: existingUser } = await supabase
+      const { data: existingUser } = await supabase
         .from('users')
         .select('id')
         .eq('wallet_address', wallet)

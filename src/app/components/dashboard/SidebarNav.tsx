@@ -24,11 +24,25 @@ const NavItem: React.FC<{ href: string; label: string; icon: string }> = ({ href
 
 export const SidebarNav: React.FC = () => {
   const [counts, setCounts] = useState({ projects: 0, rights: 0, revenue: 0, milestones: 0 });
+  const [isDemoMode, setIsDemoMode] = useState(false);
+
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
+    }
+    const onDemoChanged = () => {
+      setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
+    };
+    window.addEventListener('demo-mode-changed', onDemoChanged);
+    return () => window.removeEventListener('demo-mode-changed', onDemoChanged);
+  }, []);
+
+  useEffect(() => {
+    const mode = isDemoMode ? 'demo' : 'live';
     Promise.all([
       fetch('/api/projects').then(r=>r.json()),
       fetch('/api/rights').then(r=>r.json()),
-      fetch('/api/revenue').then(r=>r.json()),
+      fetch(`/api/revenue?mode=${mode}`).then(r=>r.json()),
       fetch('/api/milestones').then(r=>r.json()),
     ]).then(([projects, rights, revenue, milestones]) => {
       setCounts({
@@ -38,7 +52,7 @@ export const SidebarNav: React.FC = () => {
         milestones: milestones.length,
       });
     }).catch(()=>{});
-  }, []);
+  }, [isDemoMode]);
 
   return (
     <aside className="hidden lg:block lg:col-span-2">

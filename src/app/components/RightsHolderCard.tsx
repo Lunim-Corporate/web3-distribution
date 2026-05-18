@@ -35,6 +35,9 @@ const RightsHolderCard = ({ holder, distributeAmount }) => {
           <div>
             <div className="font-bold text-gray-200 group-hover:text-white transition-colors text-base leading-tight">{holder.name}</div>
             <div className="text-xs font-semibold text-gray-500 mt-0.5">{holder.role}</div>
+            {holder.projectName && (
+              <div className="text-[10px] font-black text-indigo-400/80 uppercase tracking-widest mt-1">{holder.projectName}</div>
+            )}
           </div>
         </div>
         <div className="bg-indigo-500/10 text-indigo-300 py-1.5 px-3.5 rounded-full text-xs font-black border border-indigo-400/20 shadow-[inset_0_0_10px_rgba(99,102,241,0.2)]">

@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabaseClient';
 import { useRevenueContract } from '@/hooks/useRevenueContract';
@@ -20,6 +21,7 @@ import { RosterTable } from '@/components/dashboard/RosterTable';
 import { AddMemberModal } from '@/components/dashboard/AddMemberModal';
 import { RevenueTab } from '@/components/dashboard/RevenueTab';
 import { RightsHolderRow } from '@/components/dashboard/RightsHolderProfile';
+import { AddProjectModal } from '@/components/dashboard/AddProjectModal';
 
 const formatUSD = (amount: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -62,6 +64,9 @@ export default function UnifiedDashboard() {
 
   // Rights Holders modal
   const [showAddMember, setShowAddMember] = useState(false);
+  const [showAddProject, setShowAddProject] = useState(false);
+  const [holderSearch, setHolderSearch] = useState('');
+  const [holderSort, setHolderSort] = useState<'name' | 'percentage' | 'revenue'>('revenue');
 
   // Auth guard
   useEffect(() => {
@@ -70,28 +75,8 @@ export default function UnifiedDashboard() {
     }
   }, [isAuthHydrated, user, router]);
 
-  // Fetch projects
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('projects')
-          .select('id, name')
-          .or('status.eq.active,status.eq.Active,status.is.null')
-          .order('created_at', { ascending: false });
+  // Projects list is now managed by useRevenueContract hook to bypass RLS issues
 
-        if (data && data.length > 0) {
-          setProjectsList(data);
-          setProjectId(data[0].id);
-        }
-      } catch (err) {
-        console.error('Failed to fetch projects:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchProjects();
-  }, []);
 
   // Listen for navbar project-selector-changed events
   useEffect(() => {
@@ -174,10 +159,13 @@ export default function UnifiedDashboard() {
 
   // Synchronize projectsList with allProjects from hook
   useEffect(() => {
-    if (allProjects && allProjects.length > 0) {
-      setProjectsList(allProjects);
+    if (allProjects) {
+      if (allProjects.length > 0) {
+        setProjectsList(allProjects);
+      }
+      setIsLoading(false);
     }
-  }, [allProjects]);
+  }, [allProjects, projectId]);
 
   // Compute display stats — prefer the hook's pre-computed value
   const totalRevenue = (project as any)?.total_distributed
@@ -189,8 +177,29 @@ export default function UnifiedDashboard() {
 
   const txCount = transactions.length;
 
+  const topRightsHolders = [...rightsHolders]
+    .sort((a: any, b: any) => Number(b.total_received || b.total_earned || 0) - Number(a.total_received || a.total_earned || 0))
+    .slice(0, 4);
+
+  const visibleRightsHolders = [...rightsHolders]
+    .filter((holder: any) => {
+      const needle = holderSearch.trim().toLowerCase();
+      if (!needle) return true;
+      return [
+        holder.name,
+        holder.role,
+        holder.projectName,
+        holder.wallet_address,
+      ].some((value) => String(value || '').toLowerCase().includes(needle));
+    })
+    .sort((a: any, b: any) => {
+      if (holderSort === 'percentage') return Number(b.percentage || 0) - Number(a.percentage || 0);
+      if (holderSort === 'revenue') return Number(b.total_received || b.total_earned || 0) - Number(a.total_received || a.total_earned || 0);
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    });
+
   const projectName = projectId
-    ? (project as any)?.name || projectsList.find(p => p.id === projectId)?.name || 'Unknown'
+    ? projectsList.find(p => p.id === projectId)?.name || 'Unknown'
     : 'All Projects';
     
   const projectColorIndex = projectId
@@ -345,24 +354,28 @@ export default function UnifiedDashboard() {
           {/* ─── OVERVIEW TAB ──────────────────────────────────── */}
           {activeTab === 'overview' && (
             <div className="space-y-8">
-              <ChartsPanel projectId={projectId} walletAddress={walletAddress || undefined} />
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <ChartsPanel projectId={projectId} />
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
                 <div className="lg:col-span-2">
-                  <RecentActivity />
+                  <RecentActivity projectId={projectId} />
                 </div>
+
                 <div className="space-y-4">
                   <div className="flex items-center justify-between px-1">
                     <h2 className="text-xs font-black text-gray-500 uppercase tracking-widest">Top Rights Holders</h2>
                     <button
                       onClick={() => setShowAddMember(true)}
+                      disabled={!projectId}
                       className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 px-2 py-1 rounded-lg hover:bg-indigo-500/10 transition-all"
                     >
                       + Add Holder
                     </button>
                   </div>
-                  {rightsHolders.slice(0, 4).map((holder: any, idx: number) => (
-                    <RightsHolderCard key={holder.id || idx} holder={holder} distributeAmount={distributeAmount} />
-                  ))}
+                  <div className="grid grid-cols-1 gap-4">
+                    {topRightsHolders.map((holder: any, idx: number) => (
+                      <RightsHolderCard key={holder.id || idx} holder={holder} distributeAmount={distributeAmount} />
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -375,6 +388,7 @@ export default function UnifiedDashboard() {
                 transactions={transactions}
                 totalRevenue={totalRevenue}
                 projectsList={projectsList}
+                activeProjectId={projectId}
               />
             </div>
           )}
@@ -384,22 +398,41 @@ export default function UnifiedDashboard() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-white">Rights Holders</h2>
+                <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowAddProject(true)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 text-white transition-all border border-white/10"
+                >
+                  + Add Project
+                </button>
                 <button
                   onClick={() => setShowAddMember(true)}
+                  disabled={!projectId}
                   className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-500 hover:bg-indigo-400 text-white transition-all shadow-lg shadow-indigo-500/20"
                 >
                   + Add Member
                 </button>
+                </div>
               </div>
 
               {/* Filter / Search Bar can go here */}
               <div className="flex items-center gap-4 mb-4">
                  <div className="flex-1 max-w-sm relative">
-                    <input type="text" placeholder="Search rights holders..." className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-sm text-white focus:outline-none focus:border-indigo-500/50" />
+                    <input
+                      type="text"
+                      value={holderSearch}
+                      onChange={(e) => setHolderSearch(e.target.value)}
+                      placeholder="Search rights holders..."
+                      className="w-full bg-white/5 border border-white/10 rounded-xl py-2 px-4 text-sm text-white focus:outline-none focus:border-indigo-500/50"
+                    />
                  </div>
                  <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Sort:</span>
-                    <select className="bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-sm text-white focus:outline-none">
+                    <select
+                      value={holderSort}
+                      onChange={(e) => setHolderSort(e.target.value as 'name' | 'percentage' | 'revenue')}
+                      className="bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-sm text-white focus:outline-none"
+                    >
                        <option value="name" className="bg-slate-900">Name</option>
                        <option value="percentage" className="bg-slate-900">Allocation</option>
                        <option value="revenue" className="bg-slate-900">Revenue</option>
@@ -411,9 +444,14 @@ export default function UnifiedDashboard() {
               <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 p-6">
                 <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6">Split Configuration</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {rightsHolders.map((holder: any, idx: number) => (
-                    <RightsHolderRow key={holder.id || idx} holder={holder} transactions={transactions} />
-                  ))}
+                   {visibleRightsHolders.map((holder: any, idx: number) => (
+                     <RightsHolderRow 
+                       key={holder.id || idx} 
+                       holder={holder} 
+                       transactions={transactions} 
+                       onRefresh={refreshDashboardData} 
+                     />
+                   ))}
                 </div>
               </div>
             </div>
@@ -422,7 +460,7 @@ export default function UnifiedDashboard() {
           {/* ─── REPORTS TAB ───────────────────────────────────── */}
           {activeTab === 'reports' && (
             <div className="space-y-6">
-              <ReportGenerator />
+              <ReportGenerator projectId={projectId} />
             </div>
           )}
 
@@ -529,7 +567,7 @@ export default function UnifiedDashboard() {
                     {rightsHolders.length > 0 && (
                       <div className="flex items-center justify-between px-2 pt-2">
                         <span className="text-[10px] font-black text-gray-600 uppercase tracking-widest">
-                          {rightsHolders.length} Rights Holders
+                          {rightsHolders.length} Rights Holders in {(project as any)?.name || 'Selected Project'}
                         </span>
                         <div className="flex items-center gap-3">
                           {distributeAmount && Number(distributeAmount) > 0 && (
@@ -562,6 +600,15 @@ export default function UnifiedDashboard() {
           }}
         />
       )}
+
+      <AddProjectModal
+        isOpen={showAddProject}
+        onClose={() => setShowAddProject(false)}
+        onSuccess={() => {
+          setShowAddProject(false);
+          refreshDashboardData?.();
+        }}
+      />
 
       {/* CSS */}
       <style jsx global>{`

@@ -84,7 +84,7 @@ async function seed() {
       const amountPerTx = p.amount / txCount;
 
       for (let j = 0; j < txCount; j++) {
-        await axios.post(`${SERVER_URL}/api/payments/record`, {
+        await axios.post(`http://localhost:3000/api/payments/record`, {
           projectId,
           amountEth: amountPerTx / 3500, // Roughly 0.1 - 2.0 ETH
           totalUSD: amountPerTx,

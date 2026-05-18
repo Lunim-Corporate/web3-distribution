@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
 ## Project Overview
 
@@ -99,3 +99,28 @@ Deploy locally with `npm run deploy:local` after starting Hardhat node.
 - Network configuration in `src/app/lib/web3modal.ts` (Web3Modal v5)
 - Supabase client in `src/app/lib/database.ts`
 - Express routes in `server/routes/` for API endpoints
+
+<claude-mem-context>
+# Memory Context
+
+# [web3-distribution] recent context, 2026-05-16 6:11am GMT+1
+
+Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
+Format: ID TIME TYPE TITLE
+Fetch details: get_observations([IDs]) | Search: mem-search skill
+
+Stats: 0 obs (0t read) | 0t work
+
+### May 4, 2026
+S2 Diagnostic health check on web3-distribution database and systematic fix for activities logging feature (May 4 at 6:34 AM)
+S1 Initialize CLAUDE.md documentation and resolve 8 TypeScript compilation errors to achieve clean tsc --noEmit (May 4 at 6:34 AM)
+S3 Attempt to deploy smart contracts locally; discovered Hardhat blockchain node not running (May 4 at 6:37 AM)
+S4 Comprehensive system fix and local development environment setup for web3 revenue distribution platform (May 4 at 6:39 AM)
+**Investigated**: Fixed 8 TypeScript errors across multiple files; ran comprehensive Supabase diagnostics on database schema, data integrity, and connection status; diagnosed activities table column mismatch; verified contract deployment integration; confirmed all three dev environment processes (Hardhat, Express, Next.js) running and communicating
+
+**Learned**: TypeScript strictness enforcement catches runtime bugs early (role comparison case sensitivity). Activities table has actual schema (action, timestamp columns) that diverged from code expectations (activity_type, created_at), causing silent insert failures masked by query fallback pattern. Schema-as-code migrations critical for preventing drift. Smart contract deployment automatically syncs address to database enabling event listener initialization. Three-tier architecture (blockchain, backend listener, frontend) requires coordinated startup sequence but orchestrates well via npm concurrently. Database integrity across projects, transactions, holders, and splits is perfectly consistent. Financial calculations cascade correctly through system layers
+
+**Completed**: Fixed 8 TypeScript errors (role comparisons, query selects, type annotations). Fixed activities schema mismatch across 4 API routes (/api/activities, /api/payments, /api/web3/auto-distribute, /api/web3/record-transaction) by remapping columns to actual database schema. Validated activities inserts now working end-to-end with test insert-delete cycle. Started full dev environment with all 3 processes operational (Hardhat node port 8545, Express backend port 4000 with contract listener attached, Next.js frontend port 3000). Deployed RevenueRights contract to Neon Requiem project on local Hardhat network (address 0x5FbDB2315678afecb367f032d93F642f64180aa3) with automatic database sync. Verified contract address persisted to projects table
+
+**Next Steps**: System is fully operational. Next phase would be: (1) Test end-to-end transaction flow through contract to activity logging, (2) Deploy contracts for other 4 active projects if needed, (3) Simulate transactions to trigger event listener and verify activity feeds populate correctly, (4) Test admin dashboard and revenue reports with live contract data
+</claude-mem-context>

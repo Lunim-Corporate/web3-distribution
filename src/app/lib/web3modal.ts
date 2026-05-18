@@ -30,6 +30,14 @@ const sepolia = {
   rpcUrl: 'https://rpc.sepolia.org',
 };
 
+const baseSepolia = {
+  chainId: 84532,
+  name: 'Base Sepolia',
+  currency: 'ETH',
+  explorerUrl: 'https://sepolia.basescan.org',
+  rpcUrl: 'https://sepolia.base.org',
+};
+
 const hardhat = {
   chainId: 31337,
   name: 'Hardhat Localhost',
@@ -49,7 +57,7 @@ const ethersConfig = defaultConfig({
 // 5. Create modal instance (singleton — safe to call at module scope)
 createWeb3Modal({
   ethersConfig,
-  chains: [mainnet, sepolia, hardhat],
+  chains: [baseSepolia, mainnet, hardhat],
   projectId,
   enableAnalytics: false,
   themeMode: 'dark',

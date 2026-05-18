@@ -39,7 +39,7 @@ export default function RosterPage() {
         const { data: projs } = await supabase
           .from('projects')
           .select('id, name')
-          .eq('status', 'Active')
+          .or('status.eq.active,status.eq.Active,status.is.null')
           .order('created_at', { ascending: false });
         
         if (projs && projs.length > 0) {

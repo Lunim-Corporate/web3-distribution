@@ -83,7 +83,7 @@ export const CsvImportModal: React.FC<CsvImportModalProps> = ({ projectId, onClo
     for (const row of parsedRows) {
       try {
         // Upsert user by wallet
-        let { data: existingUser } = await supabase
+        const { data: existingUser } = await supabase
           .from('users')
           .select('id')
           .eq('wallet_address', row.wallet_address)
