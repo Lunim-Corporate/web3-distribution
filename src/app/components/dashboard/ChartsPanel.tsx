@@ -270,8 +270,8 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress, projectId }) =
             {(!projectId || projectId === 'all') ? 'Project Distribution' : 'Revenue Sources'}
           </h2>
         </div>
-        <div className="relative z-10 flex flex-col sm:flex-row items-center justify-center gap-6 min-h-[300px]">
-          <div className="w-[180px] h-[180px] shrink-0">
+        <div className="relative z-10 flex items-center justify-center h-[320px]">
+          <div className="w-full h-full max-w-[380px]">
             <Doughnut
               data={{
                 labels: sourceSegments.map(s => s.label),
@@ -279,14 +279,24 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress, projectId }) =
                   data: sourceSegments.length ? sourceSegments.map(s=>s.value) : [1], 
                   backgroundColor: sourceSegments.length ? sourceSegments.map(s=>s.color) : ['rgba(255,255,255,0.05)'], 
                   borderWidth: 0, 
-                  hoverOffset: 8,
+                  hoverOffset: 12,
                   spacing: 2
                 }]
               }}
               options={{
-                cutout: '70%',
+                cutout: '65%',
                 plugins: {
-                  legend: { display: false },
+                  legend: { 
+                    position: 'bottom' as const, 
+                    labels: { 
+                      color: 'rgba(255,255,255,0.8)', 
+                      font: { family: 'ui-monospace, monospace', size: 12, weight: 600 }, 
+                      padding: 16, 
+                      usePointStyle: true,
+                      boxWidth: 6,
+                      boxHeight: 6
+                    } 
+                  },
                   tooltip: {
                     backgroundColor: 'rgba(15, 23, 42, 0.95)',
                     borderColor: 'rgba(255,255,255,0.1)',
@@ -307,28 +317,10 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ walletAddress, projectId }) =
                 responsive: true,
                 maintainAspectRatio: false,
                 layout: {
-                  padding: 2
+                  padding: 5
                 }
               }}
             />
-          </div>
-
-          <div className="flex-1 w-full grid grid-cols-2 gap-3 pl-0 sm:pl-4">
-            {sourceSegments.map((segment, idx) => {
-              const total = sourceSegments.reduce((sum, s) => sum + s.value, 0);
-              const pct = total > 0 ? ((segment.value / total) * 100).toFixed(1) : '0';
-              return (
-                <div key={idx} className="flex items-center gap-2.5 p-2 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all duration-200">
-                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: segment.color }} />
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-bold text-white truncate">{segment.label}</span>
-                    <span className="text-[10px] text-gray-400 font-mono">
-                      {formatCurrency(segment.value, 'USD')} ({pct}%)
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>
