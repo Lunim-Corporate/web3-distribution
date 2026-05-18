@@ -83,11 +83,11 @@ function generateTxHash() {
 // MAIN HOOK
 // ==================================================================
 export function useRevenueContract(projectId) {
-  const { 
-    account: walletAddress, 
-    isConnected, 
-    connectWallet: connectWalletUnified, 
-    chainId 
+  const {
+    account: walletAddress,
+    isConnected,
+    connectWallet: connectWalletUnified,
+    chainId
   } = useWallet();
 
   const [project, setProject] = useState(null);
@@ -116,8 +116,8 @@ export function useRevenueContract(projectId) {
 
       const globalTotalRevenue = projects.reduce((sum, p) => sum + (Number(p.total_revenue) || 0), 0);
 
-      const activeProj = projectId && projectId !== 'all' 
-        ? projects.find(p => p.id === projectId) 
+      const activeProj = projectId && projectId !== 'all'
+        ? projects.find(p => p.id === projectId)
         : { id: 'all', name: 'All Projects', total_revenue: globalTotalRevenue };
 
       // Group and Aggregate for rights holders
@@ -198,7 +198,7 @@ export function useRevenueContract(projectId) {
       const finalRightsHolders = Array.from(uniqueRightsHoldersMap.values())
         .sort((a, b) => Number(b.total_received || 0) - Number(a.total_received || 0));
 
-      const total_revenue = projectId && projectId !== 'all' 
+      const total_revenue = projectId && projectId !== 'all'
         ? (Number(activeProj?.total_revenue) || 0) / 100
         : totalRevenueUSD;
 
@@ -230,7 +230,7 @@ export function useRevenueContract(projectId) {
       setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
     };
     window.addEventListener('demo-mode-changed', onDemoChanged);
-    
+
     const onWalletChanged = () => refreshDashboardData();
     window.addEventListener('wallet-changed', onWalletChanged);
 

@@ -21,8 +21,8 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress,
 
   // Re-fetch report when projectId changes if we already have one showing
   const handleGenerateReport = useCallback(async (overrideStartDate?: string, overrideEndDate?: string) => {
-    const effectiveStartDate = overrideStartDate ?? startDate;
-    const effectiveEndDate = overrideEndDate ?? endDate;
+    const effectiveStartDate = typeof overrideStartDate === 'string' ? overrideStartDate : startDate;
+    const effectiveEndDate = typeof overrideEndDate === 'string' ? overrideEndDate : endDate;
 
     if (!effectiveStartDate || !effectiveEndDate) {
       toast.error('Please select both start and end dates');
@@ -203,7 +203,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ walletAddress,
             />
           </div>
           <button
-            onClick={handleGenerateReport}
+            onClick={() => void handleGenerateReport()}
             disabled={isLoading}
             className="w-full md:w-auto px-8 py-3 rounded-xl font-bold uppercase tracking-widest text-sm transition-all shadow-lg active:scale-95 bg-indigo-500 hover:bg-indigo-400 text-white shadow-indigo-500/20 disabled:bg-white/10 disabled:text-gray-500 disabled:shadow-none"
           >
