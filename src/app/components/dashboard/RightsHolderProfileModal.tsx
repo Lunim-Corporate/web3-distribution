@@ -52,10 +52,10 @@ export const RightsHolderProfileModal: React.FC<RightsHolderProfileModalProps> =
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               transition={{ type: 'spring', damping: 26, stiffness: 260 }}
-              className="relative z-10 h-fit max-h-[calc(100vh-4cm)] w-full max-w-[min(680px,calc(100vw-4cm))] overflow-hidden rounded-[2rem] border border-white/12 bg-[#171c29]/96 shadow-[0_30px_120px_rgba(0,0,0,0.6)] backdrop-blur-3xl"
+              className="relative z-10 flex flex-col h-fit max-h-[calc(100vh-4cm)] w-full max-w-[min(680px,calc(100vw-4cm))] overflow-hidden rounded-[2rem] border border-white/12 bg-[#171c29]/96 shadow-[0_30px_120px_rgba(0,0,0,0.6)] backdrop-blur-3xl"
             >
             {/* PERSISTENT IDENTITY SECTION (IMAGE ALWAYS VISIBLE) */}
-            <div className="relative flex flex-col items-center bg-gradient-to-b from-white/5 to-transparent px-5 pb-5 pt-8 sm:px-8 sm:pb-6 sm:pt-10">
+            <div className="relative flex flex-col items-center bg-gradient-to-b from-white/5 to-transparent px-5 pb-5 pt-8 sm:px-8 sm:pb-6 sm:pt-10 shrink-0">
               {/* Top Accent */}
               <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent" />
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-indigo-500/20 blur-[100px] rounded-full -z-10" />
@@ -67,7 +67,7 @@ export const RightsHolderProfileModal: React.FC<RightsHolderProfileModalProps> =
               >
                 <X className="w-5 h-5 text-gray-400" />
               </button>
-
+ 
               {/* Profile Image (Persistent) */}
               <div className="relative group mb-3 sm:mb-4">
                 <div className="absolute -inset-1 bg-gradient-to-tr from-[#FF3BFF] via-[#ECBF4D] to-[#5AC8FA] rounded-[2.5rem] blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
@@ -81,7 +81,7 @@ export const RightsHolderProfileModal: React.FC<RightsHolderProfileModalProps> =
                   </div>
                 </div>
               </div>
-
+ 
               <div className="z-20 w-full px-3 text-center sm:px-8">
                 <div className="mb-2 flex flex-wrap items-center justify-center gap-2">
                   <span className="px-2 py-0.5 bg-indigo-500/20 border border-indigo-500/30 rounded text-[10px] font-black text-indigo-400 uppercase tracking-widest">
@@ -99,9 +99,12 @@ export const RightsHolderProfileModal: React.FC<RightsHolderProfileModalProps> =
                 </div>
               </div>
             </div>
-
-            <div className="space-y-4 px-5 pb-5 sm:space-y-5 sm:px-8 sm:pb-6">
-              <div className="mb-3 h-[1px] w-full bg-gradient-to-r from-transparent via-white/10 to-transparent sm:mb-4" />
+ 
+            <div 
+              className="flex-1 overflow-y-auto space-y-4 px-5 pb-5 sm:space-y-5 sm:px-8 sm:pb-6"
+              style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(255,255,255,0.1) transparent' }}
+            >
+              <div className="mb-3 h-[1px] w-full bg-gradient-to-r from-transparent via-white/10 to-transparent sm:mb-4 shrink-0" />
 
               {/* Core Stats */}
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3 sm:gap-3">
@@ -171,7 +174,7 @@ export const RightsHolderProfileModal: React.FC<RightsHolderProfileModalProps> =
             </div>
 
             {/* Footer Action */}
-            <div className="bg-gradient-to-t from-[#171c29] to-transparent px-5 pb-5 pt-1 sm:px-8 sm:pb-6">
+            <div className="bg-gradient-to-t from-[#171c29] to-transparent px-5 pb-5 pt-1 sm:px-8 sm:pb-6 shrink-0">
                <button 
                  onClick={onClose}
                  className="w-full rounded-2xl border border-white/10 bg-white/5 py-3.5 text-xs font-black uppercase tracking-widest transition-all hover:bg-white/10"
