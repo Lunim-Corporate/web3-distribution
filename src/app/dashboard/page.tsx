@@ -225,7 +225,7 @@ function DashboardContent() {
   if (isError) return <ErrorView msg={errorMsg} onRetry={() => window.location.reload()} />;
 
   const isAdmin = user?.role === 'admin';
-  const tabs = [...TABS_BASE].filter(t => isAdmin ? true : (t.id === 'overview' || t.id === 'revenue')) as { id: TabId; label: string; icon: string }[];
+  const tabs = [...TABS_BASE] as { id: TabId; label: string; icon: string }[];
   if (isAdmin) {
     tabs.push({ id: 'distribute', label: 'Distribute', icon: '🔀' });
   }
@@ -233,12 +233,9 @@ function DashboardContent() {
   const totalDistributed = Number(project?.total_distributed || 0);
   const totalUSD = totalDistributed * ETH_PRICE_USD;
 
-  const myEarnedEth = transactions.reduce((acc, tx) => acc + (tx.transaction_splits?.[0]?.amount_eth || 0), 0);
-  const myEarnedUsd = myEarnedEth * ETH_PRICE_USD;
-
   const statCards = [
-    { label: isAdmin ? 'Total Distributed' : 'My Total Earned', value: isAdmin ? fmtUSD(totalUSD) : fmtUSD(myEarnedUsd), sub: isAdmin ? fmtETH(totalDistributed) : fmtETH(myEarnedEth), color: 'indigo' },
-    { label: isAdmin ? 'Rights Holders' : 'My Split %', value: isAdmin ? String(holders.length) : (holders.length === 1 ? `${holders[0].percentage}%` : 'Multiple'), sub: isAdmin ? 'active contributors' : 'revenue share', color: 'purple' },
+    { label: 'Total Distributed', value: fmtUSD(totalUSD), sub: fmtETH(totalDistributed), color: 'indigo' },
+    { label: 'Rights Holders', value: String(holders.length), sub: 'active contributors', color: 'purple' },
     { label: 'Transactions', value: String(transactions.length), sub: 'on-chain', color: 'blue' },
     { label: 'Project Status', value: project?.status || 'active', sub: project?.genre || '', color: 'emerald' },
   ];

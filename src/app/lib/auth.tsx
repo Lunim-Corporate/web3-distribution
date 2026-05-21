@@ -25,7 +25,7 @@ export type User = {
 type AuthContextType = {
   user: User | null;
   isAuthHydrated: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email?: string, password?: string) => Promise<void>;
   logout: () => Promise<void>;
   signup: (name: string, email: string, role: Role, password: string) => Promise<void>;
   settings: Settings | null;
@@ -35,6 +35,8 @@ type AuthContextType = {
   inviteUser: (email: string, name: string, role: Role) => Promise<void>;
   connectUserWallet: (walletAddress: string, walletType?: 'metamask' | 'local') => Promise<void>;
   disconnectUserWallet: () => Promise<void>;
+  pending2FA: any;
+  verify2FA: (code: string) => Promise<void>;
   cancel2FA: () => void;
   exportWallet: () => Promise<void>;
   linkWallet: () => Promise<void>;
@@ -261,8 +263,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     pending2FA: null,
     verify2FA,
     cancel2FA,
-    exportWallet: privyExportWallet,
-    linkWallet: privyLinkWallet,
+    exportWallet: async () => {
+      await privyExportWallet();
+    },
+    linkWallet: async () => {
+      privyLinkWallet();
+    },
   };
 
   return (

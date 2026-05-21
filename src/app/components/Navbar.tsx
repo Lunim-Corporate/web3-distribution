@@ -6,10 +6,56 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useRevenueSplitter } from '@/lib/web3';
 import { truncateAddress } from '@/lib/utils';
+import { useWallets } from '@privy-io/react-auth';
+
+// Seeded local Hardhat accounts for Demo Mode
+export const DEMO_ACCOUNTS = [
+  {
+    name: 'Demo Admin Account',
+    address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+    role: 'Admin',
+    balance: '100.00'
+  },
+  {
+    name: 'Demo Creator Account',
+    address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+    role: 'Creator',
+    balance: '50.00'
+  },
+  {
+    name: 'Demo Contributor Account',
+    address: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
+    role: 'Contributor',
+    balance: '25.00'
+  }
+];
+
+// Aesthetic wallet SVG icons
+export const MetaMaskIcon = () => (
+  <svg className="w-[18px] h-[18px] shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M21.2 10.45L18.4 3.75C18.25 3.35 17.85 3.1 17.4 3.15L12 3.8L6.6 3.15C6.15 3.1 5.75 3.35 5.6 3.75L2.8 10.45C2.65 10.85 2.8 11.3 3.15 11.55L12 17.8L20.85 11.55C21.2 11.3 21.35 10.85 21.2 10.45Z" fill="#E2761B" />
+    <path d="M12 17.8L7 11.5L12 13.8L17 11.5L12 17.8Z" fill="#E4761B" />
+    <path d="M12 3.8V13.8" stroke="#111" strokeWidth="0.5" opacity="0.3" />
+  </svg>
+);
+
+export const CoinbaseIcon = () => (
+  <svg className="w-[18px] h-[18px] shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="24" height="24" rx="12" fill="#0052FF"/>
+    <rect x="6" y="6" width="12" height="12" rx="2.5" fill="white"/>
+  </svg>
+);
+
+export const WalletIcon = () => (
+  <svg className="w-[18px] h-[18px] text-gray-400 dark:text-gray-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 013 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 013 6v3" />
+  </svg>
+);
 
 export const Navbar: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, linkWallet } = useAuth();
   const { smartAccountAddress, isInitializing } = useRevenueSplitter();
+  const { wallets } = useWallets();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -19,6 +65,94 @@ export const Navbar: React.FC = () => {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
+  const [demoAccount, setDemoAccount] = useState<string | null>(null);
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedAddress(text);
+    setTimeout(() => setCopiedAddress(null), 1500);
+  };
+
+  const getWalletDetails = () => {
+    if (isDemoMode) {
+      if (demoAccount) {
+        const matchingDemo = DEMO_ACCOUNTS.find(
+          acc => acc.address.toLowerCase() === demoAccount.toLowerCase()
+        );
+        return {
+          address: demoAccount,
+          name: matchingDemo ? matchingDemo.name : 'Demo Wallet',
+          role: matchingDemo ? matchingDemo.role : 'Guest',
+          iconType: 'metamask' as const,
+        };
+      }
+      return null;
+    } else {
+      const liveWallet = wallets.find(w => w.walletClientType !== 'privy');
+      if (liveWallet) {
+        let iconType: 'metamask' | 'coinbase' | 'generic' = 'generic';
+        if (liveWallet.walletClientType?.toLowerCase().includes('metamask')) {
+          iconType = 'metamask';
+        } else if (liveWallet.walletClientType?.toLowerCase().includes('coinbase')) {
+          iconType = 'coinbase';
+        }
+        return {
+          address: liveWallet.address,
+          name: liveWallet.walletClientType ? (liveWallet.walletClientType.charAt(0).toUpperCase() + liveWallet.walletClientType.slice(1)) : 'Live Wallet',
+          role: 'External',
+          iconType,
+          walletObj: liveWallet
+        };
+      }
+      return null;
+    }
+  };
+
+  const renderWalletIcon = (iconType: 'metamask' | 'coinbase' | 'generic') => {
+    switch (iconType) {
+      case 'metamask':
+        return <MetaMaskIcon />;
+      case 'coinbase':
+        return <CoinbaseIcon />;
+      default:
+        return <WalletIcon />;
+    }
+  };
+
+  const connectDemoWallet = async () => {
+    if (typeof window === 'undefined') return;
+    if (window.ethereum) {
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        if (accounts && accounts.length > 0) {
+          setDemoAccount(accounts[0]);
+          localStorage.setItem('active_demo_wallet', accounts[0]);
+          window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: accounts[0] }));
+        }
+      } catch (err) {
+        console.error('Failed to connect demo wallet', err);
+      }
+    } else {
+      const firstAcc = DEMO_ACCOUNTS[0].address;
+      setDemoAccount(firstAcc);
+      localStorage.setItem('active_demo_wallet', firstAcc);
+      window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: firstAcc }));
+    }
+  };
+
+  const disconnectDemoWallet = () => {
+    setDemoAccount(null);
+    localStorage.removeItem('active_demo_wallet');
+    window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: null }));
+  };
+
+  const selectDemoAccount = (address: string) => {
+    setDemoAccount(address);
+    localStorage.setItem('active_demo_wallet', address);
+    window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: address }));
+  };
+
   const profileRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const walletRef = useRef<HTMLDivElement>(null);
@@ -28,9 +162,69 @@ export const Navbar: React.FC = () => {
     if (saved) setDismissedIds(JSON.parse(saved));
   }, []);
 
+  // Sync demo mode wallet accounts
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const syncDemoAccount = () => {
+      const activeDemo = localStorage.getItem('active_demo_wallet');
+      if (activeDemo) {
+        setDemoAccount(activeDemo);
+      } else if (window.ethereum) {
+        window.ethereum.request({ method: 'eth_accounts' })
+          .then((accounts: any) => {
+            if (accounts && accounts.length > 0) {
+              setDemoAccount(accounts[0]);
+              localStorage.setItem('active_demo_wallet', accounts[0]);
+            } else {
+              setDemoAccount(null);
+            }
+          })
+          .catch(() => setDemoAccount(null));
+      } else {
+        setDemoAccount(null);
+      }
+    };
+
+    if (isDemoMode) {
+      syncDemoAccount();
+      
+      const handleAccountsChanged = (accounts: string[]) => {
+        if (accounts.length > 0) {
+          setDemoAccount(accounts[0]);
+          localStorage.setItem('active_demo_wallet', accounts[0]);
+          window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: accounts[0] }));
+        } else {
+          setDemoAccount(null);
+          localStorage.removeItem('active_demo_wallet');
+          window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: null }));
+        }
+      };
+
+      const handleGlobalDemoWalletChanged = (e: any) => {
+        setDemoAccount(e.detail);
+      };
+
+      window.ethereum?.on?.('accountsChanged', handleAccountsChanged);
+      window.addEventListener('demo-wallet-changed', handleGlobalDemoWalletChanged);
+
+      return () => {
+        window.ethereum?.removeListener?.('accountsChanged', handleAccountsChanged);
+        window.removeEventListener('demo-wallet-changed', handleGlobalDemoWalletChanged);
+      };
+    } else {
+      setDemoAccount(null);
+    }
+  }, [isDemoMode]);
+
   useEffect(() => {
     setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
-    const onDemoChanged = (e: any) => setIsDemoMode(e.detail);
+    const onDemoChanged = (e: any) => {
+      setIsDemoMode(e.detail);
+      if (!e.detail) {
+        setDemoAccount(null);
+      }
+    };
     window.addEventListener('demo-mode-changed', onDemoChanged);
     return () => window.removeEventListener('demo-mode-changed', onDemoChanged);
   }, []);
@@ -41,6 +235,7 @@ export const Navbar: React.FC = () => {
     localStorage.setItem('demo_mode', String(nextState));
     window.dispatchEvent(new CustomEvent('demo-mode-changed', { detail: nextState }));
   };
+
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 8);
@@ -294,30 +489,40 @@ export const Navbar: React.FC = () => {
 
                   {/* Connect Wallet Dropdown */}
                   <div className="relative" ref={walletRef}>
-                    <button
-                      onClick={() => { setWalletOpen(!walletOpen); setNotificationsOpen(false); setProfileOpen(false); }}
-                      className="relative flex items-center gap-2 p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all"
-                      title={smartAccountAddress ? `Smart Account: ${smartAccountAddress}` : 'Smart Account'}
-                    >
-                      {smartAccountAddress ? (
-                        <>
-                          <div className="relative w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-sm">
-                            <span className="text-white text-[10px] font-bold">AA</span>
-                            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-white dark:border-gray-950" />
-                          </div>
-                          <span className="hidden xl:block text-xs font-mono text-gray-600 dark:text-gray-300">
-                            {truncateAddress(smartAccountAddress)}
-                          </span>
-                        </>
-                      ) : (
-                        <div className="relative">
-                          <svg className="w-[18px] h-[18px] text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 013 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 013 6v3" />
-                          </svg>
-                          {isInitializing && <span className="absolute -top-1 -right-1 w-2 h-2 bg-indigo-500 rounded-full animate-pulse" />}
-                        </div>
-                      )}
-                    </button>
+                    {(() => {
+                      const details = getWalletDetails();
+                      if (details) {
+                        return (
+                          <button
+                            onClick={() => { setWalletOpen(!walletOpen); setNotificationsOpen(false); setProfileOpen(false); }}
+                            className="relative flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
+                            title={`${details.name}: ${details.address}`}
+                          >
+                            <div className="relative flex items-center justify-center">
+                              {renderWalletIcon(details.iconType)}
+                              <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full border border-white dark:border-gray-950" />
+                            </div>
+                            <span className="text-xs font-mono font-bold text-gray-700 dark:text-gray-300">
+                              {truncateAddress(details.address)}
+                            </span>
+                          </button>
+                        );
+                      } else {
+                        return (
+                          <button
+                            onClick={isDemoMode ? connectDemoWallet : () => void linkWallet()}
+                            className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 ${
+                              isDemoMode
+                                ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/20'
+                                : 'bg-gradient-to-r from-violet-600 to-cyan-500 hover:brightness-110 text-white shadow-md shadow-blue-600/20'
+                            }`}
+                          >
+                            {renderWalletIcon(isDemoMode ? 'metamask' : 'generic')}
+                            <span>{isDemoMode ? 'Connect Demo Wallet' : 'Connect Wallet'}</span>
+                          </button>
+                        );
+                      }
+                    })()}
 
                     {/* Wallet Dropdown */}
                     {walletOpen && (
@@ -325,48 +530,227 @@ export const Navbar: React.FC = () => {
                         className="absolute right-0 mt-2 w-80 rounded-2xl shadow-2xl shadow-black/10 border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden z-50"
                         style={{ animation: 'dropdownFadeIn 0.2s ease-out' }}
                       >
-                        {smartAccountAddress ? (
+                        {isDemoMode ? (
+                          /* DEMO DROPDOWN */
+                          <>
+                            <div className="p-4 border-b border-gray-100 dark:border-gray-800 bg-amber-500/5 dark:bg-amber-500/10">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-md shadow-orange-500/20">
+                                  <MetaMaskIcon />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-bold text-gray-900 dark:text-white">Demo Wallet (Localhost - FREE)</p>
+                                  {demoAccount ? (
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                      <p className="text-[10px] font-mono text-gray-500 dark:text-gray-400 truncate">
+                                        {demoAccount}
+                                      </p>
+                                      <button
+                                        onClick={() => copyToClipboard(demoAccount)}
+                                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                                        title="Copy Address"
+                                      >
+                                        {copiedAddress === demoAccount ? (
+                                          <span className="text-[9px] text-emerald-500 font-bold">Copied!</span>
+                                        ) : (
+                                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                                          </svg>
+                                        )}
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <p className="text-[10px] text-gray-400">Not Connected</p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+                              <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Switch Demo Account</span>
+                            </div>
+
+                            <div className="p-2 space-y-1 max-h-60 overflow-y-auto">
+                              {DEMO_ACCOUNTS.map((acc) => {
+                                const isCurrent = demoAccount?.toLowerCase() === acc.address.toLowerCase();
+                                return (
+                                  <button
+                                    key={acc.address}
+                                    onClick={() => {
+                                      selectDemoAccount(acc.address);
+                                      setWalletOpen(false);
+                                    }}
+                                    className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-all ${
+                                      isCurrent
+                                        ? 'bg-amber-500/10 border border-amber-500/20'
+                                        : 'hover:bg-gray-50 dark:hover:bg-gray-800/60 border border-transparent'
+                                    }`}
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5">
+                                        <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{acc.name}</p>
+                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                                          acc.role === 'Admin'
+                                            ? 'bg-rose-500/10 text-rose-500'
+                                            : acc.role === 'Creator'
+                                            ? 'bg-violet-500/10 text-violet-500'
+                                            : 'bg-emerald-500/10 text-emerald-500'
+                                        }`}>
+                                          {acc.role}
+                                        </span>
+                                      </div>
+                                      <p className="text-[10px] font-mono text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                                        {acc.address}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                      <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+                                        {acc.balance} ETH
+                                      </span>
+                                      {isCurrent && (
+                                        <div className="w-2.5 h-2.5 bg-amber-500 rounded-full flex items-center justify-center shrink-0">
+                                          <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                          </svg>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {demoAccount && (
+                              <div className="p-2 border-t border-gray-100 dark:border-gray-800">
+                                <button
+                                  onClick={() => {
+                                    disconnectDemoWallet();
+                                    setWalletOpen(false);
+                                  }}
+                                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors"
+                                >
+                                  Disconnect EOA
+                                </button>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          /* LIVE DROPDOWN */
                           <>
                             {/* Smart Account Info */}
-                            <div className="p-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+                            <div className="p-4 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 dark:from-indigo-950/20 dark:to-purple-950/20">
                               <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center shadow-md shadow-indigo-500/20">
                                   <span className="text-white font-black text-xs">AA</span>
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-bold text-gray-900 dark:text-white">Smart Account (ERC-4337)</p>
-                                  <p className="text-[10px] font-mono text-gray-500 dark:text-gray-400 truncate">
-                                    {smartAccountAddress}
-                                  </p>
+                                  {smartAccountAddress ? (
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                      <p className="text-[10px] font-mono text-gray-500 dark:text-gray-400 truncate font-bold">
+                                        {smartAccountAddress}
+                                      </p>
+                                      <button
+                                        onClick={() => copyToClipboard(smartAccountAddress)}
+                                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                                        title="Copy Smart Account"
+                                      >
+                                        {copiedAddress === smartAccountAddress ? (
+                                          <span className="text-[9px] text-emerald-500 font-bold">Copied!</span>
+                                        ) : (
+                                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                                          </svg>
+                                        )}
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <p className="text-[10px] text-gray-400">Initializing...</p>
+                                  )}
                                 </div>
                               </div>
                             </div>
-                            <div className="p-3 bg-emerald-500/5 dark:bg-emerald-500/10 border-b border-gray-100 dark:border-gray-800">
-                              <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest text-center">Zero-Gas Transactions Active</p>
+
+                            {smartAccountAddress && (
+                              <div className="p-2.5 bg-emerald-500/5 dark:bg-emerald-500/10 border-b border-gray-100 dark:border-gray-800">
+                                <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest text-center">Zero-Gas Transactions Active</p>
+                              </div>
+                            )}
+
+                            {/* External EOA Wallet */}
+                            <div className="p-4 border-b border-gray-100 dark:border-gray-800">
+                              <div className="flex items-center gap-3">
+                                {(() => {
+                                  const liveWallet = wallets.find(w => w.walletClientType !== 'privy');
+                                  if (liveWallet) {
+                                    let iconType: 'metamask' | 'coinbase' | 'generic' = 'generic';
+                                    if (liveWallet.walletClientType?.toLowerCase().includes('metamask')) {
+                                      iconType = 'metamask';
+                                    } else if (liveWallet.walletClientType?.toLowerCase().includes('coinbase')) {
+                                      iconType = 'coinbase';
+                                    }
+                                    return (
+                                      <>
+                                        <div className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                                          {renderWalletIcon(iconType)}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-xs font-bold text-gray-900 dark:text-white capitalize">
+                                            {liveWallet.walletClientType ? liveWallet.walletClientType.replace('_', ' ') : 'Live EOA Wallet'}
+                                          </p>
+                                          <div className="flex items-center gap-1.5 mt-0.5">
+                                            <p className="text-[10px] font-mono text-gray-500 dark:text-gray-400 truncate">
+                                              {liveWallet.address}
+                                            </p>
+                                            <button
+                                              onClick={() => copyToClipboard(liveWallet.address)}
+                                              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                                              title="Copy EOA Wallet"
+                                            >
+                                              {copiedAddress === liveWallet.address ? (
+                                                <span className="text-[9px] text-emerald-500 font-bold">Copied!</span>
+                                              ) : (
+                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                                                </svg>
+                                              )}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </>
+                                    );
+                                  } else {
+                                    return (
+                                      <div className="flex-1 text-center py-2">
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">No external wallet linked.</p>
+                                      </div>
+                                    );
+                                  }
+                                })()}
+                              </div>
                             </div>
-                            <div className="p-2">
+
+                            <div className="p-2 space-y-1">
+                              <button
+                                onClick={() => {
+                                  setWalletOpen(false);
+                                  void linkWallet();
+                                }}
+                                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                              >
+                                <span className="w-6 h-6 rounded bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center">🔗</span>
+                                Link / Switch Live Wallet
+                              </button>
                               <Link
                                 href="/profile"
                                 onClick={() => setWalletOpen(false)}
-                                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 transition-colors w-full"
+                                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                               >
-                                <span className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center">⛓️</span>
-                                Wallet Details
+                                <span className="w-6 h-6 rounded bg-indigo-50 dark:bg-indigo-950/30 flex items-center justify-center">⚙️</span>
+                                Manage Keys & Sponsored Gas
                               </Link>
                             </div>
                           </>
-                        ) : (
-                          <div className="p-8 text-center">
-                            <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4 animate-pulse">
-                              <svg className="w-8 h-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                              </svg>
-                            </div>
-                            <h3 className="text-sm font-bold text-gray-900 dark:text-white">Smart Account Initializing</h3>
-                            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 max-w-[200px] mx-auto">
-                              We're setting up your zero-gas infrastructure. Please wait a moment.
-                            </p>
-                          </div>
                         )}
                       </div>
                     )}
@@ -502,19 +886,71 @@ export const Navbar: React.FC = () => {
               <span>📊</span> Dashboard
             </Link>
             {/* Mobile wallet providers */}
-            <div className="space-y-0.5">
-              <p className="px-4 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">Connect Wallet</p>
-              {WALLETS.map((w) => (
-                <button key={w.name} onClick={() => { setMobileOpen(false); void connectInjectedWallet(w.name, w.domain); }} className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
-                  <div className="w-6 h-6 rounded bg-white flex items-center justify-center p-0.5">
-                    <img src={`https://www.google.com/s2/favicons?domain=${w.domain}&sz=64`} alt={w.name} className="w-full h-full object-contain" /> 
-                  </div>
-                  {w.name}
-                  <svg className="w-3.5 h-3.5 ml-auto text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                  </svg>
-                </button>
-              ))}
+            <div className="px-4 py-2 space-y-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">Wallet Connection</p>
+              {(() => {
+                const details = getWalletDetails();
+                if (details) {
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
+                        <div className="relative flex items-center justify-center shrink-0">
+                          {renderWalletIcon(details.iconType)}
+                          <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-400 rounded-full border border-white dark:border-gray-950" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{details.name}</p>
+                          <p className="text-[10px] font-mono text-gray-500 dark:text-gray-400 truncate">{details.address}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {isDemoMode ? (
+                          <button
+                            onClick={() => {
+                              disconnectDemoWallet();
+                              setMobileOpen(false);
+                            }}
+                            className="flex-1 py-2 rounded-xl text-center text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 hover:bg-rose-100 dark:hover:bg-rose-950/30 transition-all"
+                          >
+                            Disconnect
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setMobileOpen(false);
+                              void linkWallet();
+                            }}
+                            className="flex-1 py-2 rounded-xl text-center text-xs font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/20 hover:bg-indigo-100 dark:hover:bg-indigo-950/30 transition-all"
+                          >
+                            Link / Switch Wallet
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <button
+                      onClick={() => {
+                        setMobileOpen(false);
+                        if (isDemoMode) {
+                          void connectDemoWallet();
+                        } else {
+                          void linkWallet();
+                        }
+                      }}
+                      className={`w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs font-bold transition-all duration-300 ${
+                        isDemoMode
+                          ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/20'
+                          : 'bg-gradient-to-r from-violet-600 to-cyan-500 hover:brightness-110 text-white shadow-md shadow-blue-600/20'
+                      }`}
+                    >
+                      {renderWalletIcon(isDemoMode ? 'metamask' : 'generic')}
+                      <span>{isDemoMode ? 'Connect Demo Wallet' : 'Connect Wallet'}</span>
+                    </button>
+                  );
+                }
+              })()}
             </div>
 
             {/* User section */}

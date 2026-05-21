@@ -66,27 +66,7 @@ export async function GET(req: Request) {
     let allowedHolders = enrichedHolders;
     let allowedTx = allTx || [];
 
-    if (!isAdmin) {
-      // Rights Holder: filter down to their projects and splits
-      const myHolderRecords = allowedHolders.filter(h => h.user_id === userId);
-      const myProjectIds = myHolderRecords.map(h => h.project_id);
 
-      allowedProjs = allowedProjs.filter(p => myProjectIds.includes(p.id));
-      allowedHolders = myHolderRecords;
-      
-      const { data: mySplits } = await supabaseAdmin.from('transaction_splits').select('*, transactions(*)').order('created_at', { ascending: false });
-      
-      const uniqueTx = new Map();
-      (mySplits || []).forEach((s: any) => {
-        // filter splits that belong to my rights holder records
-        if (myHolderRecords.find(h => h.id === s.rights_holder_id)) {
-          if (s.transactions) {
-            uniqueTx.set(s.transactions.id, { ...s.transactions, transaction_splits: [s] });
-          }
-        }
-      });
-      allowedTx = Array.from(uniqueTx.values());
-    }
 
     // 5. Structure the response
     if (!pid || pid === 'all') {

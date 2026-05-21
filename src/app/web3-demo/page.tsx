@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabaseClient';
 import Link from 'next/link';
 import { ETH_PRICE_USD } from '@/app/lib/constants';
+import { DEMO_ACCOUNTS } from '@/app/components/Navbar';
 
 /* ─────────────────────────────────────────────────────────────
    Types
@@ -28,6 +29,10 @@ const HARDHAT_CHAIN_ID_HEX = '0x7a69';
    Page
 ───────────────────────────────────────────────────────────── */
 export default function Web3DemoPage() {
+  // Demo Mode state
+  const [isDemoMode, setIsDemoMode] = useState(false);
+  const [demoAccount, setDemoAccount] = useState<string | null>(null);
+
   // Wallet state
   const [account, setAccount] = useState<string | null>(null);
   const [chainId, setChainId] = useState<number | null>(null);
@@ -47,22 +52,40 @@ export default function Web3DemoPage() {
   const [txError, setTxError] = useState('');
   const [splitPreview, setSplitPreview] = useState<{ name: string; eth: number; usd: number; pct: number }[]>([]);
 
-  /* ── Fetch projects ─────────────────────────────────────── */
+  /* ── Fetch projects & holders from API ───────────────────── */
   useEffect(() => {
-    supabase.from('projects').select('*').ilike('status', 'active').order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (data?.length) {
-          setProjects(data);
-          setSelectedProject(data[0].id);
+    const loadData = async () => {
+      try {
+        const res = await fetch('/api/dashboard?pid=all&demo=true', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.projectsList?.length) {
+            setProjects(data.projectsList);
+            setSelectedProject(data.projectsList[0].id);
+          }
         }
-      });
+      } catch (err) {
+        console.error('Failed to load projects from API:', err);
+      }
+    };
+    loadData();
   }, []);
 
   /* ── Fetch holders when project changes ─────────────────── */
   useEffect(() => {
     if (!selectedProject) return;
-    supabase.from('rights_holders').select('*').eq('project_id', selectedProject)
-      .then(({ data }) => setHolders(data || []));
+    const loadProjectHolders = async () => {
+      try {
+        const res = await fetch(`/api/dashboard?pid=${selectedProject}&demo=true`, { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          setHolders(data.holders || []);
+        }
+      } catch (err) {
+        console.error('Failed to load project holders:', err);
+      }
+    };
+    loadProjectHolders();
   }, [selectedProject]);
 
   /* ── Recalculate split preview ──────────────────────────── */
@@ -126,38 +149,203 @@ export default function Web3DemoPage() {
   };
 
   useEffect(() => {
-    if (!window.ethereum) return;
-    const onAccChange = (accs: string[]) => {
-      if (!accs.length) { setAccount(null); setBalance(null); }
-      else { setAccount(accs[0]); void getBalance(accs[0]); }
-    };
-    const onChainChange = (cid: string) => { setChainId(parseInt(cid, 16)); };
-    window.ethereum.on?.('accountsChanged', onAccChange as any);
-    window.ethereum.on?.('chainChanged', onChainChange as any);
-    // Auto-detect if already connected
-    (window.ethereum.request({ method: 'eth_accounts' }) as Promise<string[]>)
-      .then(async (accs) => { if (accs.length) { setAccount(accs[0]); const c = await window.ethereum!.request({ method: 'eth_chainId' }) as string; setChainId(parseInt(c, 16)); await getBalance(accs[0]); } })
-      .catch(() => {});
-    return () => {
-      window.ethereum?.removeListener?.('accountsChanged', onAccChange as any);
-      window.ethereum?.removeListener?.('chainChanged', onChainChange as any);
-    };
-  }, [getBalance]);
+    if (typeof window === 'undefined') return;
+    
+    // Read initial mode
+    setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
 
-  /* ── Send MetaMask transaction (Hardhat local only — FREE) ── */
+    const onDemoChanged = (e: any) => {
+      setIsDemoMode(e.detail);
+    };
+    window.addEventListener('demo-mode-changed', onDemoChanged);
+    return () => window.removeEventListener('demo-mode-changed', onDemoChanged);
+  }, []);
+
+  // Sync wallet based on mode
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (isDemoMode) {
+      // Sync with active demo wallet
+      const syncDemoWallet = () => {
+        const activeDemo = localStorage.getItem('active_demo_wallet');
+        if (activeDemo) {
+          setAccount(activeDemo);
+          setChainId(HARDHAT_CHAIN_ID);
+          const matchingDemo = DEMO_ACCOUNTS.find(acc => acc.address.toLowerCase() === activeDemo.toLowerCase());
+          setBalance(matchingDemo ? matchingDemo.balance : '100.00');
+        } else {
+          setAccount(null);
+          setChainId(null);
+          setBalance(null);
+        }
+      };
+
+      syncDemoWallet();
+
+      const handleDemoWalletChanged = (e: any) => {
+        const addr = e.detail;
+        if (addr) {
+          setAccount(addr);
+          setChainId(HARDHAT_CHAIN_ID);
+          const matchingDemo = DEMO_ACCOUNTS.find(acc => acc.address.toLowerCase() === addr.toLowerCase());
+          setBalance(matchingDemo ? matchingDemo.balance : '100.00');
+        } else {
+          setAccount(null);
+          setChainId(null);
+          setBalance(null);
+        }
+      };
+
+      window.addEventListener('demo-wallet-changed', handleDemoWalletChanged);
+      return () => window.removeEventListener('demo-wallet-changed', handleDemoWalletChanged);
+    } else {
+      // Live / Non-demo mode: we use window.ethereum listeners and initial detection
+      if (!window.ethereum) {
+        setAccount(null);
+        setChainId(null);
+        setBalance(null);
+        return;
+      }
+
+      const onAccChange = (accs: string[]) => {
+        if (!accs.length) { setAccount(null); setBalance(null); }
+        else { setAccount(accs[0]); void getBalance(accs[0]); }
+      };
+      
+      const onChainChange = (cid: string) => { 
+        setChainId(parseInt(cid, 16)); 
+      };
+
+      window.ethereum.on?.('accountsChanged', onAccChange as any);
+      window.ethereum.on?.('chainChanged', onChainChange as any);
+
+      // Auto-detect if already connected
+      (window.ethereum.request({ method: 'eth_accounts' }) as Promise<string[]>)
+        .then(async (accs) => { 
+          if (accs && accs.length) { 
+            setAccount(accs[0]); 
+            const c = await window.ethereum!.request({ method: 'eth_chainId' }) as string; 
+            setChainId(parseInt(c, 16)); 
+            await getBalance(accs[0]); 
+          } else {
+            setAccount(null);
+            setChainId(null);
+            setBalance(null);
+          }
+        })
+        .catch(() => {
+          setAccount(null);
+          setChainId(null);
+          setBalance(null);
+        });
+
+      return () => {
+        window.ethereum?.removeListener?.('accountsChanged', onAccChange as any);
+        window.ethereum?.removeListener?.('chainChanged', onChainChange as any);
+      };
+    }
+  }, [isDemoMode, getBalance]);
+
+  /* ── Send MetaMask transaction or Simulate Demo transaction ── */
   const distributeRevenue = async () => {
     if (!account || !selectedProject) return;
 
-    // Safety: block if on wrong network
+    const ethAmt = parseFloat(amount);
+    const weiHex = `0x${Math.floor(ethAmt * 1e18).toString(16)}`;
+
+    // If we are in Demo Mode, verify if we can use the injected wallet, otherwise gracefully run a sandbox simulation.
+    if (isDemoMode) {
+      const hasMetaMask = typeof window !== 'undefined' && !!window.ethereum;
+      let activeMetaMaskAcc = '';
+      let activeChainIdHex = '';
+
+      if (hasMetaMask) {
+        try {
+          const accounts = await window.ethereum!.request({ method: 'eth_accounts' }) as string[];
+          activeMetaMaskAcc = accounts[0] || '';
+          activeChainIdHex = await window.ethereum!.request({ method: 'eth_chainId' }) as string;
+        } catch (e) {
+          console.warn('MetaMask status check failed, falling back to simulated transaction', e);
+        }
+      }
+
+      const isMetaMaskMatching = activeMetaMaskAcc && activeMetaMaskAcc.toLowerCase() === account.toLowerCase();
+      const isChainHardhat = parseInt(activeChainIdHex, 16) === HARDHAT_CHAIN_ID;
+
+      if (!hasMetaMask || !isMetaMaskMatching || !isChainHardhat) {
+        // Run simulated Sandbox transaction
+        setTxStatus('pending');
+        setTxError('');
+        setTxHash('');
+
+        // 1.5s premium micro-animation delay
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        const mockHash = '0x' + Array.from({length: 64}, () => Math.floor(Math.random()*16).toString(16)).join('');
+        setTxHash(mockHash);
+
+        try {
+          const res = await fetch('/api/web3/record-transaction', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              project_id: selectedProject,
+              tx_hash: mockHash,
+              sender_address: account,
+              total_amount_eth: ethAmt,
+              is_demo: true,
+              holders: holders.map(h => ({
+                rights_holder_id: h.id,
+                wallet_address: h.wallet_address,
+                full_name: h.full_name,
+                role: h.role,
+                percentage: h.percentage,
+                amount_eth: (h.percentage / 100) * ethAmt,
+              })),
+            }),
+          });
+
+          if (!res.ok) {
+            const err = await res.json();
+            console.warn('DB record warning:', err.error);
+          }
+        } catch (dbErr) {
+          console.warn('Simulated tx database sync skipped:', dbErr);
+        }
+
+        // Trigger cross-tab update
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('payment-recorded'));
+          try {
+            const bc = new BroadcastChannel('lunim-realtime');
+            bc.postMessage({ type: 'payment-recorded' });
+            bc.close();
+          } catch (bcErr) {
+            console.warn('BroadcastChannel sync skipped');
+          }
+        }
+
+        setTxStatus('confirmed');
+        // Deduct from local sandbox balance
+        const matchingDemo = DEMO_ACCOUNTS.find(acc => acc.address.toLowerCase() === account.toLowerCase());
+        if (matchingDemo) {
+          const newBal = (parseFloat(balance || '100') - ethAmt).toFixed(4);
+          setBalance(newBal);
+        }
+
+        window.dispatchEvent(new CustomEvent('payment-recorded', { detail: { txHash: mockHash, projectId: selectedProject } }));
+        return;
+      }
+    }
+
+    // Safety: block if on wrong network in real/live mode or when utilizing actual injected MetaMask
     if (!isCorrectNetwork) {
       try { await switchToHardhat(); }
       catch { setTxError('Please switch to Hardhat Localhost first'); return; }
     }
 
     setTxStatus('pending'); setTxError(''); setTxHash('');
-
-    const ethAmt = parseFloat(amount);
-    const weiHex = `0x${Math.floor(ethAmt * 1e18).toString(16)}`;
 
     try {
       const contractAddress = process.env.NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS || holders[0]?.wallet_address;
@@ -188,6 +376,7 @@ export default function Web3DemoPage() {
           tx_hash: hash,
           sender_address: account,
           total_amount_eth: ethAmt,
+          is_demo: isDemoMode,
           holders: holders.map(h => ({
             rights_holder_id: h.id,
             wallet_address: h.wallet_address,
@@ -203,6 +392,7 @@ export default function Web3DemoPage() {
         const err = await res.json();
         console.warn('DB record warning:', err.error);
       }
+      
       // Trigger cross-tab update
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('payment-recorded'));
@@ -250,24 +440,36 @@ export default function Web3DemoPage() {
             <div className="w-px h-5 bg-white/10" />
             <div>
               <h1 className="text-base font-black text-white tracking-tight">⚡ Web3 Revenue Distribution</h1>
-              <p className="text-xs text-gray-500 font-medium">Hardhat Localhost · <span className="text-emerald-400 font-bold">FREE — No real ETH spent</span></p>
+              <p className="text-xs text-gray-500 font-medium">
+                {isDemoMode ? (
+                  <span>Sandbox Simulator · <span className="text-amber-400 font-bold">Demo Mode Active (FREE)</span></span>
+                ) : (
+                  <span>Hardhat Localhost · <span className="text-emerald-400 font-bold">FREE — No real ETH spent</span></span>
+                )}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             {account && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-                <span className="text-xs font-bold text-emerald-400 font-mono">{trunc(account)}</span>
-                {balance && <span className="text-xs text-emerald-300 font-mono">{balance} ETH</span>}
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
+                isDemoMode
+                  ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                  : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+              }`}>
+                <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isDemoMode ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                <span className="text-xs font-bold font-mono">{trunc(account)}</span>
+                {balance && <span className={`text-xs font-mono ${isDemoMode ? 'text-amber-300' : 'text-emerald-300'}`}>{balance} ETH</span>}
               </div>
             )}
             {chainId && (
               <div className={`px-3 py-1.5 rounded-full text-xs font-bold border ${
-                isCorrectNetwork
+                isDemoMode
+                  ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                  : isCorrectNetwork
                   ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                   : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
               }`}>
-                {networkName(chainId)}
+                {isDemoMode ? '🟢 Sandbox (FREE)' : networkName(chainId)}
               </div>
             )}
           </div>
@@ -282,33 +484,82 @@ export default function Web3DemoPage() {
             <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-4">Wallet Connection</h2>
             {!account ? (
               <div className="text-center space-y-4">
-                <div className="w-16 h-16 rounded-2xl bg-orange-500/10 border border-orange-500/20 flex items-center justify-center mx-auto">
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto ${
+                  isDemoMode 
+                    ? 'bg-amber-500/10 border border-amber-500/20' 
+                    : 'bg-orange-500/10 border border-orange-500/20'
+                }`}>
                   <span className="text-3xl">🦊</span>
                 </div>
                 <div>
-                  <p className="text-white font-bold">Connect MetaMask</p>
-                  <p className="text-gray-400 text-xs mt-1">Connect your wallet to distribute real revenue via smart contract</p>
+                  <p className="text-white font-bold">{isDemoMode ? 'Select a Demo Wallet' : 'Connect MetaMask'}</p>
+                  <p className="text-gray-400 text-xs mt-1">
+                    {isDemoMode 
+                      ? 'Choose one of our pre-seeded local Hardhat accounts to simulate transactions with zero costs.' 
+                      : 'Connect your real MetaMask wallet to execute transactions on the local Hardhat chain.'}
+                  </p>
                 </div>
-                {walletError && (
-                  <div className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 text-left">{walletError}</div>
+                {isDemoMode ? (
+                  <div className="space-y-2 mt-2">
+                    {DEMO_ACCOUNTS.map(acc => (
+                      <button
+                        key={acc.address}
+                        onClick={() => {
+                          localStorage.setItem('active_demo_wallet', acc.address);
+                          window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: acc.address }));
+                        }}
+                        className="w-full py-2.5 px-4 bg-white/5 border border-white/5 hover:border-amber-500/40 text-left rounded-xl transition-all flex items-center justify-between group hover:bg-amber-500/5"
+                      >
+                        <div className="min-w-0 flex-1 pr-2">
+                          <p className="text-xs font-bold text-white group-hover:text-amber-400 transition-colors">{acc.role}</p>
+                          <p className="text-[10px] text-gray-500 font-mono truncate">{acc.address}</p>
+                        </div>
+                        <span className="text-xs text-amber-300 font-bold shrink-0">{acc.balance} ETH</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    {walletError && (
+                      <div className="text-xs text-rose-400 bg-rose-500/10 border border-rose-500/20 rounded-xl p-3 text-left">{walletError}</div>
+                    )}
+                    <button
+                      onClick={connectWallet}
+                      disabled={isConnecting}
+                      className="w-full py-3 px-6 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-xl hover:opacity-90 transition-all disabled:opacity-50 shadow-lg shadow-orange-500/20"
+                    >
+                      {isConnecting ? 'Connecting…' : '🦊 Connect MetaMask'}
+                    </button>
+                  </>
                 )}
-                <button
-                  onClick={connectWallet}
-                  disabled={isConnecting}
-                  className="w-full py-3 px-6 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-xl hover:opacity-90 transition-all disabled:opacity-50 shadow-lg shadow-orange-500/20"
-                >
-                  {isConnecting ? 'Connecting…' : '🦊 Connect MetaMask'}
-                </button>
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="flex items-center gap-3 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                  <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center">
-                    <div className="w-3 h-3 bg-emerald-400 rounded-full" />
+                <div className={`flex items-center gap-3 p-3 rounded-xl border ${
+                  isDemoMode 
+                    ? 'bg-amber-500/10 border-amber-500/20' 
+                    : 'bg-emerald-500/10 border-emerald-500/20'
+                }`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                    isDemoMode ? 'bg-amber-500/20' : 'bg-emerald-500/20'
+                  }`}>
+                    <div className={`w-3 h-3 rounded-full ${isDemoMode ? 'bg-amber-400' : 'bg-emerald-400'}`} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-400">Connected Account</p>
+                    <p className="text-xs text-gray-400">
+                      {isDemoMode ? 'Connected Sandbox EOA' : 'Connected Account'}
+                    </p>
                     <p className="text-sm font-bold text-white font-mono truncate">{account}</p>
+                    {isDemoMode && (() => {
+                      const activeAcc = DEMO_ACCOUNTS.find(acc => acc.address.toLowerCase() === account.toLowerCase());
+                      return activeAcc ? (
+                        <span className="text-[10px] text-amber-400 font-bold block mt-0.5">
+                          {activeAcc.role} ({activeAcc.name})
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-amber-400 font-bold block mt-0.5">Custom EOA</span>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -318,12 +569,50 @@ export default function Web3DemoPage() {
                   </div>
                   <div className="p-3 bg-white/5 rounded-xl">
                     <p className="text-[10px] text-gray-500 uppercase tracking-widest">Network</p>
-                    <p className="text-sm font-bold text-white mt-0.5">{networkName(chainId)}</p>
+                    <p className="text-sm font-bold text-white mt-0.5">
+                      {isDemoMode ? '🟢 Sandbox (FREE)' : networkName(chainId)}
+                    </p>
                   </div>
                 </div>
+                {isDemoMode && (
+                  <div className="space-y-1.5 border-t border-white/5 pt-3">
+                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                      Switch Role EOA
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {DEMO_ACCOUNTS.map(acc => {
+                        const isSelected = acc.address.toLowerCase() === account.toLowerCase();
+                        return (
+                          <button
+                            key={acc.address}
+                            onClick={() => {
+                              localStorage.setItem('active_demo_wallet', acc.address);
+                              window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: acc.address }));
+                            }}
+                            className={`py-1.5 px-2 text-[10px] font-black rounded-lg transition-all border ${
+                              isSelected 
+                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' 
+                                : 'bg-white/5 text-gray-400 border-white/5 hover:border-white/15'
+                            }`}
+                            title={acc.name}
+                          >
+                            {acc.role}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <button
-                  onClick={() => { setAccount(null); setBalance(null); setChainId(null); }}
-                  className="w-full py-2 text-xs text-gray-400 hover:text-rose-400 transition-colors"
+                  onClick={() => {
+                    if (isDemoMode) {
+                      localStorage.removeItem('active_demo_wallet');
+                      window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: null }));
+                    } else {
+                      setAccount(null); setBalance(null); setChainId(null);
+                    }
+                  }}
+                  className="w-full py-2 text-xs text-gray-400 hover:text-rose-400 transition-colors border-t border-white/5 mt-2"
                 >
                   Disconnect
                 </button>

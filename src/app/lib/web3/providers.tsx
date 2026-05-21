@@ -19,8 +19,9 @@ export default function Web3Providers({ children }: { children: React.ReactNode 
           accentColor: '#4F46E5', // Indigo-600
         },
         embeddedWallets: {
-          createOnLogin: 'users-without-wallets',
-          noPromptOnSignature: true, // Abstract blockchain complexity from users
+          ethereum: {
+            createOnLogin: 'users-without-wallets',
+          },
         },
         defaultChain: SUPPORTED_CHAINS[0],
         supportedChains: [...SUPPORTED_CHAINS],

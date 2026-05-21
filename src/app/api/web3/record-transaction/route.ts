@@ -5,7 +5,7 @@ import { ETH_PRICE_USD } from '@/app/lib/constants';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { project_id, tx_hash, sender_address, total_amount_eth, holders } = body;
+    const { project_id, tx_hash, sender_address, total_amount_eth, holders, is_demo } = body;
 
     if (!project_id || !tx_hash || !sender_address || !total_amount_eth) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
         status: 'confirmed',
         network: 'metamask',
         confirmed_at: new Date().toISOString(),
+        is_demo: is_demo === true,
       }])
       .select()
       .single();

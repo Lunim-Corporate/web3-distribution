@@ -57,10 +57,14 @@ export function useRevenueSplitter() {
           transport: http(ALCHEMY_RPC),
         });
 
-        const smartAccount = await toSafeSmartAccount(publicClient, {
-          signer: custom(provider),
-          safeVersion: '1.4.1',
-          entryPoint: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789', // v0.6
+        const smartAccount = await toSafeSmartAccount({
+          client: publicClient,
+          owners: [provider as any],
+          version: '1.4.1',
+          entryPoint: {
+            address: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+            version: '0.6',
+          },
         });
         setSmartAccountAddress(smartAccount.address);
       } catch (err) {
@@ -100,18 +104,22 @@ export function useRevenueSplitter() {
       transport: http(ALCHEMY_RPC),
     });
 
-    const smartAccount = await toSafeSmartAccount(publicClient, {
-      signer: custom(provider),
-      safeVersion: '1.4.1',
-      entryPoint: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+    const smartAccount = await toSafeSmartAccount({
+      client: publicClient,
+      owners: [provider as any],
+      version: '1.4.1',
+      entryPoint: {
+        address: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+        version: '0.6',
+      },
     });
 
-    const smartAccountClient = createSmartAccountClient({
+    const smartAccountClient: any = createSmartAccountClient({
       account: smartAccount,
       chain: baseSepolia,
       bundlerTransport: http(BUNDLER_URL),
       middleware: {
-        sponsorUserOperation: async ({ userOperation }) => {
+        sponsorUserOperation: async ({ userOperation }: { userOperation: any }) => {
           const response = await fetch(PAYMASTER_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -140,7 +148,7 @@ export function useRevenueSplitter() {
           };
         },
       },
-    });
+    } as any);
 
     const valueWei = parseEther(amountEth);
     const callData = encodeFunctionData({
@@ -150,6 +158,7 @@ export function useRevenueSplitter() {
 
     // Send the UserOperation
     const txHash = await smartAccountClient.sendTransaction({
+      account: smartAccount,
       to: REVENUE_SPLITTER_ADDRESS,
       value: valueWei,
       data: callData,
