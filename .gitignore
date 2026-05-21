@@ -53,3 +53,17 @@ PRD.md
 IMPLEMENTATION_PRD.md
 AUDIT.md
 DEMO_WALKTHROUGH.md
+
+# IDE & AI agent local workspaces
+.agents/
+.augment/
+.claude/
+.codebuddy/
+.continue/
+.granite-code/
+.planning/
+.qwen/
+.sixth/
+.trae/
+.windsurf/
+
