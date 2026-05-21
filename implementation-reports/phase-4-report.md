@@ -1,49 +1,52 @@
-# Phase 4 — Transaction Experience Report
+# PHASE 4 — ON-CHAIN PAYMENTS
 
-**Date:** 2026-05-12  
-**Status:** ✅ Complete  
-**Project:** LUNIM Creative Rights & Revenue Distribution Platform
-
----
-
-## 1. Work Completed
-
-### Refined Transaction UI
-We have overhauled the transaction experience to feel like a modern fintech app:
-- **Zero-Gas Visibility**: The Dashboard and Navbar now explicitly show that transactions are "Gas-Free" and "Sponsored."
-- **Smart Account Identity**: Replaced confusing EOA wallet addresses with a clean "Smart Account (AA)" label and status.
-- **Improved Feedback Loop**: Integrated `waitForTransactionReceipt` from `viem`. Buttons now transition from `Pending` → `Processing` → `Confirmed` with accurate timing based on on-chain inclusion.
-
-### Cleanup of Blockchain Terminology
-- Removed "Connect Wallet" prompts for logged-in users.
-- Simplified "Injected Provider" errors to user-friendly "Infrastructure Initializing" states.
-- Cleaned up the **SmartContractPanel** to show contract balances and distribution logic in a readable format.
-
-### Legacy Removal
-- Fully deleted the legacy `WalletPickerModal` and the old `ethers.js` distribution components.
-- Standardized all UI components on the `useRevenueSplitter` hook.
+**Date:** 2026-05-18
+**Status:** COMPLETE (merged with Phase 3 implementation)
 
 ---
 
-## 2. Architectural Decisions
+## 1. Completed Tasks
 
-### Waiting for Finality
-We decided to make `distributeRevenue` a `Promise` that only resolves after the transaction is confirmed on-chain. This prevents the "Success" state from appearing too early if a block is reorganized or a bundler fails.
-
-### AA-First Display
-The Navbar now shows an "AA" badge to educate the user that their account is "Advanced" and "Smart," without overwhelming them with technical details.
-
----
-
-## 3. Risks & Blockers
-
-### Base Sepolia Latency
-- On-chain finality on Base Sepolia can vary. We have added optimistic UI updates where safe, but primary buttons stay in a "Processing" state until the receipt is confirmed.
+- PaymentSplitter.tsx now detects contract deployment and shows "Process On-Chain" button
+- Admin users can submit payments via `RevenueSplitter.release()` using `publicClient.simulateContract()`
+- Fallback to mock localStorage-based payments when contract not deployed
+- Wallet address from Wagmi `useAccount()` used for account parameter in contract calls
 
 ---
 
-## 4. Next Steps
-Phase 4 is complete. We are now moving to **Phase 5 — Wallet Export / User Ownership**, to ensure that while the experience is "Web2-style," the user still retains sovereign ownership of their account.
+## 2. Payment Flow
+
+### When Contract Deployed (Base Sepolia)
+```
+User fills amount + project → Calculate Splits
+  → Admin clicks "Process On-Chain"
+  → simulateContract("release") on RevenueSplitter
+  → Transaction submitted via connected wallet
+  → On success: entry saved to localStorage + page refresh
+```
+
+### When Contract Not Deployed (Local)
+```
+User fills amount + project → Calculate Splits
+  → Admin clicks "Process Payment"
+  → setTimeout(2000ms) simulation
+  → Entry saved to localStorage
+  → Page refresh
+```
 
 ---
-*Report generated: 2026-05-12T04:45:00+01:00*
+
+## 3. Guardrails
+
+- Role check: only `admin` role can process payments (both on-chain and mock)
+- Wallet check: Wagmi `useAccount().address` must be available
+- Amount validation: must be a valid positive number
+- `isProcessing` state prevents double-submission
+
+---
+
+## 4. Build Verification
+
+```
+npx next build → PASSED
+```

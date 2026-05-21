@@ -183,6 +183,7 @@ export default function ProfilePage() {
             <Button onClick={() => void logout()} variant="secondary" className="w-full text-rose-600 dark:text-rose-400 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 dark:hover:bg-rose-950/40">
               Log Out of Platform
             </Button>
+          </CardContent>
         </Card>
       </div>
     </div>
