@@ -43,15 +43,15 @@ export function useRevenueSplitter() {
 
   useEffect(() => {
     async function initSmartAccount() {
-      const embeddedWallet = wallets.find((w) => w.walletClientType === 'privy');
-      if (!embeddedWallet || !REVENUE_SPLITTER_ADDRESS) {
+      const activeWallet = wallets.find((w) => w.walletClientType === 'privy') || wallets[0];
+      if (!activeWallet || !REVENUE_SPLITTER_ADDRESS) {
         setSmartAccountAddress(null);
         return;
       }
 
       setIsInitializing(true);
       try {
-        const provider = await embeddedWallet.getEthereumProvider();
+        const provider = await activeWallet.getEthereumProvider();
         const publicClient = createPublicClient({
           chain: baseSepolia,
           transport: http(ALCHEMY_RPC),
@@ -92,12 +92,12 @@ export function useRevenueSplitter() {
   const distributeRevenue = async (amountEth: string): Promise<string> => {
     if (!REVENUE_SPLITTER_ADDRESS) throw new Error('Missing contract address');
     
-    const embeddedWallet = wallets.find((w) => w.walletClientType === 'privy');
-    if (!embeddedWallet) {
-      throw new Error('No Privy embedded wallet found. Please connect your embedded wallet.');
+    const activeWallet = wallets.find((w) => w.walletClientType === 'privy') || wallets[0];
+    if (!activeWallet) {
+      throw new Error('No connected wallet found. Please connect your wallet.');
     }
 
-    const provider = await embeddedWallet.getEthereumProvider();
+    const provider = await activeWallet.getEthereumProvider();
     
     const publicClient = createPublicClient({
       chain: baseSepolia,

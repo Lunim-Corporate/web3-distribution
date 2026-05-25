@@ -160,7 +160,7 @@ export const SmartContractPanel: React.FC = () => {
       <CardHeader>
         <CardTitle>Smart Contract Panel</CardTitle>
         <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-          Wallet-connected reads/writes via ethers.
+          Wallet-connected reads/writes via viem and permissionless.
         </p>
       </CardHeader>
       <CardContent>

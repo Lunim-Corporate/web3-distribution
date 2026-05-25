@@ -1,163 +1,71 @@
 # INVESTIGATION REPORT: Environment + Configuration
 **Phase:** A
-**Date:** 2026-05-18
-**Severity:** CRITICAL
+**Date:** 2026-05-25
+**Severity:** HIGH
 
 ---
 
 ## 1. Issue Summary
 
-Zero environment variables exist. No `.env.local`, `.env.development`, `.env.production`, or `.env.template` files are present in the project root. The entire application has no configured environment layer.
+We audited the active `.env` and `.env.local` files in the project root. While basic blockchain, Supabase, and Privy credentials are set, **four critical environment variables** in `.env.local` are currently configured with raw placeholder strings (`YOUR_ALCHEMY_KEY`), causing all live Base Sepolia RPC connections, Paymaster operations, and ERC-4337 smart bundler transactions to fail.
 
 ---
 
 ## 2. Root Cause Analysis
 
-The application was cloned/scaffolded without environment setup. The README references a `.env.template` that does not exist. No environment configuration was ever materialized.
+The Web3 refactoring introduced integration parameters for Privy, Alchemy, and ERC-4337 smart wallets. However, the RPC and Paymaster URLs were configured using a default template placeholder string (`YOUR_ALCHEMY_KEY`) rather than interpolating the active `NEXT_PUBLIC_ALCHEMY_API_KEY` defined on line 41.
 
 ---
 
-## 3. Missing Variables
+## 3. Active Variables Audit
 
-### Required Variables (No Values)
+The following table details the current variables found in `.env.local` and their configuration integrity:
 
-The following environment variables are **referenced or required** by the codebase architecture but have **zero values**:
-
-| Variable | Status | Purpose | Source |
+| Variable | Current State | Purpose | Integrity / Issue |
 |---|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | **MISSING** | Supabase project URL for database access | All API routes (`api/*/route.ts`) |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | **MISSING** | Supabase anonymous API key | All API routes |
-| `NEXT_PUBLIC_PRIVY_APP_ID` | **MISSING** | Privy authentication app ID | Wallet/auth refactoring target |
-| `NEXT_PUBLIC_ALCHEMY_API_KEY` | **MISSING** | Alchemy RPC access for Base Sepolia | Blockchain connectivity |
-| `NEXT_PUBLIC_BASE_RPC_URL` | **MISSING** | Base Sepolia RPC endpoint | Chain configuration |
-| `NEXT_PUBLIC_CHAIN_ID` | **MISSING** | Target chain ID (84532 for Base Sepolia) | Network switching |
-| `WALLET_CONNECT_PROJECT_ID` | **MISSING** | WalletConnect Cloud project ID | Wagmi configuration |
-| `PAYMASTER_API_KEY` | **MISSING** | ERC-4337 paymaster API key | Gas sponsorship |
-| `BUNDLER_RPC_URL` | **MISSING** | ERC-4337 bundler RPC endpoint | User operation submission |
-| `NEXT_PUBLIC_APP_URL` | **MISSING** | Application base URL | Referenced in README |
-| `NEXT_PUBLIC_CONTRACT_ADDRESS` | **MISSING** | Deployed RevenueSplitter address | Contract interaction |
+| `NEXT_PUBLIC_PRIVY_APP_ID` | `cmp217w43000p0cie4kvln0y3` | Privy application ID | Active & Valid |
+| `NEXT_PUBLIC_ALCHEMY_API_KEY` | `kcU9NMIFFiSqIueAidvdi` | Alchemy Dev API Key | Active & Valid |
+| `NEXT_PUBLIC_ALCHEMY_RPC_URL` | `https://base-sepolia.g.alchemy.com/v2/kcU9NMIFFiSqIueAidvdi` | Direct Alchemy connection | Active & Valid |
+| `NEXT_PUBLIC_BASE_MAINNET_RPC` | Contains `YOUR_ALCHEMY_KEY` | Base Mainnet transport URL | **MISCONFIGURED** (uses placeholder) |
+| `NEXT_PUBLIC_BASE_SEPOLIA_RPC` | Contains `YOUR_ALCHEMY_KEY` | Base Sepolia transport URL | **MISCONFIGURED** (uses placeholder) |
+| `NEXT_PUBLIC_BUNDLER_URL` | Contains `YOUR_ALCHEMY_KEY` | ERC-4337 UserOperation bundler | **MISCONFIGURED** (uses placeholder) |
+| `NEXT_PUBLIC_PAYMASTER_URL` | Contains `YOUR_ALCHEMY_KEY` | ERC-4337 gas policy sponsor | **MISCONFIGURED** (uses placeholder) |
+| `NEXT_PUBLIC_CHAIN_ID` | `84532` | Primary network selector | Valid (Base Sepolia `84532`) |
 
 ---
 
-## 4. Variables Not Used (Dead Config)
+## 4. Exposed Secrets Analysis
 
-No dead configuration exists since no env variables are configured at all.
+We scanned the codebase for plaintext credentials or exposed secrets:
+- In [auth.tsx](file:///Users/jeeveshsingale/web3-freedom-upgrade/src/app/lib/auth.tsx), previous hardcoded plaintext admin credentials (`jeevesh2515@gmail.com`) have been successfully removed/abstracted via Privy.
+- There are no visible exposed private keys or database passwords committed.
+- `.env.local` is correctly registered in the project's `.gitignore` and will not be pushed to GitHub.
 
 ---
 
-## 5. Variables That Should Exist
+## 5. Affected Systems
 
-### Privy Configuration (Missing Entirely)
+1. **Wagmi/Viem Client Connectivity:** The Wagmi transport configuration uses `NEXT_PUBLIC_BASE_SEPOLIA_RPC` which tries to query the literal address `https://base-sepolia.g.alchemy.com/v2/YOUR_ALCHEMY_KEY`. This causes connection timeouts and failure to read/write state.
+2. **Gas Sponsorship (Paymaster):** The Alchemy Gas Paymaster hook uses `NEXT_PUBLIC_PAYMASTER_URL`. This placeholder URL returns HTTP 401 Unauthorized or DNS resolution errors, blocking zero-gas smart contract distribution execution.
+3. **ERC-4337 Bundling:** Submitting user operations via `NEXT_PUBLIC_BUNDLER_URL` throws invalid endpoint exceptions.
+
+---
+
+## 6. Recommended Fix
+
+To resolve the misconfiguration cleanly and securely without exposing secret variables, we must replace all occurrences of `YOUR_ALCHEMY_KEY` in `.env.local` with the active API key `kcU9NMIFFiSqIueAidvdi`.
+
 ```env
-NEXT_PUBLIC_PRIVY_APP_ID=your-privy-app-id
-```
-- **How to obtain:** Sign up at https://console.privy.io, create an app, copy the App ID
-- **What breaks without it:** Cannot authenticate users via Privy (Google login, email OTP, embedded wallets)
+# Before:
+NEXT_PUBLIC_BASE_SEPOLIA_RPC=https://base-sepolia.g.alchemy.com/v2/YOUR_ALCHEMY_KEY
 
-### Alchemy Configuration (Missing Entirely)
-```env
-NEXT_PUBLIC_ALCHEMY_API_KEY=your-alchemy-api-key
+# After:
+NEXT_PUBLIC_BASE_SEPOLIA_RPC=https://base-sepolia.g.alchemy.com/v2/kcU9NMIFFiSqIueAidvdi
 ```
-- **How to obtain:** Sign up at https://www.alchemy.com, create an app on Base Sepolia, copy the API key
-- **What breaks without it:** No RPC connectivity to Base Sepolia; transactions cannot be submitted
-
-### Base Sepolia Chain Configuration (Missing Entirely)
-```env
-NEXT_PUBLIC_BASE_RPC_URL=https://base-sepolia.g.alchemy.com/v2/YOUR_KEY
-NEXT_PUBLIC_CHAIN_ID=84532
-```
-- **How to obtain:** Use Alchemy RPC URL with your API key
-- **What breaks without it:** Wagmi/Viem cannot connect to the network
-
-### WalletConnect Configuration (Missing Entirely)
-```env
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your-project-id
-```
-- **How to obtain:** Sign up at https://cloud.walletconnect.com
-- **What breaks without it:** Wagmi's WalletConnect connector won't initialize
-
-### ERC-4337 Paymaster Configuration (Missing Entirely)
-```env
-NEXT_PUBLIC_PAYMASTER_API_KEY=your-paymaster-key
-NEXT_PUBLIC_BUNDLER_RPC_URL=https://api.pimlico.io/v2/base-sepolia/rpc?apikey=YOUR_KEY
-```
-- **How to obtain:** Sign up at https://www.pimlico.io or similar paymaster service
-- **What breaks without it:** User operations cannot be sponsored; users pay gas
-
-### Supabase Configuration (Missing)
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-```
-- **How to obtain:** Create a Supabase project at https://supabase.com
-- **What breaks without it:** All API routes (`api/revenue`, `api/projects`, `api/rights`, `api/milestones`, `api/users`) will fail
 
 ---
 
-## 6. Exposed Secrets
+## 7. Next Actions
 
-No secrets are currently exposed because no env file exists. However, the following hardcoded credentials exist in source code and are vulnerabilities:
-
-### File: `src/app/lib/auth.tsx`
-```typescript
-const ADMIN_EMAIL = 'jeevesh2515@gmail.com';
-const ADMIN_PASSWORD = 'Newproject1';
-```
-**Severity:** CRITICAL — Plaintext hardcoded credentials in client-side code.
-
----
-
-## 7. Affected Systems
-
-| System | Impact |
-|---|---|
-| Authentication | Cannot use Privy; only hardcoded admin login works |
-| Blockchain Connectivity | No RPC, no chain config, no connectivity |
-| Smart Contract Interaction | Cannot execute any on-chain transactions |
-| API Routes | All 5 API routes will fail (no Supabase) |
-| Embedded Wallet | No Privy embedded wallet creation |
-| Smart Account | No ERC-4337 account setup |
-| Payment Processing | Cannot execute on-chain payments |
-| Gas Sponsorship | No paymaster configured |
-
----
-
-## 8. Severity Assessment
-
-**Overall: CRITICAL**
-
-The application has zero environment configuration. Every system that depends on external services is non-functional.
-
----
-
-## 9. Recommended Fix
-
-1. Create `.env.local` with all required variables
-2. Create `.env.template` as documentation
-3. Sign up for: Privy, Alchemy, WalletConnect, Pimlico (or alternative), Supabase
-4. Remove hardcoded credentials from `auth.tsx`
-5. Add `next.config.js` env public exposure for client-side variables
-
----
-
-## 10. Required Accounts
-
-To restore functionality, the following accounts must be created:
-
-1. **Privy** (https://console.privy.io) — Auth + Embedded Wallets
-2. **Alchemy** (https://www.alchemy.com) — RPC + Blockchain API
-3. **WalletConnect** (https://cloud.walletconnect.com) — Wallet connectors
-4. **Pimlico** (https://www.pimlico.io) — ERC-4337 Bundler + Paymaster
-5. **Supabase** (https://supabase.com) — Database + API
-
----
-
-## 11. Next Actions
-
-1. Create all required service accounts
-2. Generate API keys
-3. Create `.env.local` with valid values
-4. Ensure `.env.local` is in `.gitignore`
-5. Remove hardcoded credentials from `auth.tsx`
-6. Verify env loading with `process.env` checks
+1. Proceed to **Phase B** to investigate Privy and Wagmi provider hierarchies.
+2. Formulate Phase F to apply safe fixes for the placeholder values inside `.env.local`.

@@ -264,7 +264,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     verify2FA,
     cancel2FA,
     exportWallet: async () => {
-      await privyExportWallet();
+      try {
+        await privyExportWallet();
+      } catch (err: any) {
+        console.error('Wallet export failed:', err);
+        throw new Error(err.message || 'Private key export is only supported for embedded accounts.');
+      }
     },
     linkWallet: async () => {
       privyLinkWallet();

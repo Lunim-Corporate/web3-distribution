@@ -30,7 +30,12 @@ export function DistributePanel({ project, holders }: { project: Project | null;
 
   const handleDistribute = async () => {
     if (!project || holders.length === 0) return toast.error('No project or holders found');
-    if (!user || !smartAccountAddress) return toast.error('Please login and wait for smart account initialization');
+    
+    // In Live Mode, require user and smart account address to be initialized.
+    if (!isDemoMode && (!user || !smartAccountAddress)) {
+      return toast.error('Please login and wait for smart account initialization');
+    }
+
     const ethAmount = parseFloat(amount);
     if (isNaN(ethAmount) || ethAmount <= 0) return toast.error('Enter a valid amount');
 
@@ -38,15 +43,65 @@ export function DistributePanel({ project, holders }: { project: Project | null;
     setTxHash('');
 
     try {
-      const tid = toast.loading('Executing distribution on Hardhat...');
+      const tid = toast.loading(isDemoMode ? 'Simulating sandbox distribution...' : 'Executing distribution on Base Sepolia...');
 
       let manualTxHash: string | null = null;
 
-      if (CONTRACT_ADDRESS) {
-        toast.loading('Sending on-chain transaction...', { id: tid });
-        manualTxHash = await distributeRevenue(amount);
-        toast.loading('Confirmed! Syncing to database...', { id: tid });
+      if (isDemoMode) {
+        // --- DEMO MODE TRANSACTION EXECUTION ---
+        const hasMetaMask = typeof window !== 'undefined' && !!window.ethereum;
+        let activeMetaMaskAcc = '';
+        let activeChainIdHex = '';
+
+        if (hasMetaMask) {
+          try {
+            const accounts = await window.ethereum!.request({ method: 'eth_accounts' }) as string[];
+            activeMetaMaskAcc = accounts[0] || '';
+            activeChainIdHex = await window.ethereum!.request({ method: 'eth_chainId' }) as string;
+          } catch (e) {
+            console.warn('MetaMask sandbox check skipped', e);
+          }
+        }
+
+        const activeDemoWallet = localStorage.getItem('active_demo_wallet') || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+        const isMetaMaskMatching = activeMetaMaskAcc && activeMetaMaskAcc.toLowerCase() === activeDemoWallet.toLowerCase();
+        const isChainHardhat = parseInt(activeChainIdHex, 16) === 31337;
+
+        if (hasMetaMask && isMetaMaskMatching && isChainHardhat) {
+          // Send transaction to local Hardhat contract using MetaMask (FREE of cost)
+          toast.loading('Sending on-chain localhost transaction...', { id: tid });
+          try {
+            const weiHex = `0x${Math.floor(ethAmount * 1e18).toString(16)}`;
+            manualTxHash = await window.ethereum!.request({
+              method: 'eth_sendTransaction',
+              params: [{
+                from: activeDemoWallet,
+                to: CONTRACT_ADDRESS || holders[0]?.wallet_address,
+                value: weiHex,
+                data: '0x2d07953a', // distributeRevenue selector
+                gasPrice: '0x0' // 0 gas cost
+              }]
+            }) as string;
+          } catch (err: any) {
+            console.warn('MetaMask localhost distribution failed, falling back to simulation', err);
+          }
+        }
+
+        if (!manualTxHash) {
+          // Simulated Sandbox transaction
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          manualTxHash = '0x' + Array.from({length: 64}, () => Math.floor(Math.random()*16).toString(16)).join('');
+        }
+
+      } else {
+        // --- LIVE MODE TRANSACTION EXECUTION ---
+        if (CONTRACT_ADDRESS) {
+          toast.loading('Sending on-chain transaction...', { id: tid });
+          manualTxHash = await distributeRevenue(amount);
+        }
       }
+
+      toast.loading('Confirmed! Syncing to database...', { id: tid });
 
       const res = await fetch('/api/web3/auto-distribute', {
         method: 'POST',
@@ -55,7 +110,7 @@ export function DistributePanel({ project, holders }: { project: Project | null;
           project_id: project.id,
           amount_eth: ethAmount,
           manual_tx_hash: manualTxHash,
-          sender_address: smartAccountAddress,
+          sender_address: isDemoMode ? (localStorage.getItem('active_demo_wallet') || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266') : smartAccountAddress,
           holders: holders.map(h => ({
             rights_holder_id: h.id,
             wallet_address: h.wallet_address,
@@ -74,7 +129,7 @@ export function DistributePanel({ project, holders }: { project: Project | null;
 
       const data = await res.json();
       setTxHash(data.txHash);
-      toast.success('Revenue distributed successfully!', { id: tid });
+      toast.success(isDemoMode ? 'Sandbox distribution completed!' : 'Revenue distributed successfully!', { id: tid });
       window.dispatchEvent(new CustomEvent('payment-recorded', { detail: { projectId: project.id } }));
 
     } catch (e: any) {

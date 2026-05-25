@@ -8,11 +8,15 @@ import { Badge } from '@/components/ui/Badge';
 import { useAuth } from '@/lib/auth';
 import { useRevenueSplitter } from '@/lib/web3';
 import { DEMO_ACCOUNTS } from '@/app/components/Navbar';
+import { useWallets } from '@privy-io/react-auth';
+import { toast } from 'react-hot-toast';
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user, logout, setNotifyResurfacingHours, settings, exportWallet, linkWallet } = useAuth();
   const { smartAccountAddress, isInitializing } = useRevenueSplitter();
+  const { wallets } = useWallets();
+  const hasEmbeddedWallet = wallets.some((w) => w.walletClientType === 'privy');
 
   const [hours, setHours] = useState<number>(settings?.notifyResurfacingHours ?? 24);
   const [isDemoMode, setIsDemoMode] = useState(true);
@@ -368,9 +372,17 @@ export default function ProfilePage() {
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Button 
-                  onClick={() => exportWallet()} 
+                  onClick={async () => {
+                    try {
+                      await exportWallet();
+                    } catch (e: any) {
+                      toast.error(e.message || "Failed to export private key");
+                    }
+                  }} 
+                  disabled={!hasEmbeddedWallet}
                   variant="secondary"
-                  className="flex items-center justify-center gap-2"
+                  className="flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={!hasEmbeddedWallet ? "Private key export is only available for embedded Privy accounts." : "Export secure private key"}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
