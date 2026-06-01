@@ -4,8 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { motion } from 'framer-motion';
 
-export default function LoginPage() {
+export default function LoginPage({ initialMode = 'login' }: { initialMode?: 'login' | 'signup' }) {
   const { login, isAuthHydrated, user } = useAuth();
+  const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -21,7 +22,7 @@ export default function LoginPage() {
     try {
       await login();
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Login failed. Please check your credentials.';
+      const msg = e instanceof Error ? e.message : 'Authentication failed. Please try again.';
       setError(msg);
       setIsLoading(false);
     }
@@ -80,7 +81,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* ── RIGHT SIDE: Sign In ── */}
+      {/* ── RIGHT SIDE: Sign In / Sign Up ── */}
       <div className="w-full lg:w-1/2 relative flex items-center justify-center p-6 sm:p-12 z-10 backdrop-blur-3xl bg-[#020617]/80 lg:bg-transparent">
         {/* Mobile Background Elements */}
         <div className="lg:hidden absolute inset-0 overflow-hidden z-0">
@@ -99,9 +100,37 @@ export default function LoginPage() {
             <h1 className="text-3xl font-black text-white tracking-tight">LUNIM</h1>
           </div>
 
+          {/* Premium Sliding Toggle */}
+          <div className="flex p-1 bg-slate-950/60 border border-slate-800/80 rounded-2xl mb-6 w-fit">
+            <button
+              onClick={() => setMode('login')}
+              className={`px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all duration-300 ${
+                mode === 'login'
+                  ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/20'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Sign In
+            </button>
+            <button
+              onClick={() => setMode('signup')}
+              className={`px-5 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all duration-300 ${
+                mode === 'signup'
+                  ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/20'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              Create Account
+            </button>
+          </div>
+
           <div className="bg-slate-900/40 backdrop-blur-2xl border border-slate-700/50 rounded-3xl p-8 sm:p-10 shadow-[0_0_40px_rgba(0,0,0,0.5)]">
-            <h2 className="text-2xl font-black text-white mb-2 tracking-tight">Welcome Back</h2>
-            <p className="text-sm text-slate-400 mb-8">Sign in to access your platform dashboard.</p>
+            <h2 className="text-2xl font-black text-white mb-2 tracking-tight">
+              {mode === 'login' ? 'Welcome Back' : 'Create Account'}
+            </h2>
+            <p className="text-sm text-slate-400 mb-8">
+              {mode === 'login' ? 'Sign in to access your platform dashboard.' : 'Join the LUNIM Creative Rights Tracker.'}
+            </p>
 
             <div className="space-y-6">
               {error && (
@@ -122,7 +151,7 @@ export default function LoginPage() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Authenticating
+                    {mode === 'login' ? 'Authenticating' : 'Registering'}
                   </span>
                 ) : (
                   <span className="relative z-10 flex items-center justify-center gap-2">

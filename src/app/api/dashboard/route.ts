@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     // 2. Fetch user profile via admin to bypass RLS recursion
     const { data: profile } = await supabaseAdmin
       .from('users_profile')
-      .select('role')
+      .select('role, wallet_address')
       .eq('id', userId)
       .single();
 
@@ -65,6 +65,25 @@ export async function GET(req: Request) {
     let allowedProjs = enrichedProjs;
     let allowedHolders = enrichedHolders;
     let allowedTx = allTx || [];
+
+    if (!isAdmin && !isDemoMode) {
+      // Live mode filtering for regular user
+      const userEmail = user.email;
+      const userWallet = profile?.wallet_address?.toLowerCase() || null;
+
+      const matchingAllotments = (allHolders || []).filter(h => {
+        const emailMatch = h.email && userEmail && h.email.toLowerCase() === userEmail.toLowerCase();
+        const userIdMatch = h.user_id && h.user_id === userId;
+        const walletMatch = h.wallet_address && userWallet && h.wallet_address.toLowerCase() === userWallet;
+        return emailMatch || userIdMatch || walletMatch;
+      });
+
+      const allowedProjectIds = new Set(matchingAllotments.map(h => h.project_id));
+
+      allowedProjs = enrichedProjs.filter(p => allowedProjectIds.has(p.id));
+      allowedHolders = enrichedHolders.filter(h => allowedProjectIds.has(h.project_id));
+      allowedTx = (allTx || []).filter(t => allowedProjectIds.has(t.project_id));
+    }
 
 
 

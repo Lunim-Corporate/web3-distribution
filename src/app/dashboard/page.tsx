@@ -225,8 +225,9 @@ function DashboardContent() {
   if (isError) return <ErrorView msg={errorMsg} onRetry={() => window.location.reload()} />;
 
   const isAdmin = user?.role === 'admin';
+  const canDistribute = isAdmin || isDemoMode;
   const tabs = [...TABS_BASE] as { id: TabId; label: string; icon: string }[];
-  if (isAdmin) {
+  if (canDistribute) {
     tabs.push({ id: 'distribute', label: 'Distribute', icon: '🔀' });
   }
 
@@ -241,7 +242,7 @@ function DashboardContent() {
   ];
 
   return (
-    <div className="min-h-screen pb-16">
+    <div className="min-h-screen pb-16 pt-16">
       {/* ── Page Header ───────────────────────────────────────── */}
       <header className="bg-[#070B14]/80 backdrop-blur-3xl border-b border-white/5 sticky top-[60px] z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5">
@@ -322,7 +323,7 @@ function DashboardContent() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between px-1">
                       <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest">Top Rights Holders</h2>
-                      {isAdmin && project?.id !== 'all' && (
+                      {(isAdmin || isDemoMode) && project?.id !== 'all' && (
                         <button 
                           onClick={() => setIsAddHolderModalOpen(true)}
                           className="text-xs font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-lg transition-colors border border-indigo-500/20"
@@ -449,8 +450,8 @@ function DashboardContent() {
               </div>
             )}
 
-            {/* ── DISTRIBUTE (Admin Only) ──────────────────────── */}
-            {activeTab === 'distribute' && user?.role === 'admin' && (
+            {/* ── DISTRIBUTE (Admin or Demo Mode Only) ──────────────────────── */}
+            {activeTab === 'distribute' && (isAdmin || isDemoMode) && (
               <div className="space-y-8">
                 {!projectId ? (
                   <div className="border border-white/10 rounded-3xl p-16 text-center">

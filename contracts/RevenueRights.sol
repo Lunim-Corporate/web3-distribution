@@ -14,6 +14,10 @@ contract RevenueRights {
     address public owner;
     uint256 public totalDistributed;
 
+    // Pull Payment balances
+    mapping(address => uint256) public accruedBalances;
+    bool private locked;
+
     event RevenueDistributed(
         address indexed sender,
         uint256 totalAmount,
@@ -28,9 +32,21 @@ contract RevenueRights {
         uint256 basisPoints
     );
 
+    event HolderClaimed(
+        address indexed recipient,
+        uint256 amount
+    );
+
     modifier onlyOwner() {
         require(msg.sender == owner, "Not owner");
         _;
+    }
+
+    modifier nonReentrant() {
+        require(!locked, "ReentrancyGuard: reentrant call");
+        locked = true;
+        _;
+        locked = false;
     }
 
     constructor(
@@ -80,7 +96,10 @@ contract RevenueRights {
                 share = (msg.value * rightsHolders[i].basisPoints) / 10000;
                 remaining -= share;
             }
-            rightsHolders[i].wallet.transfer(share);
+            
+            // Record split inside accruedBalances (Pull Payment Pattern)
+            accruedBalances[rightsHolders[i].wallet] += share;
+            
             emit HolderPaid(
                 rightsHolders[i].wallet,
                 rightsHolders[i].fullName,
@@ -92,6 +111,20 @@ contract RevenueRights {
 
         totalDistributed += msg.value;
         emit RevenueDistributed(msg.sender, msg.value, block.timestamp);
+    }
+
+    /**
+     * @dev Claim accumulated revenue. Safely transfers ETH via call, avoiding the 2300 gas block.
+     */
+    function claim() external nonReentrant {
+        uint256 balance = accruedBalances[msg.sender];
+        require(balance > 0, "No balance to claim");
+
+        accruedBalances[msg.sender] = 0;
+        (bool success, ) = msg.sender.call{value: balance}("");
+        require(success, "Transfer failed");
+
+        emit HolderClaimed(msg.sender, balance);
     }
 
     function getRightsHolders() external view

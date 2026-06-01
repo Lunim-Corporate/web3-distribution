@@ -10,11 +10,12 @@ import { useRevenueSplitter } from '@/lib/web3';
 import { DEMO_ACCOUNTS } from '@/app/components/Navbar';
 import { useWallets } from '@privy-io/react-auth';
 import { toast } from 'react-hot-toast';
+import { ETH_PRICE_USD } from '@/app/lib/constants';
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user, logout, setNotifyResurfacingHours, settings, exportWallet, linkWallet } = useAuth();
-  const { smartAccountAddress, isInitializing } = useRevenueSplitter();
+  const { smartAccountAddress, isInitializing, getAccruedBalanceEth, claimRevenue } = useRevenueSplitter();
   const { wallets } = useWallets();
   const hasEmbeddedWallet = wallets.some((w) => w.walletClientType === 'privy');
 
@@ -22,6 +23,28 @@ export default function ProfilePage() {
   const [isDemoMode, setIsDemoMode] = useState(true);
   const [demoAccount, setDemoAccount] = useState<string | null>(null);
   const [copiedText, setCopiedText] = useState<string | null>(null);
+
+  // Creator Earnings On-chain Accrued States
+  const [claimableBalance, setClaimableBalance] = useState<string>('0.0');
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false);
+
+  const activeWalletAddress = isDemoMode 
+    ? (demoAccount || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266')
+    : (wallets.find((w) => w.walletClientType === 'privy') || wallets[0])?.address;
+
+  const fetchAccruedBalance = async () => {
+    if (!activeWalletAddress) return;
+    setIsLoadingBalance(true);
+    try {
+      const bal = await getAccruedBalanceEth(activeWalletAddress);
+      setClaimableBalance(bal);
+    } catch (e) {
+      console.error('Failed to fetch accrued balance', e);
+    } finally {
+      setIsLoadingBalance(false);
+    }
+  };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -66,15 +89,40 @@ export default function ProfilePage() {
   }, [settings?.notifyResurfacingHours]);
 
   useEffect(() => {
-    // Read initial mode
     setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
     const onDemoChanged = (e: any) => setIsDemoMode(e.detail);
     window.addEventListener('demo-mode-changed', onDemoChanged);
     return () => window.removeEventListener('demo-mode-changed', onDemoChanged);
   }, []);
 
+  useEffect(() => {
+    fetchAccruedBalance();
+    
+    const handlePayment = () => fetchAccruedBalance();
+    window.addEventListener('payment-recorded', handlePayment);
+    return () => window.removeEventListener('payment-recorded', handlePayment);
+  }, [activeWalletAddress, isDemoMode]);
+
+  const handleClaim = async () => {
+    if (parseFloat(claimableBalance) <= 0) {
+      return toast.error('No accrued earnings to claim');
+    }
+    
+    setIsClaiming(true);
+    const tid = toast.loading('Initiating secure claim transfer...');
+    try {
+      await claimRevenue();
+      toast.success('Accrued earnings claimed successfully!', { id: tid });
+      fetchAccruedBalance();
+    } catch (e: any) {
+      toast.error(e.message || 'Claim transaction failed', { id: tid });
+    } finally {
+      setIsClaiming(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pt-16">
       <div className="max-w-3xl mx-auto px-6 py-10 space-y-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profile</h1>
 
@@ -94,6 +142,69 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-600 dark:text-gray-400">Role</div>
               <Badge variant={user?.role === 'admin' ? 'success' : 'default'}>{user?.role || '-'}</Badge>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Creator Accrued Earnings Card */}
+        <Card className="border-indigo-500/20 dark:border-indigo-500/10 overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full blur-2xl" />
+          <CardHeader className="bg-gradient-to-r from-indigo-500/5 to-purple-500/5 dark:from-indigo-500/10 dark:to-purple-500/10 rounded-t-2xl">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-gray-900 dark:text-white flex items-center gap-2">
+                <span className="text-xl">💰</span> Accrued Earnings (Pull Payouts)
+              </CardTitle>
+              <Button 
+                onClick={fetchAccruedBalance} 
+                variant="ghost" 
+                size="sm" 
+                className="h-8 w-8 p-0 rounded-full border border-gray-200 dark:border-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                disabled={isLoadingBalance}
+              >
+                <svg className={`w-4 h-4 ${isLoadingBalance ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12" />
+                </svg>
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6 pt-6 relative z-10">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              The platform secures your payouts using the Solidity **Pull-Payment Pattern**. Earnings from revenue rights distributions are accumulated in the contract, letting you securely claim and withdraw them whenever you like.
+            </p>
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-6 rounded-2xl bg-gradient-to-b from-indigo-500/[0.03] to-purple-500/[0.03] dark:from-indigo-500/[0.06] dark:to-purple-500/[0.06] border border-indigo-500/10">
+              <div className="text-center sm:text-left space-y-1">
+                <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Your Claimable Balance</div>
+                <div className="flex items-baseline justify-center sm:justify-start gap-2">
+                  <span className="text-4xl font-black text-gray-950 dark:text-white font-mono leading-none">
+                    {parseFloat(claimableBalance).toFixed(4)}
+                  </span>
+                  <span className="text-lg font-black text-indigo-400 font-mono">Ξ ETH</span>
+                </div>
+                <div className="text-xs text-gray-400 dark:text-gray-500 font-medium">
+                  ≈ {(parseFloat(claimableBalance) * ETH_PRICE_USD).toLocaleString('en-US', { style: 'currency', currency: 'USD' })} USD
+                </div>
+              </div>
+
+              <div className="w-full sm:w-auto shrink-0">
+                <Button 
+                  onClick={handleClaim} 
+                  disabled={isClaiming || parseFloat(claimableBalance) <= 0} 
+                  className="w-full sm:w-auto px-8 py-5 h-auto bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-black rounded-xl hover:opacity-90 transition-opacity shadow-[0_4px_20px_rgba(99,102,241,0.25)] text-xs uppercase tracking-widest shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                >
+                  {isClaiming ? 'Claiming Payout...' : 'Claim Earnings'}
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5 p-4 rounded-xl bg-gray-50 dark:bg-gray-800/40 border border-gray-100 dark:border-gray-800">
+              <div className="flex justify-between items-center text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                <span>Verification Address</span>
+                <span className="text-indigo-400">Verifiable On-Chain</span>
+              </div>
+              <div className="font-mono text-xs text-gray-600 dark:text-gray-400 truncate mt-1">
+                {activeWalletAddress || 'No connected wallet'}
+              </div>
             </div>
           </CardContent>
         </Card>

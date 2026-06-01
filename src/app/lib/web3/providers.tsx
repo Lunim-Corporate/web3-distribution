@@ -13,7 +13,7 @@ export default function Web3Providers({ children }: { children: React.ReactNode 
     <PrivyProvider
       appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID || ''}
       config={{
-        loginMethods: ['email', 'google'],
+        loginMethods: ['email', 'wallet'],
         appearance: {
           theme: 'dark',
           accentColor: '#4F46E5', // Indigo-600

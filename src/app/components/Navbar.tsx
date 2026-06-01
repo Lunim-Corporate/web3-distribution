@@ -53,7 +53,7 @@ export const WalletIcon = () => (
 );
 
 export const Navbar: React.FC = () => {
-  const { user, logout, linkWallet } = useAuth();
+  const { user, logout, linkWallet, connectUserWallet, disconnectUserWallet } = useAuth();
   const { smartAccountAddress, isInitializing } = useRevenueSplitter();
   const { wallets } = useWallets();
   const pathname = usePathname();
@@ -129,6 +129,7 @@ export const Navbar: React.FC = () => {
           setDemoAccount(accounts[0]);
           localStorage.setItem('active_demo_wallet', accounts[0]);
           window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: accounts[0] }));
+          await connectUserWallet(accounts[0], 'local');
         }
       } catch (err) {
         console.error('Failed to connect demo wallet', err);
@@ -138,19 +139,30 @@ export const Navbar: React.FC = () => {
       setDemoAccount(firstAcc);
       localStorage.setItem('active_demo_wallet', firstAcc);
       window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: firstAcc }));
+      await connectUserWallet(firstAcc, 'local');
     }
   };
 
-  const disconnectDemoWallet = () => {
+  const disconnectDemoWallet = async () => {
     setDemoAccount(null);
     localStorage.removeItem('active_demo_wallet');
     window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: null }));
+    try {
+      await disconnectUserWallet();
+    } catch (err) {
+      console.error('Failed to disconnect demo wallet from DB', err);
+    }
   };
 
-  const selectDemoAccount = (address: string) => {
+  const selectDemoAccount = async (address: string) => {
     setDemoAccount(address);
     localStorage.setItem('active_demo_wallet', address);
     window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: address }));
+    try {
+      await connectUserWallet(address, 'local');
+    } catch (err) {
+      console.error('Failed to sync selected demo wallet to DB', err);
+    }
   };
 
   const profileRef = useRef<HTMLDivElement>(null);
@@ -189,15 +201,17 @@ export const Navbar: React.FC = () => {
     if (isDemoMode) {
       syncDemoAccount();
       
-      const handleAccountsChanged = (accounts: string[]) => {
+      const handleAccountsChanged = async (accounts: string[]) => {
         if (accounts.length > 0) {
           setDemoAccount(accounts[0]);
           localStorage.setItem('active_demo_wallet', accounts[0]);
           window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: accounts[0] }));
+          try { await connectUserWallet(accounts[0], 'local'); } catch (e) { console.error(e); }
         } else {
           setDemoAccount(null);
           localStorage.removeItem('active_demo_wallet');
           window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: null }));
+          try { await disconnectUserWallet(); } catch (e) { console.error(e); }
         }
       };
 
@@ -215,7 +229,7 @@ export const Navbar: React.FC = () => {
     } else {
       setDemoAccount(null);
     }
-  }, [isDemoMode]);
+  }, [isDemoMode, connectUserWallet, disconnectUserWallet]);
 
   useEffect(() => {
     setIsDemoMode(localStorage.getItem('demo_mode') === 'true');

@@ -17,5 +17,10 @@ module.exports = {
       url: "http://127.0.0.1:8545",
       chainId: 31337,
     },
+    "base-sepolia": {
+      url: process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC || "https://sepolia.base.org",
+      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
+      chainId: 84532,
+    },
   },
 };

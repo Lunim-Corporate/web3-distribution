@@ -154,7 +154,7 @@ export default function AdminPage() {
   if (isLoading || !user) return <div className="p-8 text-center text-white">Loading Admin Panel...</div>;
 
   return (
-    <main className="p-8 max-w-7xl mx-auto space-y-8 min-h-screen pb-20">
+    <main className="p-8 pt-24 max-w-7xl mx-auto space-y-8 min-h-screen pb-20">
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-4xl font-black text-white tracking-tight">Admin Control Center</h1>

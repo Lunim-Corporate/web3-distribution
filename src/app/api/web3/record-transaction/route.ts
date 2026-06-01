@@ -51,16 +51,21 @@ export async function POST(req: NextRequest) {
 
       // 3. Update each rights holder's total_received
       for (const h of holders) {
-        const { data: current } = await supabaseAdmin
-          .from('rights_holders')
-          .select('total_received')
-          .eq('id', h.rights_holder_id)
-          .single();
+        if (!h.rights_holder_id) continue;
+        try {
+          const { data: current } = await supabaseAdmin
+            .from('rights_holders')
+            .select('total_received')
+            .eq('id', h.rights_holder_id)
+            .single();
 
-        await supabaseAdmin
-          .from('rights_holders')
-          .update({ total_received: (Number(current?.total_received || 0) + Number(h.amount_eth)) })
-          .eq('id', h.rights_holder_id);
+          await supabaseAdmin
+            .from('rights_holders')
+            .update({ total_received: (Number(current?.total_received || 0) + Number(h.amount_eth)) })
+            .eq('id', h.rights_holder_id);
+        } catch (err) {
+          console.warn(`Could not update total for holder ${h.rights_holder_id}:`, err);
+        }
       }
     }
 

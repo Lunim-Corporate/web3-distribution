@@ -74,6 +74,25 @@ export async function POST(req: Request) {
           profile = updatedProfile;
         }
       }
+    } else {
+      // Insert fallback profile record
+      const { data: newProfile, error: insertError } = await supabaseAdmin
+        .from('users_profile')
+        .insert({
+          id: supabaseUser.id,
+          display_name: email.split('@')[0],
+          role: 'RIGHTS_HOLDER',
+          wallet_address: walletAddress ? walletAddress.toLowerCase() : null,
+          wallet_type: walletAddress ? walletType : null
+        })
+        .select()
+        .single();
+        
+      if (!insertError && newProfile) {
+        profile = newProfile;
+      } else if (insertError) {
+        console.error('Failed to insert fallback profile on sync:', insertError);
+      }
     }
 
     // 4. Return the profile data

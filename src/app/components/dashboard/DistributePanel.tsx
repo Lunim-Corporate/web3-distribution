@@ -6,10 +6,10 @@ import { toast } from 'react-hot-toast';
 import { ETH_PRICE_USD, formatUSD as fmtUSD } from '@/app/lib/constants';
 import { useAuth } from '@/app/lib/auth';
 import { useRevenueSplitter } from '@/lib/web3';
+import { TxModal, TxStep } from '../ui/TxModal';
 
 interface Project { id: string; name: string; total_distributed: number; }
 interface RightsHolder { id: string; full_name: string; role: string; wallet_address: string; percentage: number; }
-
 
 export function DistributePanel({ project, holders }: { project: Project | null; holders: RightsHolder[] }) {
   const { user } = useAuth();
@@ -24,7 +24,34 @@ export function DistributePanel({ project, holders }: { project: Project | null;
     window.addEventListener('demo-mode-changed', onDemoChanged);
     return () => window.removeEventListener('demo-mode-changed', onDemoChanged);
   }, []);
+
   const [txHash, setTxHash] = useState('');
+  
+  // Transaction Steps Visualizer State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalError, setModalError] = useState('');
+  const [modalTxHash, setModalTxHash] = useState('');
+  const [steps, setSteps] = useState<TxStep[]>([
+    { id: 'prep', title: 'Preparing payload', description: 'Formulating transaction payload and security checks.', status: 'idle' },
+    { id: 'sponsor', title: 'Sponsoring gas', description: 'Sponsoring transaction gas via Alchemy Paymaster (gasless for you!).', status: 'idle' },
+    { id: 'mine', title: 'Mining transaction', description: 'Broadcasting UserOperation to bundlers & awaiting on-chain block mining.', status: 'idle' },
+    { id: 'index', title: 'Reconciling ledger', description: 'Indexing on-chain events to database splits & updating creator balances.', status: 'idle' },
+  ]);
+
+  const updateStep = (id: string, status: 'idle' | 'running' | 'success' | 'error') => {
+    setSteps(prev => prev.map(s => s.id === id ? { ...s, status } : s));
+  };
+
+  const resetSteps = () => {
+    setSteps([
+      { id: 'prep', title: 'Preparing payload', description: 'Formulating transaction payload and security checks.', status: 'idle' },
+      { id: 'sponsor', title: 'Sponsoring gas', description: 'Sponsoring transaction gas via Alchemy Paymaster (gasless for you!).', status: 'idle' },
+      { id: 'mine', title: 'Mining transaction', description: 'Broadcasting UserOperation to bundlers & awaiting on-chain block mining.', status: 'idle' },
+      { id: 'index', title: 'Reconciling ledger', description: 'Indexing on-chain events to database splits & updating creator balances.', status: 'idle' },
+    ]);
+    setModalError('');
+    setModalTxHash('');
+  };
   
   const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS || '';
 
@@ -41,9 +68,28 @@ export function DistributePanel({ project, holders }: { project: Project | null;
 
     setIsProcessing(true);
     setTxHash('');
+    
+    // Open TxModal and reset progress steps
+    setIsModalOpen(true);
+    resetSteps();
+
+    let currentStepId = 'prep';
 
     try {
-      const tid = toast.loading(isDemoMode ? 'Simulating sandbox distribution...' : 'Executing distribution on Base Sepolia...');
+      // 1. Preparing payload
+      updateStep('prep', 'running');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      updateStep('prep', 'success');
+
+      // 2. Sponsoring gas
+      currentStepId = 'sponsor';
+      updateStep('sponsor', 'running');
+      await new Promise(resolve => setTimeout(resolve, 800));
+      updateStep('sponsor', 'success');
+
+      // 3. Mining transaction
+      currentStepId = 'mine';
+      updateStep('mine', 'running');
 
       let manualTxHash: string | null = null;
 
@@ -68,8 +114,6 @@ export function DistributePanel({ project, holders }: { project: Project | null;
         const isChainHardhat = parseInt(activeChainIdHex, 16) === 31337;
 
         if (hasMetaMask && isMetaMaskMatching && isChainHardhat) {
-          // Send transaction to local Hardhat contract using MetaMask (FREE of cost)
-          toast.loading('Sending on-chain localhost transaction...', { id: tid });
           try {
             const weiHex = `0x${Math.floor(ethAmount * 1e18).toString(16)}`;
             manualTxHash = await window.ethereum!.request({
@@ -88,7 +132,6 @@ export function DistributePanel({ project, holders }: { project: Project | null;
         }
 
         if (!manualTxHash) {
-          // Simulated Sandbox transaction
           await new Promise(resolve => setTimeout(resolve, 1500));
           manualTxHash = '0x' + Array.from({length: 64}, () => Math.floor(Math.random()*16).toString(16)).join('');
         }
@@ -96,12 +139,15 @@ export function DistributePanel({ project, holders }: { project: Project | null;
       } else {
         // --- LIVE MODE TRANSACTION EXECUTION ---
         if (CONTRACT_ADDRESS) {
-          toast.loading('Sending on-chain transaction...', { id: tid });
           manualTxHash = await distributeRevenue(amount);
         }
       }
 
-      toast.loading('Confirmed! Syncing to database...', { id: tid });
+      updateStep('mine', 'success');
+
+      // 4. Reconciling database ledger
+      currentStepId = 'index';
+      updateStep('index', 'running');
 
       const res = await fetch('/api/web3/auto-distribute', {
         method: 'POST',
@@ -111,6 +157,7 @@ export function DistributePanel({ project, holders }: { project: Project | null;
           amount_eth: ethAmount,
           manual_tx_hash: manualTxHash,
           sender_address: isDemoMode ? (localStorage.getItem('active_demo_wallet') || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266') : smartAccountAddress,
+          is_demo: isDemoMode,
           holders: holders.map(h => ({
             rights_holder_id: h.id,
             wallet_address: h.wallet_address,
@@ -129,10 +176,15 @@ export function DistributePanel({ project, holders }: { project: Project | null;
 
       const data = await res.json();
       setTxHash(data.txHash);
-      toast.success(isDemoMode ? 'Sandbox distribution completed!' : 'Revenue distributed successfully!', { id: tid });
+      setModalTxHash(data.txHash);
+      updateStep('index', 'success');
+      
+      toast.success(isDemoMode ? 'Sandbox distribution completed!' : 'Revenue distributed successfully!');
       window.dispatchEvent(new CustomEvent('payment-recorded', { detail: { projectId: project.id } }));
 
     } catch (e: any) {
+      updateStep(currentStepId, 'error');
+      setModalError(e.message || 'Transaction failed');
       toast.error(e.message || 'Distribution failed');
     } finally {
       setIsProcessing(false);
@@ -155,8 +207,6 @@ export function DistributePanel({ project, holders }: { project: Project | null;
                   : "Distribute project revenue seamlessly and transparently across the blockchain."}
               </p>
             </div>
-            
-            
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
@@ -177,14 +227,12 @@ export function DistributePanel({ project, holders }: { project: Project | null;
                 </div>
               </div>
 
-              
-
               <button 
                 onClick={handleDistribute}
                 disabled={isProcessing}
                 className="w-full py-6 bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-500 bg-[length:200%_auto] hover:bg-right text-white font-black rounded-[32px] transition-all shadow-[0_0_30px_rgba(99,102,241,0.3)] disabled:opacity-50 uppercase tracking-[0.3em] text-sm animate-gradient"
               >
-                {isProcessing ? 'Executing Contract...' : 'Initiate Distribution'}
+                {isProcessing ? 'Executing Protocol...' : 'Initiate Distribution'}
               </button>
 
               {txHash && (
@@ -257,6 +305,15 @@ export function DistributePanel({ project, holders }: { project: Project | null;
           </div>
         ))}
       </div>
+
+      {/* Transaction progress modal */}
+      <TxModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        steps={steps} 
+        txHash={modalTxHash} 
+        error={modalError} 
+      />
     </div>
   );
-};
+}
