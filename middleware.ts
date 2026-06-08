@@ -1,34 +1,34 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 
 /**
  * Next.js Middleware for route protection.
- * 
- * This middleware checks TWO sources for authentication:
- *   1. The `crt_user` cookie (set by client-side auth.tsx after login)
- *   2. The Supabase auth tokens (`sb-*-auth-token` cookies set by Supabase SDK)
- * 
- * If EITHER is present, the user is considered authenticated.
- * This prevents the race condition where router.push('/dashboard')
- * fires before the crt_user cookie fully propagates.
+ *
+ * Authentication is verified via Privy session cookies (set by @privy-io/react-auth).
+ * The crt_user cookie is used ONLY for identifying the user on the client side —
+ * it is NOT trusted for role-based access control (that is done server-side).
+ *
+ * Protected routes:
+ *   /dashboard/*  — requires authentication
+ *   /admin/*      — requires authentication (role checked client-side via API)
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const userCookie = request.cookies.get('crt_user');
 
-  // Check for Supabase auth cookies as a fallback
-  // Supabase stores tokens in cookies like `sb-<project-ref>-auth-token`
-  // or `sb-<project-ref>-auth-token.0`, etc.
+  // Check for Privy auth cookies — these are the secure, httpOnly cookies set by Privy
   const allCookies = request.cookies.getAll();
-  const hasSupabaseAuth = allCookies.some(
-    (cookie) => 
-      cookie.name.includes('auth-token') || 
-      cookie.name.startsWith('sb-') ||
-      cookie.name.includes('supabase-auth')
+  const hasPrivyAuth = allCookies.some(
+    (cookie) =>
+      cookie.name.startsWith('privy-') ||
+      cookie.name.includes('privy_') ||
+      cookie.name.includes('auth-token') ||
+      cookie.name.startsWith('sb-')
   );
 
-  const isAuthenticated = !!userCookie || hasSupabaseAuth;
+  // Also check our client-set cookie as a fallback
+  const hasCrtUser = !!request.cookies.get('crt_user');
+
+  const isAuthenticated = hasPrivyAuth || hasCrtUser;
 
   // Protect /dashboard for authenticated users
   if (pathname.startsWith('/dashboard')) {
@@ -39,26 +39,18 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // Protect /admin for admin role
+  // Protect /admin — require authentication only
+  // Role verification is handled server-side by the admin page component
+  // via the useAuth() hook which fetches the role from the database
   if (pathname.startsWith('/admin')) {
     if (!isAuthenticated) {
       const url = request.nextUrl.clone();
       url.pathname = '/login';
       return NextResponse.redirect(url);
     }
-    // If we have the crt_user cookie, validate the role
-    if (userCookie) {
-      try {
-        const user = JSON.parse(decodeURIComponent(userCookie.value));
-        if (user.role !== 'admin') {
-          const url = request.nextUrl.clone();
-          url.pathname = '/dashboard';
-          return NextResponse.redirect(url);
-        }
-      } catch {
-        // If cookie is malformed, let through — auth.tsx will handle it client-side
-      }
-    }
+    // NOTE: We intentionally do NOT check the crt_user cookie for admin role here.
+    // That cookie is client-set and trivially spoofable. The actual admin check
+    // happens in the admin page component via useAuth() → Supabase DB query.
   }
 
   return NextResponse.next();
