@@ -236,68 +236,92 @@ export function useRevenueSplitter() {
       transport: http(ALCHEMY_RPC),
     });
 
-    const smartAccount = await toSafeSmartAccount({
-      client: publicClient,
-      owners: [provider as any],
-      version: '1.4.1',
-      entryPoint: {
-        address: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
-        version: '0.6',
-      },
-    });
-
-    const smartAccountClient: any = createSmartAccountClient({
-      account: smartAccount,
-      chain: baseSepolia,
-      bundlerTransport: http(BUNDLER_URL),
-      middleware: {
-        sponsorUserOperation: async ({ userOperation }: { userOperation: any }) => {
-          const response = await fetch(PAYMASTER_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              jsonrpc: '2.0',
-              id: 1,
-              method: 'alchemy_requestGasAndPaymasterAndData',
-              params: [
-                {
-                  ...userOperation,
-                  nonce: `0x${BigInt(userOperation.nonce || 0).toString(16)}`,
-                  sender: smartAccount.address,
-                  callData: userOperation.callData,
-                },
-                { policyId: process.env.NEXT_PUBLIC_ALCHEMY_GAS_POLICY_ID },
-              ],
-            }),
-          });
-          const result = await response.json();
-          if (result.error) throw new Error(result.error.message);
-          return {
-            paymasterAndData: result.result.paymasterAndData,
-            preVerificationGas: result.result.preVerificationGas,
-            verificationGasLimit: result.result.verificationGasLimit,
-            callGasLimit: result.result.callGasLimit,
-          };
-        },
-      },
-    } as any);
-
     const valueWei = parseEther(amountEth);
     const callData = encodeFunctionData({
       abi: ABI,
       functionName: 'distributeRevenue',
     });
 
-    const txHash = await smartAccountClient.sendTransaction({
-      account: smartAccount,
-      to: REVENUE_SPLITTER_ADDRESS,
-      value: valueWei,
-      data: callData,
-    });
+    try {
+      if (!process.env.NEXT_PUBLIC_ALCHEMY_GAS_POLICY_ID) {
+        throw new Error('No gas policy ID configured, falling back to direct EOA');
+      }
 
-    await publicClient.waitForTransactionReceipt({ hash: txHash });
+      const smartAccount = await toSafeSmartAccount({
+        client: publicClient,
+        owners: [provider as any],
+        version: '1.4.1',
+        entryPoint: {
+          address: '0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789',
+          version: '0.6',
+        },
+      });
 
-    return txHash;
+      const smartAccountClient: any = createSmartAccountClient({
+        account: smartAccount,
+        chain: baseSepolia,
+        bundlerTransport: http(BUNDLER_URL),
+        middleware: {
+          sponsorUserOperation: async ({ userOperation }: { userOperation: any }) => {
+            const response = await fetch(PAYMASTER_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                jsonrpc: '2.0',
+                id: 1,
+                method: 'alchemy_requestGasAndPaymasterAndData',
+                params: [
+                  {
+                    ...userOperation,
+                    nonce: `0x${BigInt(userOperation.nonce || 0).toString(16)}`,
+                    sender: smartAccount.address,
+                    callData: userOperation.callData,
+                  },
+                  { policyId: process.env.NEXT_PUBLIC_ALCHEMY_GAS_POLICY_ID },
+                ],
+              }),
+            });
+            const result = await response.json();
+            if (result.error) throw new Error(result.error.message);
+            return {
+              paymasterAndData: result.result.paymasterAndData,
+              preVerificationGas: result.result.preVerificationGas,
+              verificationGasLimit: result.result.verificationGasLimit,
+              callGasLimit: result.result.callGasLimit,
+            };
+          },
+        },
+      } as any);
+
+      const txHash = await smartAccountClient.sendTransaction({
+        account: smartAccount,
+        to: REVENUE_SPLITTER_ADDRESS,
+        value: valueWei,
+        data: callData,
+      });
+
+      await publicClient.waitForTransactionReceipt({ hash: txHash });
+      return txHash;
+
+    } catch (smartAccountError) {
+      console.warn('Smart Account/Paymaster failed, falling back to direct EOA transaction:', smartAccountError);
+
+      const walletClient = createWalletClient({
+        account: activeWallet.address as Address,
+        chain: baseSepolia,
+        transport: custom(provider as any),
+      });
+
+      const txHash = await walletClient.sendTransaction({
+        account: activeWallet.address as Address,
+        to: REVENUE_SPLITTER_ADDRESS,
+        value: valueWei,
+        data: callData,
+      });
+
+      await publicClient.waitForTransactionReceipt({ hash: txHash });
+      return txHash;
+    }
   };
 
   return {
