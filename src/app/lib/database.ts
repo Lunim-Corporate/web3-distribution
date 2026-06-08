@@ -82,7 +82,22 @@ export async function updateProject(id: string, updates: any) {
 
 // Contributors
 export async function addContributor(data: any) {
-  return null; // Disabled for LUNIM read-only schema
+  const { data: inserted, error } = await supabase
+    .from('rights_holders')
+    .insert([{
+      project_id: data.project_id,
+      user_id: data.user_id || null,
+      full_name: data.name || 'Unknown',
+      role: data.role || 'Contributor',
+      wallet_address: data.wallet_address || '0x0000000000000000000000000000000000000000',
+      percentage: Number(data.revenue_share || 0),
+      email: data.email || null,
+      status: 'ACTIVE'
+    }])
+    .select()
+    .single();
+  if (error) throw error;
+  return inserted;
 }
 
 export async function getProjectContributors(projectId: string) {
@@ -95,12 +110,12 @@ export async function getProjectContributors(projectId: string) {
   return data.map((h: any) => ({
     id: h.id,
     project_id: h.project_id,
-    user_id: h.id,
+    user_id: h.user_id || h.id,
     role: h.role,
     revenue_share: h.percentage,
     total_earned: h.total_received || 0,
     users: {
-      name: h.name || h.full_name || 'Unknown',
+      name: h.full_name || 'Unknown',
       wallet_address: h.wallet_address,
       avatar: h.avatar_initials || '',
     }
@@ -108,7 +123,23 @@ export async function getProjectContributors(projectId: string) {
 }
 
 export async function updateContributor(id: string, updates: any) {
-  return null; // Disabled
+  const mappedUpdates: any = {};
+  if (updates.name !== undefined) mappedUpdates.full_name = updates.name;
+  if (updates.role !== undefined) mappedUpdates.role = updates.role;
+  if (updates.revenue_share !== undefined) mappedUpdates.percentage = Number(updates.revenue_share);
+  if (updates.wallet_address !== undefined) mappedUpdates.wallet_address = updates.wallet_address;
+  if (updates.email !== undefined) mappedUpdates.email = updates.email;
+  if (updates.status !== undefined) mappedUpdates.status = updates.status;
+  if (updates.user_id !== undefined) mappedUpdates.user_id = updates.user_id;
+
+  const { data, error } = await supabase
+    .from('rights_holders')
+    .update(mappedUpdates)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
 }
 
 // Payments
@@ -135,14 +166,94 @@ export async function getPayments(projectId: string) {
 }
 
 // Creative Rights
-export async function addCreativeRight(data: any) { return null; }
-export async function getCreativeRights(projectId: string) { return []; }
-export async function updateCreativeRight(id: string, updates: any) { return null; }
+export async function addCreativeRight(data: any) {
+  const { data: inserted, error } = await supabase
+    .from('creative_rights')
+    .insert([{
+      project_id: data.project_id || data.projectId,
+      rights_type: data.rights_type || data.rightsType,
+      owner_id: data.owner_id || data.ownerId,
+      revenue_share: Number(data.revenue_share || data.revenueShare || 0),
+      status: data.status || 'active',
+      expiration_date: data.expiration_date || data.expirationDate || null
+    }])
+    .select()
+    .single();
+  if (error) throw error;
+  return inserted;
+}
+
+export async function getCreativeRights(projectId: string) {
+  const { data, error } = await supabase
+    .from('creative_rights')
+    .select(`
+      *,
+      users:owner_id(id, name, email)
+    `)
+    .eq('project_id', projectId);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function updateCreativeRight(id: string, updates: any) {
+  const mappedUpdates: any = {};
+  if (updates.rights_type !== undefined) mappedUpdates.rights_type = updates.rights_type;
+  if (updates.rightsType !== undefined) mappedUpdates.rights_type = updates.rightsType;
+  if (updates.owner_id !== undefined) mappedUpdates.owner_id = updates.owner_id;
+  if (updates.ownerId !== undefined) mappedUpdates.owner_id = updates.ownerId;
+  if (updates.revenue_share !== undefined) mappedUpdates.revenue_share = Number(updates.revenue_share);
+  if (updates.revenueShare !== undefined) mappedUpdates.revenue_share = Number(updates.revenueShare);
+  if (updates.status !== undefined) mappedUpdates.status = updates.status;
+  if (updates.expiration_date !== undefined) mappedUpdates.expiration_date = updates.expiration_date;
+  if (updates.expirationDate !== undefined) mappedUpdates.expiration_date = updates.expirationDate;
+
+  const { data, error } = await supabase
+    .from('creative_rights')
+    .update(mappedUpdates)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
 
 // Milestones
-export async function addMilestone(data: any) { return null; }
-export async function getMilestones(projectId: string) { return []; }
-export async function updateMilestone(id: string, updates: any) { return null; }
+export async function addMilestone(data: any) {
+  const { data: inserted, error } = await supabase
+    .from('milestones')
+    .insert([{
+      project_id: data.project_id || data.projectId,
+      title: data.title,
+      description: data.description || '',
+      date: data.date,
+      status: data.status || 'pending'
+    }])
+    .select()
+    .single();
+  if (error) throw error;
+  return inserted;
+}
+
+export async function getMilestones(projectId: string) {
+  const { data, error } = await supabase
+    .from('milestones')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('date', { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function updateMilestone(id: string, updates: any) {
+  const { data, error } = await supabase
+    .from('milestones')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
 
 // Search
 export async function searchProjects(query: string) {
@@ -160,8 +271,31 @@ export async function searchProjects(query: string) {
 }
 
 // Activities
-export async function logActivity(data: any) { return null; }
-export async function getActivities(userId: string) { return []; }
+export async function logActivity(data: any) {
+  const { data: inserted, error } = await supabase
+    .from('activities')
+    .insert([{
+      project_id: data.project_id || data.projectId || null,
+      user_id: data.user_id || data.userId || null,
+      action: data.action,
+      description: data.description,
+      timestamp: new Date().toISOString()
+    }])
+    .select()
+    .single();
+  if (error) throw error;
+  return inserted;
+}
+
+export async function getActivities(userId: string) {
+  const { data, error } = await supabase
+    .from('activities')
+    .select('*')
+    .eq('user_id', userId)
+    .order('timestamp', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
 
 // Reports
 export async function generateRevenueReport(startDate: string, endDate: string, projectId?: string, walletAddress?: string, client: any = supabase, isDemo?: boolean) {
