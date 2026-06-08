@@ -42,6 +42,7 @@ export default function ProjectPage() {
       users?: {
         name?: string | null;
         email?: string | null;
+        wallet_address?: string | null;
       } | null;
     }>
   >([]);
@@ -76,6 +77,7 @@ export default function ProjectPage() {
     email: '',
     role: '',
     revenue_share: 0,
+    wallet_address: '',
   });
 
   useEffect(() => {
@@ -137,10 +139,13 @@ export default function ProjectPage() {
       await addContributor({
         project_id: projectId,
         user_id: `user-${Date.now()}`,
+        name: contributorForm.name,
+        email: contributorForm.email,
         role: contributorForm.role,
         revenue_share: contributorForm.revenue_share,
+        wallet_address: contributorForm.wallet_address || '0x' + Array.from({length: 40}, () => Math.floor(Math.random()*16).toString(16)).join(''),
       });
-      setContributorForm({ name: '', email: '', role: '', revenue_share: 0 });
+      setContributorForm({ name: '', email: '', role: '', revenue_share: 0, wallet_address: '' });
       setShowContributorModal(false);
       loadProject();
     } catch (error) {
@@ -149,45 +154,66 @@ export default function ProjectPage() {
   }
 
   if (loading) {
-    return <div className="p-8 text-center">Loading...</div>;
+    return (
+      <div className="min-h-screen bg-[#070B14] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-400 font-medium">Loading project details...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!project) {
-    return <div className="p-8 text-center">Project not found</div>;
+    return (
+      <div className="min-h-screen bg-[#070B14] flex items-center justify-center p-6">
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-10 text-center max-w-md shadow-2xl">
+          <div className="text-5xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-black text-white mb-3">Project Not Found</h2>
+          <p className="text-gray-400 mb-6 text-sm">The project you are trying to view does not exist or has been deleted.</p>
+          <Link href="/dashboard" className="inline-block bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-8 py-3 rounded-xl font-bold hover:opacity-90 transition-all shadow-lg shadow-indigo-500/20">
+            Back to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <main className="min-h-screen bg-gray-50 pt-16">
+    <main className="min-h-screen bg-[#070B14] text-white pt-16">
       {/* Header */}
-      <header className="bg-white shadow sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <Link href="/dashboard" className="text-blue-600 hover:underline mb-4 inline-block">
-            ← Back to Dashboard
-          </Link>
-          <h1 className="text-2xl font-bold">{project.name}</h1>
-          <p className="text-sm text-gray-600">{project.description}</p>
+      <header className="border-b border-white/5 bg-[#070B14]/80 backdrop-blur-xl sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-6 py-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <Link href="/dashboard" className="text-gray-400 hover:text-white transition-colors text-xs font-semibold flex items-center gap-2 mb-2 uppercase tracking-wider">
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+              Back to Dashboard
+            </Link>
+            <h1 className="text-3xl font-black text-white tracking-tight">{project.name}</h1>
+            <p className="text-sm text-gray-400 mt-1.5 max-w-3xl leading-relaxed">{project.description}</p>
+          </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-10">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-8">
             {/* Project Info Card */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-bold mb-4">Project Details</h2>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Type:</span>
-                  <span className="font-semibold">{project.type || '-'}</span>
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
+              <h2 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Project Details</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 bg-white/3 border border-white/5 rounded-xl">
+                  <span className="text-gray-500 text-[10px] uppercase tracking-wider block font-bold">Type</span>
+                  <span className="font-bold text-white text-sm mt-1 block">{project.type || 'N/A'}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Status:</span>
-                  <span className="font-semibold">{project.status}</span>
+                <div className="p-4 bg-white/3 border border-white/5 rounded-xl">
+                  <span className="text-gray-500 text-[10px] uppercase tracking-wider block font-bold">Status</span>
+                  <span className="font-bold text-white text-sm mt-1 block uppercase tracking-wide">{project.status}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Created:</span>
-                  <span className="font-semibold">
+                <div className="p-4 bg-white/3 border border-white/5 rounded-xl">
+                  <span className="text-gray-500 text-[10px] uppercase tracking-wider block font-bold">Created</span>
+                  <span className="font-bold text-white text-sm mt-1 block">
                     {project.created_at ? new Date(project.created_at).toLocaleDateString('en-GB') : '-'}
                   </span>
                 </div>
@@ -195,30 +221,30 @@ export default function ProjectPage() {
             </div>
 
             {/* Contributors Section */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Contributors ({contributors.length})</h2>
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xs font-black uppercase tracking-widest text-gray-400">Contributors ({contributors.length})</h2>
                 <button
                   onClick={() => setShowContributorModal(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                  className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl hover:opacity-90 transition-all font-bold text-xs shadow-md shadow-indigo-500/10"
                 >
                   + Add Contributor
                 </button>
               </div>
               <div className="space-y-3">
                 {contributors.length === 0 ? (
-                  <p className="text-gray-600">No contributors yet</p>
+                  <p className="text-gray-400 text-sm italic">No contributors yet</p>
                 ) : (
                   contributors.map((c) => (
-                    <div key={c.id} className="flex items-center justify-between p-3 border border-gray-200 rounded">
+                    <div key={c.id} className="flex items-center justify-between p-4 bg-white/3 border border-white/5 hover:border-white/10 rounded-xl transition-all">
                       <div>
-                        <div className="font-semibold">{c.users?.name || 'Unknown'}</div>
-                        <div className="text-sm text-gray-600">{c.role}</div>
-                        <div className="text-xs text-gray-500">{c.users?.email}</div>
+                        <div className="font-bold text-white text-sm">{c.users?.name || 'Unknown'}</div>
+                        <div className="text-xs text-gray-400 mt-0.5">{c.role}</div>
+                        <div className="text-[10px] text-indigo-300 font-mono mt-1 select-all">{c.users?.wallet_address || 'No wallet address'}</div>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold text-blue-600">{c.revenue_share}%</div>
-                        <div className="text-sm text-gray-600">
+                        <div className="font-black text-indigo-400 text-sm">{c.revenue_share}% Share</div>
+                        <div className="text-xs text-gray-300 mt-1 font-mono">
                           Earned: {formatCurrencyFromCentsGB(c.total_earned)}
                         </div>
                       </div>
@@ -229,31 +255,31 @@ export default function ProjectPage() {
             </div>
 
             {/* Payments Section */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">Payment History</h2>
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xs font-black uppercase tracking-widest text-gray-400">Payment History</h2>
                 <button
                   onClick={handleRecordPayment}
-                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl hover:opacity-90 transition-all font-bold text-xs shadow-md shadow-emerald-500/10"
                 >
                   Record Payment
                 </button>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {payments.length === 0 ? (
-                  <p className="text-gray-600">No payments recorded</p>
+                  <p className="text-gray-400 text-sm italic">No payments recorded</p>
                 ) : (
                   payments.map((p) => (
-                    <div key={p.id} className="flex justify-between items-center p-3 border border-gray-200 rounded">
+                    <div key={p.id} className="flex justify-between items-center p-4 bg-white/3 border border-white/5 hover:border-white/10 rounded-xl transition-all">
                       <div>
-                        <div className="font-semibold">{p.source || 'Payment'}</div>
-                        <div className="text-sm text-gray-600">
+                        <div className="font-bold text-white text-sm">{p.source || 'Payment'}</div>
+                        <div className="text-xs text-gray-400 mt-0.5">
                           {p.payment_date
                             ? new Date(p.payment_date).toLocaleDateString('en-GB')
                             : '-'}
                         </div>
                       </div>
-                      <div className="font-bold text-green-600">
+                      <div className="font-black text-emerald-400 font-mono">
                         +{formatCurrencyFromCentsGB(p.amount)}
                       </div>
                     </div>
@@ -264,22 +290,22 @@ export default function ProjectPage() {
 
             {/* Rights Section */}
             {rights.length > 0 && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-bold mb-4">Creative Rights</h2>
-                <div className="space-y-3">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
+                <h2 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-6">Creative Rights</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {rights.map((r) => (
-                    <div key={r.id} className="p-3 border border-orange-200 bg-orange-50 rounded">
-                      <div className="font-semibold">{r.rights_type}</div>
-                      <div className="text-sm text-gray-600 mt-1">
-                        Owner: {r.users?.name || 'Unknown'}
+                    <div key={r.id} className="p-4 border border-orange-500/20 bg-orange-500/5 rounded-xl hover:border-orange-500/30 transition-all">
+                      <div className="font-bold text-orange-400 text-sm">{r.rights_type}</div>
+                      <div className="text-xs text-gray-300 mt-2">
+                        Owner: <span className="text-white font-medium">{r.users?.name || 'Unknown'}</span>
                       </div>
-                      <div className="flex justify-between mt-2">
-                        <span className="text-sm">{r.revenue_share}% Revenue Share</span>
-                        <span className="text-sm font-semibold">{r.status}</span>
+                      <div className="flex justify-between mt-3 text-xs border-t border-white/5 pt-2">
+                        <span className="text-gray-400">{r.revenue_share}% Revenue Share</span>
+                        <span className="text-orange-300 font-semibold uppercase">{r.status}</span>
                       </div>
                       {r.expiration_date && (
-                        <div className="text-xs text-gray-500 mt-1">
-                          Expires: {r.expiration_date}
+                        <div className="text-[10px] text-gray-400 mt-2 font-mono">
+                          Expires: {new Date(r.expiration_date).toLocaleDateString('en-GB')}
                         </div>
                       )}
                     </div>
@@ -290,15 +316,15 @@ export default function ProjectPage() {
 
             {/* Milestones Section */}
             {milestones.length > 0 && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-xl font-bold mb-4">Milestones</h2>
-                <div className="space-y-3">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
+                <h2 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-6">Milestones</h2>
+                <div className="space-y-4">
                   {milestones.map((m) => (
-                    <div key={m.id} className="p-3 border border-purple-200 bg-purple-50 rounded">
-                      <div className="font-semibold">{m.title}</div>
-                      <div className="mt-2 bg-gray-200 rounded-full h-2">
+                    <div key={m.id} className="p-4 border border-purple-500/20 bg-purple-500/5 rounded-xl hover:border-purple-500/30 transition-all">
+                      <div className="font-bold text-purple-400 text-sm mb-2">{m.title}</div>
+                      <div className="bg-white/5 rounded-full h-2 overflow-hidden">
                         <div
-                          className="bg-purple-600 h-2 rounded-full"
+                          className="bg-gradient-to-r from-purple-500 to-indigo-500 h-2 rounded-full"
                           style={{
                             width: `${Math.min(
                               (Number(m.current_amount ?? 0) / Math.max(Number(m.target_amount ?? 0), 1)) * 100,
@@ -307,12 +333,12 @@ export default function ProjectPage() {
                           }}
                         ></div>
                       </div>
-                      <div className="flex justify-between text-sm text-gray-600 mt-1">
-                        <span>{formatCurrencyFromCentsGB(m.current_amount)}</span>
-                        <span>{formatCurrencyFromCentsGB(m.target_amount)}</span>
+                      <div className="flex justify-between text-xs text-gray-400 mt-2 font-mono">
+                        <span>{formatCurrencyFromCentsGB(m.current_amount || 0)}</span>
+                        <span>Target: {formatCurrencyFromCentsGB(m.target_amount || 0)}</span>
                       </div>
                       {m.deadline && (
-                        <div className="text-xs text-gray-500 mt-1">Deadline: {m.deadline}</div>
+                        <div className="text-[10px] text-gray-400 mt-2 font-mono">Deadline: {new Date(m.deadline).toLocaleDateString('en-GB')}</div>
                       )}
                     </div>
                   ))}
@@ -324,17 +350,17 @@ export default function ProjectPage() {
           {/* Sidebar */}
           <aside className="space-y-6">
             {/* Revenue Card */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-sm text-gray-600 mb-2">Total Revenue</h3>
-              <div className="text-3xl font-bold text-blue-600">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
+              <h3 className="text-xs uppercase tracking-wider text-gray-400 font-black mb-2">Total Revenue</h3>
+              <div className="text-3xl font-black text-indigo-400 font-mono">
                 {formatCurrencyFromCentsGB(project.total_revenue || 0)}
               </div>
-              <div className="mt-4 pt-4 border-t">
-                <div className="text-sm text-gray-600 mb-1">Progress</div>
-                <div className="text-2xl font-bold mb-2">{project.progress || 0}%</div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="mt-6 pt-6 border-t border-white/5">
+                <div className="text-xs text-gray-400 uppercase tracking-wider mb-2">Progress</div>
+                <div className="text-2xl font-black text-white mb-2 font-mono">{project.progress || 0}%</div>
+                <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden">
                   <div
-                    className="bg-blue-600 h-2 rounded-full"
+                    className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full"
                     style={{ width: `${project.progress || 0}%` }}
                   ></div>
                 </div>
@@ -342,47 +368,47 @@ export default function ProjectPage() {
             </div>
 
             {/* Summary Card */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-bold mb-4">Summary</h3>
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
+              <h3 className="text-xs uppercase tracking-wider text-gray-400 font-black mb-4">Summary</h3>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Contributors:</span>
-                  <span className="font-semibold">{contributors.length}</span>
+                  <span className="text-gray-400">Contributors</span>
+                  <span className="font-bold text-white">{contributors.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Payments:</span>
-                  <span className="font-semibold">{payments.length}</span>
+                  <span className="text-gray-400">Payments</span>
+                  <span className="font-bold text-white">{payments.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Rights:</span>
-                  <span className="font-semibold">{rights.length}</span>
+                  <span className="text-gray-400">Rights</span>
+                  <span className="font-bold text-white">{rights.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Milestones:</span>
-                  <span className="font-semibold">{milestones.length}</span>
+                  <span className="text-gray-400">Milestones</span>
+                  <span className="font-bold text-white">{milestones.length}</span>
                 </div>
               </div>
             </div>
 
             {/* Actions Card */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-bold mb-4">Actions</h3>
-              <div className="space-y-2">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
+              <h3 className="text-xs uppercase tracking-wider text-gray-400 font-black mb-4">Actions</h3>
+              <div className="space-y-3">
                 <Link
                   href={`/project/${projectId}/edit`}
-                  className="block px-4 py-2 bg-blue-600 text-white rounded text-center hover:bg-blue-700 text-sm font-semibold"
+                  className="block w-full py-3 bg-white/5 border border-white/10 hover:bg-white/10 rounded-xl text-center text-white text-sm font-bold transition-all"
                 >
                   Edit Project
                 </Link>
                 <button
                   onClick={() => setShowContributorModal(true)}
-                  className="w-full px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm font-semibold"
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-center text-sm font-bold transition-all shadow-lg shadow-indigo-600/20"
                 >
                   Add Contributor
                 </button>
                 <Link
                   href={`/project/${projectId}/rights`}
-                  className="block px-4 py-2 bg-orange-600 text-white rounded text-center hover:bg-orange-700 text-sm font-semibold"
+                  className="block w-full py-3 bg-orange-600/20 border border-orange-500/30 hover:bg-orange-600/30 rounded-xl text-center text-orange-300 text-sm font-bold transition-all"
                 >
                   Manage Rights
                 </Link>
@@ -394,44 +420,54 @@ export default function ProjectPage() {
 
       {/* Add Contributor Modal */}
       {showContributorModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-2xl font-bold mb-4">Add Contributor</h2>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-[#0c1322] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <h2 className="text-xl font-black text-white mb-4">Add Contributor</h2>
             <form onSubmit={handleAddContributor} className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold mb-1">Name *</label>
+                <label className="block text-xs font-semibold mb-1.5 text-gray-400">Name *</label>
                 <input
                   type="text"
                   required
                   value={contributorForm.name}
                   onChange={(e) => setContributorForm({ ...contributorForm, name: e.target.value })}
                   placeholder="Full name"
-                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-white/5 border border-white/10 text-white px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm placeholder-gray-600"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold mb-1">Email</label>
+                <label className="block text-xs font-semibold mb-1.5 text-gray-400">Email</label>
                 <input
                   type="email"
                   value={contributorForm.email}
                   onChange={(e) => setContributorForm({ ...contributorForm, email: e.target.value })}
                   placeholder="email@example.com"
-                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-white/5 border border-white/10 text-white px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm placeholder-gray-600"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold mb-1">Role *</label>
+                <label className="block text-xs font-semibold mb-1.5 text-gray-400">Role *</label>
                 <input
                   type="text"
                   required
                   value={contributorForm.role}
                   onChange={(e) => setContributorForm({ ...contributorForm, role: e.target.value })}
                   placeholder="e.g., Producer, Artist, Engineer"
-                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-white/5 border border-white/10 text-white px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm placeholder-gray-600"
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold mb-1">Revenue Share (%) *</label>
+                <label className="block text-xs font-semibold mb-1.5 text-gray-400">Wallet Address (Optional)</label>
+                <input
+                  type="text"
+                  value={contributorForm.wallet_address}
+                  onChange={(e) => setContributorForm({ ...contributorForm, wallet_address: e.target.value })}
+                  placeholder="0x..."
+                  className="w-full bg-white/5 border border-white/10 text-white px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm font-mono placeholder-gray-600"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1.5 text-gray-400">Revenue Share (%) *</label>
                 <input
                   type="number"
                   required
@@ -441,20 +477,20 @@ export default function ProjectPage() {
                   onChange={(e) =>
                     setContributorForm({ ...contributorForm, revenue_share: Number(e.target.value) })
                   }
-                  className="w-full border border-gray-300 px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full bg-white/5 border border-white/10 text-white px-3 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm placeholder-gray-600"
                 />
               </div>
-              <div className="flex gap-2 justify-end pt-4">
+              <div className="flex gap-3 justify-end pt-4 border-t border-white/5 mt-6">
                 <button
                   type="button"
                   onClick={() => setShowContributorModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
+                  className="px-4 py-2 border border-white/10 hover:bg-white/5 text-gray-400 hover:text-white rounded-xl text-xs font-bold transition-all"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold"
+                  className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl hover:opacity-90 font-bold text-xs transition-all shadow-md shadow-indigo-500/10"
                 >
                   Add Contributor
                 </button>
