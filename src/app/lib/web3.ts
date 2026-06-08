@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useWallets } from '@privy-io/react-auth';
 import { createPublicClient, createWalletClient, http, custom, encodeFunctionData, parseEther, formatEther } from 'viem';
 import { baseSepolia, hardhat } from 'viem/chains';
+import { activeChain } from './web3/config';
 import { createSmartAccountClient } from 'permissionless';
 import { toSafeSmartAccount } from 'permissionless/accounts';
 
@@ -78,7 +79,7 @@ export function useRevenueSplitter() {
       try {
         const provider = await activeWallet.getEthereumProvider();
         const publicClient = createPublicClient({
-          chain: baseSepolia,
+          chain: activeChain,
           transport: http(ALCHEMY_RPC),
         });
 
@@ -106,7 +107,7 @@ export function useRevenueSplitter() {
     if (!REVENUE_SPLITTER_ADDRESS) throw new Error('Missing contract address');
     
     const publicClient = createPublicClient({
-      chain: isDemoMode ? hardhat : baseSepolia,
+      chain: isDemoMode ? hardhat : activeChain,
       transport: http(isDemoMode ? LOCAL_RPC : ALCHEMY_RPC),
     });
     
@@ -119,7 +120,7 @@ export function useRevenueSplitter() {
     
     try {
       const publicClient = createPublicClient({
-        chain: isDemoMode ? hardhat : baseSepolia,
+        chain: isDemoMode ? hardhat : activeChain,
         transport: http(isDemoMode ? LOCAL_RPC : ALCHEMY_RPC),
       });
 
@@ -195,13 +196,13 @@ export function useRevenueSplitter() {
       const provider = await activeWallet.getEthereumProvider();
       
       const publicClient = createPublicClient({
-        chain: baseSepolia,
+        chain: activeChain,
         transport: http(ALCHEMY_RPC),
       });
 
       const walletClient = createWalletClient({
         account: activeWallet.address as Address,
-        chain: baseSepolia,
+        chain: activeChain,
         transport: custom(provider as any),
       });
 
@@ -232,7 +233,7 @@ export function useRevenueSplitter() {
     const provider = await activeWallet.getEthereumProvider();
     
     const publicClient = createPublicClient({
-      chain: baseSepolia,
+      chain: activeChain,
       transport: http(ALCHEMY_RPC),
     });
 
@@ -259,7 +260,7 @@ export function useRevenueSplitter() {
 
       const smartAccountClient: any = createSmartAccountClient({
         account: smartAccount,
-        chain: baseSepolia,
+        chain: activeChain,
         bundlerTransport: http(BUNDLER_URL),
         middleware: {
           sponsorUserOperation: async ({ userOperation }: { userOperation: any }) => {
@@ -308,7 +309,7 @@ export function useRevenueSplitter() {
 
       const walletClient = createWalletClient({
         account: activeWallet.address as Address,
-        chain: baseSepolia,
+        chain: activeChain,
         transport: custom(provider as any),
       });
 
