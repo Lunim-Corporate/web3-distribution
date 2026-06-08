@@ -6,8 +6,32 @@ import { Navbar } from '@/components/Navbar';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Creative Rights Tracker',
-  description: 'Manage creative rights and revenue distribution',
+  title: 'LUNIM — Web3 Creative Rights & Revenue Distribution Platform',
+  description: 'LUNIM is the premium Web3 standard for creative rights and cinematic revenue distribution. Manage rights and split revenue streams instantly via automated, gasless smart contracts on Base Sepolia.',
+  keywords: ['LUNIM', 'Web3', 'Creative Rights', 'Revenue Distribution', 'Smart Contracts', 'Account Abstraction', 'Base Sepolia', 'Cinematic Rights', 'Privy', 'Alchemy'],
+  authors: [{ name: 'LUNIM Protocol' }],
+  openGraph: {
+    title: 'LUNIM — Web3 Creative Rights & Revenue Distribution Platform',
+    description: 'Split cinematic revenue streams instantly via automated, gasless smart contracts on Base Sepolia. Complete transparency for creative rights.',
+    url: 'https://lunim.io',
+    siteName: 'LUNIM Protocol',
+    images: [
+      {
+        url: 'https://lunim.io/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'LUNIM Protocol',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'LUNIM — Web3 Creative Rights & Revenue Distribution Platform',
+    description: 'Split cinematic revenue streams instantly via automated, gasless smart contracts on Base Sepolia.',
+    images: ['https://lunim.io/og-image.png'],
+  },
 };
 
 export default function RootLayout({

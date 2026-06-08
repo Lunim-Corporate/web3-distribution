@@ -236,9 +236,24 @@ export function DistributePanel({ project, holders }: { project: Project | null;
               </button>
 
               {txHash && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl">
-                  <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1">Success: Transaction Confirmed</p>
-                  <p className="text-[10px] font-mono text-emerald-400 break-all">{txHash}</p>
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-2xl space-y-2">
+                  <div>
+                    <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1">Success: Transaction Confirmed</p>
+                    <p className="text-[10px] font-mono text-emerald-400 break-all select-all">{txHash}</p>
+                  </div>
+                  {!isDemoMode && txHash.startsWith('0x') && (
+                    <a
+                      href={`https://sepolia.basescan.org/tx/${txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-[10px] font-black text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-widest"
+                    >
+                      View on BaseScan
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  )}
                 </motion.div>
               )}
             </div>

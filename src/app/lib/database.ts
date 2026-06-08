@@ -332,7 +332,6 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
     const uniqueTxHashes = new Set<string>();
     let totalRevenue = 0;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     payments?.forEach((payment: Record<string, any>) => {
       const amount = Number(payment.total_amount_eth || payment.total_amount) || 0;
       totalRevenue += amount;
@@ -392,7 +391,6 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
         percentage: totalRevenue > 0 ? (data.amount / totalRevenue) * 100 : 0,
         paymentCount: transactionCount,
       })),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       projects: Array.from(projectMap.entries()).map(([projId, data]: [string, any]) => ({
         projectId: projId,
         projectName: data.name,
@@ -404,7 +402,6 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
         splits: Array.from(data.splitSummary.values())
       })),
       topContributors: [],
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       trends: payments?.map((p: any) => ({
         date: p.created_at,
         amount: Number(p.total_amount_eth || p.total_amount) || 0,
