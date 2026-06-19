@@ -1,16 +1,16 @@
 # Graph Report - web3-freedom-upgrade  (2026-06-19)
 
 ## Corpus Check
-- 130 files · ~70,846 words
+- 130 files · ~70,971 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 875 nodes · 1177 edges · 69 communities (62 shown, 7 thin omitted)
+- 877 nodes · 1179 edges · 69 communities (62 shown, 7 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 6 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `f4f78da4`
+- Built from commit: `954b2ca6`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -118,8 +118,8 @@ Cohesion: 0.04
 Nodes (45): dependencies, autoprefixer, chart.js, clsx, cors, ethers, express, express-rate-limit (+37 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.07
-Nodes (26): RevenueFilterProps, mockContracts, mockProjects, mockRevenue, mockUsers, ContractFunction, Contributor, ContributorUpdate (+18 more)
+Cohesion: 0.08
+Nodes (24): mockContracts, mockProjects, mockRevenue, mockUsers, ContractFunction, Contributor, ContributorUpdate, CreativeRight (+16 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.19
@@ -146,8 +146,8 @@ Cohesion: 0.08
 Nodes (23): 10. Refactor Recommendations, 11. Migration Strategy, 12. Risk Assessment, 13. Files Changed in This Phase, 14. Next Steps, 1. Architecture Overview, 2. Current Authentication Flow, 3. Current Payment / Revenue Flow (+15 more)
 
 ### Community 10 - "Community 10"
-Cohesion: 0.06
-Nodes (47): TwoFactorVerificationProps, ChartsPanel(), ChartsPanelProps, DEFAULT_COLORS, monthsNames, PROJECT_COLORS, RevenueData, Notice (+39 more)
+Cohesion: 0.05
+Nodes (54): TwoFactorVerificationProps, ChartsPanel(), ChartsPanelProps, DEFAULT_COLORS, monthsNames, PROJECT_COLORS, RevenueData, Notice (+46 more)
 
 ### Community 11 - "Community 11"
 Cohesion: 0.10
@@ -170,8 +170,8 @@ Cohesion: 0.12
 Nodes (15): 1. Completed Tasks, 2. Auth Flow, 3. Files Created, 4. Files Modified, 5. Environment Variables, 6. Build Verification, 7. Key Details, 8. Risks (+7 more)
 
 ### Community 16 - "Community 16"
-Cohesion: 0.12
-Nodes (15): 1. Installation, 2. Environment Variables Configuration, Account Abstraction & EOA Fallback Architecture, 🏗️ Architecture Overview, Compile Smart Contracts, Deploy to Base Sepolia, 🚀 Key Features, Local Development Node (+7 more)
+Cohesion: 0.11
+Nodes (17): 1. Installation, 2. Environment Variables Configuration, Account Abstraction & EOA Fallback Architecture, 🏗️ Architecture Overview, Compile Smart Contracts, Deploy to Base Sepolia, 🚀 Key Features, Local Development Node (+9 more)
 
 ### Community 17 - "Community 17"
 Cohesion: 0.28
@@ -242,8 +242,8 @@ Cohesion: 0.29
 Nodes (7): { createClient }, getWallet(), { HDNodeWallet, Mnemonic }, mnemonic, path, seedData(), supabase
 
 ### Community 35 - "Community 35"
-Cohesion: 0.19
-Nodes (11): DistributePanel(), Project, RightsHolder, ABI, Address, REVENUE_SPLITTER_ADDRESS, useRevenueSplitter(), ProfilePage() (+3 more)
+Cohesion: 0.32
+Nodes (6): DistributePanel(), Project, RightsHolder, TxModal(), TxModalProps, TxStep
 
 ### Community 36 - "Community 36"
 Cohesion: 0.29
@@ -322,7 +322,7 @@ Cohesion: 0.27
 Nodes (9): DEMO_ACCOUNTS, DashboardContent(), HolderProfileModal(), fmt(), fmtEth(), Project, RightsHolder, trunc() (+1 more)
 
 ## Knowledge Gaps
-- **476 isolated node(s):** `extends`, `no-unused-vars`, `react/no-unescaped-entities`, `path`, `config` (+471 more)
+- **478 isolated node(s):** `extends`, `no-unused-vars`, `react/no-unescaped-entities`, `path`, `config` (+473 more)
   These have ≤1 connection - possible missing edges or undocumented components.
 - **7 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -330,7 +330,7 @@ Nodes (9): DEMO_ACCOUNTS, DashboardContent(), HolderProfileModal(), fmt(), fmtEt
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `checkRateLimit()` connect `Community 0` to `Community 3`?**
-  _High betweenness centrality (0.024) - this node is a cross-community bridge._
+  _High betweenness centrality (0.023) - this node is a cross-community bridge._
 - **Why does `requireAuth()` connect `Community 0` to `Community 3`?**
   _High betweenness centrality (0.016) - this node is a cross-community bridge._
 - **Why does `supabaseAdmin` connect `Community 0` to `Community 3`, `Community 68`?**
@@ -338,7 +338,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Are the 2 inferred relationships involving `requireAdmin()` (e.g. with `POST()` and `POST()`) actually correct?**
   _`requireAdmin()` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `extends`, `no-unused-vars`, `react/no-unescaped-entities` to the rest of the system?**
-  _476 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _478 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.0673274094326726 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**

@@ -44,8 +44,12 @@ LUNIM provides a **cashless, frictionless experience** using ERC-4337 Account Ab
 - **Gasless Onboarding**: Sign up via Privy using Email, Google, or Social login — no seed phrases or browser extensions required.
 - **Account Abstraction (ERC-4337)**: Embedded Safe Smart Account infrastructure.
 - **Sponsored Transactions**: 100% gas-free revenue distribution via Alchemy Paymaster.
-- **Dark Premium Dashboard**: Visual analytics, milestone timelines, real-time activity logs.
-- **Database Reconciliation**: Automated synchronization between on-chain blockchain states and local database ledgers.
+- **Production Hardened API Gateway**: Integrated sliding-window rate limiters (4 tiers: read, write, auth, sensitive) and strict Zod validation schemas with Ethereum checksum validations.
+- **Automated ETL Royalty Pipeline**: Built-in multi-source ingestion routes, automated ledger-to-blockchain reconciliation logs, and pre-computed period rollups (daily, weekly, monthly) to accelerate financial charts.
+- **Robust Security Headers**: Enforced Content Security Policy (CSP), clickjacking DENY controls, and HSTS headers.
+- **Comprehensive Smart Contract Suite**: Upgraded `RevenueSplitter` with owner payee management and dynamic share updating.
+- **Complete Test Coverage**: Includes 35 unit test suites validating contract compilation, reentrancy guards, rounding calculations, and splits claiming.
+- **Local Sandbox Verification**: Automated verification scripts (`verify-demo.js`) checking environment setups and DB integrity.
 
 ---
 
@@ -95,6 +99,18 @@ npx hardhat test
 Start a local Hardhat network:
 ```bash
 npx hardhat node
+```
+
+### Seed Database
+Populate 12+ demo transactions, 70 splits, 15 activities and projects:
+```bash
+npm run seed
+```
+
+### Run Automated System Verification
+Ensure environment setup, database records count and contract artifacts compile properly:
+```bash
+node scripts/verify-demo.js
 ```
 
 ### Deploy to Base Sepolia

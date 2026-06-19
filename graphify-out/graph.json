@@ -2320,7 +2320,7 @@
       "source_location": "L10",
       "_origin": "ast",
       "id": "dashboard_revenuefilter_revenuefilterprops",
-      "community": 3,
+      "community": 10,
       "norm_label": "revenuefilterprops"
     },
     {
@@ -3820,7 +3820,7 @@
       "source_location": "L53",
       "_origin": "ast",
       "id": "lib_types_revenue",
-      "community": 3,
+      "community": 10,
       "norm_label": "revenue"
     },
     {
@@ -4320,7 +4320,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "lib_web3",
-      "community": 35,
+      "community": 10,
       "norm_label": "web3.ts"
     },
     {
@@ -4330,7 +4330,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "lib_web3_address",
-      "community": 35,
+      "community": 10,
       "norm_label": "address"
     },
     {
@@ -4340,7 +4340,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "lib_web3_revenue_splitter_address",
-      "community": 35,
+      "community": 10,
       "norm_label": "revenue_splitter_address"
     },
     {
@@ -4350,7 +4350,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "lib_web3_abi",
-      "community": 35,
+      "community": 10,
       "norm_label": "abi"
     },
     {
@@ -4360,7 +4360,7 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "lib_web3_userevenuesplitter",
-      "community": 35,
+      "community": 10,
       "norm_label": "userevenuesplitter()"
     },
     {
@@ -4530,7 +4530,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "profile_page_profilepage",
-      "community": 35,
+      "community": 10,
       "norm_label": "profilepage()"
     },
     {
@@ -5187,7 +5187,7 @@
       "label": "\ud83d\udee0\ufe0f Local Development & Setup",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L52",
+      "source_location": "L56",
       "_origin": "ast",
       "id": "readme_local_development_setup",
       "community": 16,
@@ -5197,7 +5197,7 @@
       "label": "Prerequisites",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L54",
+      "source_location": "L58",
       "_origin": "ast",
       "id": "readme_prerequisites",
       "community": 16,
@@ -5207,7 +5207,7 @@
       "label": "1. Installation",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L58",
+      "source_location": "L62",
       "_origin": "ast",
       "id": "readme_1_installation",
       "community": 16,
@@ -5217,7 +5217,7 @@
       "label": "2. Environment Variables Configuration",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L64",
+      "source_location": "L68",
       "_origin": "ast",
       "id": "readme_2_environment_variables_configuration",
       "community": 16,
@@ -5227,7 +5227,7 @@
       "label": "\u26d3\ufe0f Smart Contract Operations (Hardhat)",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L79",
+      "source_location": "L83",
       "_origin": "ast",
       "id": "readme_smart_contract_operations_hardhat",
       "community": 16,
@@ -5237,7 +5237,7 @@
       "label": "Compile Smart Contracts",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L83",
+      "source_location": "L87",
       "_origin": "ast",
       "id": "readme_compile_smart_contracts",
       "community": 16,
@@ -5247,7 +5247,7 @@
       "label": "Run Unit Tests",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L88",
+      "source_location": "L92",
       "_origin": "ast",
       "id": "readme_run_unit_tests",
       "community": 16,
@@ -5257,17 +5257,37 @@
       "label": "Local Development Node",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L94",
+      "source_location": "L98",
       "_origin": "ast",
       "id": "readme_local_development_node",
       "community": 16,
       "norm_label": "local development node"
     },
     {
+      "label": "Seed Database",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L104",
+      "_origin": "ast",
+      "id": "readme_seed_database",
+      "community": 16,
+      "norm_label": "seed database"
+    },
+    {
+      "label": "Run Automated System Verification",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": "L110",
+      "_origin": "ast",
+      "id": "readme_run_automated_system_verification",
+      "community": 16,
+      "norm_label": "run automated system verification"
+    },
+    {
       "label": "Deploy to Base Sepolia",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L100",
+      "source_location": "L116",
       "_origin": "ast",
       "id": "readme_deploy_to_base_sepolia",
       "community": 16,
@@ -5277,7 +5297,7 @@
       "label": "Verify Contract on BaseScan",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L106",
+      "source_location": "L122",
       "_origin": "ast",
       "id": "readme_verify_contract_on_basescan",
       "community": 16,
@@ -5287,7 +5307,7 @@
       "label": "\ud83d\udce6 Tech Stack",
       "file_type": "document",
       "source_file": "README.md",
-      "source_location": "L113",
+      "source_location": "L129",
       "_origin": "ast",
       "id": "readme_tech_stack",
       "community": 16,
@@ -17683,11 +17703,31 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "README.md",
+      "source_location": "L110",
+      "weight": 1.0,
+      "source": "readme_smart_contract_operations_hardhat",
+      "target": "readme_run_automated_system_verification",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
       "source_location": "L88",
       "weight": 1.0,
       "confidence_score": 1.0,
       "source": "readme_smart_contract_operations_hardhat",
       "target": "readme_run_unit_tests"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "README.md",
+      "source_location": "L104",
+      "weight": 1.0,
+      "source": "readme_smart_contract_operations_hardhat",
+      "target": "readme_seed_database",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -20755,9 +20795,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough",
-      "target": "project_walkthrough_lunim_creative_rights_revenue_distribution_platform_complete_project_walkthrough",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_lunim_creative_rights_revenue_distribution_platform_complete_project_walkthrough"
     },
     {
       "relation": "contains",
@@ -20765,9 +20805,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L9",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_lunim_creative_rights_revenue_distribution_platform_complete_project_walkthrough",
-      "target": "project_walkthrough_1_project_overview",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_1_project_overview"
     },
     {
       "relation": "contains",
@@ -20775,9 +20815,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L19",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_lunim_creative_rights_revenue_distribution_platform_complete_project_walkthrough",
-      "target": "project_walkthrough_2_platform_architecture",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_2_platform_architecture"
     },
     {
       "relation": "contains",
@@ -20785,9 +20825,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L53",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_lunim_creative_rights_revenue_distribution_platform_complete_project_walkthrough",
-      "target": "project_walkthrough_3_core_modules_user_roles",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_3_core_modules_user_roles"
     },
     {
       "relation": "contains",
@@ -20795,9 +20835,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L73",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_lunim_creative_rights_revenue_distribution_platform_complete_project_walkthrough",
-      "target": "project_walkthrough_4_permissions_matrix_restrictions",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_4_permissions_matrix_restrictions"
     },
     {
       "relation": "contains",
@@ -20805,9 +20845,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L94",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_lunim_creative_rights_revenue_distribution_platform_complete_project_walkthrough",
-      "target": "project_walkthrough_5_security_measures_taken",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_5_security_measures_taken"
     },
     {
       "relation": "contains",
@@ -20815,9 +20855,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L116",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_lunim_creative_rights_revenue_distribution_platform_complete_project_walkthrough",
-      "target": "project_walkthrough_6_how_to_use_operating_guide",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_6_how_to_use_operating_guide"
     },
     {
       "relation": "contains",
@@ -20825,9 +20865,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L145",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_lunim_creative_rights_revenue_distribution_platform_complete_project_walkthrough",
-      "target": "project_walkthrough_7_frequently_asked_questions_faq",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_7_frequently_asked_questions_faq"
     },
     {
       "relation": "contains",
@@ -20835,9 +20875,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L57",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_3_core_modules_user_roles",
-      "target": "project_walkthrough_admin_module_production_managers_finance_officers",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_admin_module_production_managers_finance_officers"
     },
     {
       "relation": "contains",
@@ -20845,9 +20885,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L64",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_3_core_modules_user_roles",
-      "target": "project_walkthrough_creator_rights_holder_module",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_creator_rights_holder_module"
     },
     {
       "relation": "contains",
@@ -20855,9 +20895,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L88",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_4_permissions_matrix_restrictions",
-      "target": "project_walkthrough_api_protection_implementations",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_api_protection_implementations"
     },
     {
       "relation": "contains",
@@ -20865,9 +20905,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L118",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_6_how_to_use_operating_guide",
-      "target": "project_walkthrough_running_local_development_sandbox",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_running_local_development_sandbox"
     },
     {
       "relation": "contains",
@@ -20875,9 +20915,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L137",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_6_how_to_use_operating_guide",
-      "target": "project_walkthrough_workflow_steps_for_admin",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_workflow_steps_for_admin"
     },
     {
       "relation": "contains",
@@ -20885,9 +20925,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L147",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_7_frequently_asked_questions_faq",
-      "target": "project_walkthrough_q1_do_creators_need_to_pay_gas_fees_to_withdraw_or_view_their_royalties",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_q1_do_creators_need_to_pay_gas_fees_to_withdraw_or_view_their_royalties"
     },
     {
       "relation": "contains",
@@ -20895,9 +20935,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L150",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_7_frequently_asked_questions_faq",
-      "target": "project_walkthrough_q2_how_does_the_system_handle_rounding_errors_for_example_split_percentages_like_33_33",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_q2_how_does_the_system_handle_rounding_errors_for_example_split_percentages_like_33_33"
     },
     {
       "relation": "contains",
@@ -20905,9 +20945,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L153",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_7_frequently_asked_questions_faq",
-      "target": "project_walkthrough_q3_where_are_the_user_private_keys_stored",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_q3_where_are_the_user_private_keys_stored"
     },
     {
       "relation": "contains",
@@ -20915,9 +20955,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L156",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_7_frequently_asked_questions_faq",
-      "target": "project_walkthrough_q4_what_happens_if_the_express_backend_or_contract_listener_goes_offline",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_q4_what_happens_if_the_express_backend_or_contract_listener_goes_offline"
     },
     {
       "relation": "contains",
@@ -20925,9 +20965,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L159",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_7_frequently_asked_questions_faq",
-      "target": "project_walkthrough_q5_can_project_share_allocations_be_edited_after_a_contract_is_deployed",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_q5_can_project_share_allocations_be_edited_after_a_contract_is_deployed"
     },
     {
       "relation": "contains",
@@ -20935,9 +20975,9 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L162",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_7_frequently_asked_questions_faq",
-      "target": "project_walkthrough_q6_how_does_the_database_protect_user_transaction_splits_from_being_tampered_with",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_q6_how_does_the_database_protect_user_transaction_splits_from_being_tampered_with"
     },
     {
       "relation": "contains",
@@ -20945,11 +20985,11 @@
       "source_file": "project-walkthrough.md",
       "source_location": "L165",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "project_walkthrough_7_frequently_asked_questions_faq",
-      "target": "project_walkthrough_q7_can_this_platform_be_deployed_on_base_mainnet",
-      "confidence_score": 1.0
+      "target": "project_walkthrough_q7_can_this_platform_be_deployed_on_base_mainnet"
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "f4f78da4cab548151b15bed4e017a857e0c2a735"
+  "built_at_commit": "954b2ca680771200d1fab769445532557006a44d"
 }
