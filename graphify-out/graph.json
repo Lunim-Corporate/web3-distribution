@@ -1560,7 +1560,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "id_route",
-      "community": 6,
+      "community": 68,
       "norm_label": "route.ts"
     },
     {
@@ -1570,7 +1570,7 @@
       "source_location": "L4",
       "_origin": "ast",
       "id": "id_route_get",
-      "community": 6,
+      "community": 68,
       "norm_label": "get()"
     },
     {
@@ -1660,7 +1660,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "reports_route_get",
-      "community": 3,
+      "community": 0,
       "norm_label": "get()"
     },
     {
@@ -1890,7 +1890,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "components_clientlayout",
-      "community": 4,
+      "community": 52,
       "norm_label": "clientlayout.tsx"
     },
     {
@@ -1900,7 +1900,7 @@
       "source_location": "L5",
       "_origin": "ast",
       "id": "components_clientlayout_clientlayout",
-      "community": 4,
+      "community": 52,
       "norm_label": "clientlayout()"
     },
     {
@@ -1910,7 +1910,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "components_navbar",
-      "community": 4,
+      "community": 67,
       "norm_label": "navbar.tsx"
     },
     {
@@ -1920,7 +1920,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "components_navbar_demo_accounts",
-      "community": 4,
+      "community": 66,
       "norm_label": "demo_accounts"
     },
     {
@@ -1930,7 +1930,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "components_navbar_metamaskicon",
-      "community": 4,
+      "community": 67,
       "norm_label": "metamaskicon()"
     },
     {
@@ -1940,7 +1940,7 @@
       "source_location": "L42",
       "_origin": "ast",
       "id": "components_navbar_coinbaseicon",
-      "community": 4,
+      "community": 67,
       "norm_label": "coinbaseicon()"
     },
     {
@@ -1950,7 +1950,7 @@
       "source_location": "L49",
       "_origin": "ast",
       "id": "components_navbar_walleticon",
-      "community": 4,
+      "community": 67,
       "norm_label": "walleticon()"
     },
     {
@@ -1960,7 +1960,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "components_navbar_navbar",
-      "community": 4,
+      "community": 67,
       "norm_label": "navbar()"
     },
     {
@@ -2140,7 +2140,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "dashboard_distributepanel",
-      "community": 5,
+      "community": 35,
       "norm_label": "distributepanel.tsx"
     },
     {
@@ -2150,7 +2150,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "dashboard_distributepanel_project",
-      "community": 5,
+      "community": 35,
       "norm_label": "project"
     },
     {
@@ -2160,7 +2160,7 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "dashboard_distributepanel_rightsholder",
-      "community": 5,
+      "community": 35,
       "norm_label": "rightsholder"
     },
     {
@@ -2170,7 +2170,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "dashboard_distributepanel_distributepanel",
-      "community": 5,
+      "community": 35,
       "norm_label": "distributepanel()"
     },
     {
@@ -2180,7 +2180,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "dashboard_notifywidget",
-      "community": 3,
+      "community": 10,
       "norm_label": "notifywidget.tsx"
     },
     {
@@ -2190,7 +2190,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "dashboard_notifywidget_notice",
-      "community": 3,
+      "community": 10,
       "norm_label": "notice"
     },
     {
@@ -2200,7 +2200,7 @@
       "source_location": "L16",
       "_origin": "ast",
       "id": "dashboard_notifywidget_notifywidget",
-      "community": 3,
+      "community": 10,
       "norm_label": "notifywidget()"
     },
     {
@@ -2210,7 +2210,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "dashboard_paymentsplitter",
-      "community": 4,
+      "community": 10,
       "norm_label": "paymentsplitter.tsx"
     },
     {
@@ -2220,7 +2220,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "dashboard_paymentsplitter_formatusd",
-      "community": 4,
+      "community": 10,
       "norm_label": "formatusd()"
     },
     {
@@ -2230,7 +2230,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "dashboard_paymentsplitter_paymentsplitter",
-      "community": 4,
+      "community": 10,
       "norm_label": "paymentsplitter()"
     },
     {
@@ -2270,7 +2270,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "dashboard_recentactivity_recentactivity",
-      "community": 5,
+      "community": 10,
       "norm_label": "recentactivity()"
     },
     {
@@ -2750,7 +2750,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ui_txmodal",
-      "community": 5,
+      "community": 35,
       "norm_label": "txmodal.tsx"
     },
     {
@@ -2760,7 +2760,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ui_txmodal_txstep",
-      "community": 5,
+      "community": 35,
       "norm_label": "txstep"
     },
     {
@@ -2770,7 +2770,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "ui_txmodal_txmodalprops",
-      "community": 5,
+      "community": 35,
       "norm_label": "txmodalprops"
     },
     {
@@ -2780,7 +2780,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "ui_txmodal_txmodal",
-      "community": 5,
+      "community": 35,
       "norm_label": "txmodal()"
     },
     {
@@ -2910,7 +2910,7 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "dashboard_page_dashboardcontent",
-      "community": 5,
+      "community": 66,
       "norm_label": "dashboardcontent()"
     },
     {
@@ -2920,7 +2920,7 @@
       "source_location": "L505",
       "_origin": "ast",
       "id": "dashboard_page_holderprofilemodal",
-      "community": 5,
+      "community": 66,
       "norm_label": "holderprofilemodal()"
     },
     {
@@ -2980,7 +2980,7 @@
       "source_location": "L392",
       "_origin": "ast",
       "id": "data_mockdata_mockrights",
-      "community": 3,
+      "community": 10,
       "norm_label": "mockrights"
     },
     {
@@ -2990,7 +2990,7 @@
       "source_location": "L432",
       "_origin": "ast",
       "id": "data_mockdata_mockmilestones",
-      "community": 3,
+      "community": 10,
       "norm_label": "mockmilestones"
     },
     {
@@ -3090,7 +3090,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "app_layout",
-      "community": 4,
+      "community": 67,
       "norm_label": "layout.tsx"
     },
     {
@@ -3100,7 +3100,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "app_layout_metadata",
-      "community": 4,
+      "community": 67,
       "norm_label": "metadata"
     },
     {
@@ -3110,7 +3110,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "app_layout_rootlayout",
-      "community": 4,
+      "community": 67,
       "norm_label": "rootlayout()"
     },
     {
@@ -3200,7 +3200,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "lib_auth",
-      "community": 4,
+      "community": 52,
       "norm_label": "auth.tsx"
     },
     {
@@ -3210,7 +3210,7 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "lib_auth_role",
-      "community": 4,
+      "community": 52,
       "norm_label": "role"
     },
     {
@@ -3220,7 +3220,7 @@
       "source_location": "L9",
       "_origin": "ast",
       "id": "lib_auth_settings",
-      "community": 4,
+      "community": 52,
       "norm_label": "settings"
     },
     {
@@ -3230,7 +3230,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "lib_auth_user",
-      "community": 4,
+      "community": 52,
       "norm_label": "user"
     },
     {
@@ -3240,7 +3240,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "lib_auth_authcontexttype",
-      "community": 4,
+      "community": 52,
       "norm_label": "authcontexttype"
     },
     {
@@ -3250,7 +3250,7 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "lib_auth_authcontext",
-      "community": 4,
+      "community": 52,
       "norm_label": "authcontext"
     },
     {
@@ -3260,7 +3260,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "lib_auth_default_settings",
-      "community": 4,
+      "community": 52,
       "norm_label": "default_settings"
     },
     {
@@ -3270,7 +3270,7 @@
       "source_location": "L43",
       "_origin": "ast",
       "id": "lib_auth_authprovider",
-      "community": 4,
+      "community": 52,
       "norm_label": "authprovider()"
     },
     {
@@ -3610,7 +3610,7 @@
       "source_location": "L300",
       "_origin": "ast",
       "id": "lib_database_generaterevenuereport",
-      "community": 3,
+      "community": 0,
       "norm_label": "generaterevenuereport()"
     },
     {
@@ -3710,7 +3710,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "lib_supabaseclient",
-      "community": 6,
+      "community": 68,
       "norm_label": "supabaseclient.ts"
     },
     {
@@ -3720,7 +3720,7 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "lib_supabaseclient_supabase",
-      "community": 6,
+      "community": 68,
       "norm_label": "supabase"
     },
     {
@@ -3730,7 +3730,7 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "lib_supabaseclient_fetchprojectbyname",
-      "community": 6,
+      "community": 68,
       "norm_label": "fetchprojectbyname()"
     },
     {
@@ -4040,7 +4040,7 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "lib_utils_calculatepaymentsplit",
-      "community": 4,
+      "community": 10,
       "norm_label": "calculatepaymentsplit()"
     },
     {
@@ -4290,7 +4290,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "lib_walletdb",
-      "community": 6,
+      "community": 68,
       "norm_label": "walletdb.ts"
     },
     {
@@ -4300,7 +4300,7 @@
       "source_location": "L3",
       "_origin": "ast",
       "id": "lib_walletdb_updateuserwallet",
-      "community": 6,
+      "community": 68,
       "norm_label": "updateuserwallet()"
     },
     {
@@ -4310,7 +4310,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "lib_walletdb_clearuserwallet",
-      "community": 6,
+      "community": 68,
       "norm_label": "clearuserwallet()"
     },
     {
@@ -4320,7 +4320,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "lib_web3",
-      "community": 10,
+      "community": 35,
       "norm_label": "web3.ts"
     },
     {
@@ -4330,7 +4330,7 @@
       "source_location": "L11",
       "_origin": "ast",
       "id": "lib_web3_address",
-      "community": 10,
+      "community": 35,
       "norm_label": "address"
     },
     {
@@ -4340,7 +4340,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "lib_web3_revenue_splitter_address",
-      "community": 10,
+      "community": 35,
       "norm_label": "revenue_splitter_address"
     },
     {
@@ -4350,7 +4350,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "lib_web3_abi",
-      "community": 10,
+      "community": 35,
       "norm_label": "abi"
     },
     {
@@ -4360,7 +4360,7 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "lib_web3_userevenuesplitter",
-      "community": 10,
+      "community": 35,
       "norm_label": "userevenuesplitter()"
     },
     {
@@ -4530,7 +4530,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "profile_page_profilepage",
-      "community": 10,
+      "community": 35,
       "norm_label": "profilepage()"
     },
     {
@@ -4600,7 +4600,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "web3_demo_page",
-      "community": 5,
+      "community": 66,
       "norm_label": "page.tsx"
     },
     {
@@ -4610,7 +4610,7 @@
       "source_location": "L13",
       "_origin": "ast",
       "id": "web3_demo_page_project",
-      "community": 5,
+      "community": 66,
       "norm_label": "project"
     },
     {
@@ -4620,7 +4620,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "web3_demo_page_rightsholder",
-      "community": 5,
+      "community": 66,
       "norm_label": "rightsholder"
     },
     {
@@ -4630,7 +4630,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "web3_demo_page_fmt",
-      "community": 5,
+      "community": 66,
       "norm_label": "fmt()"
     },
     {
@@ -4640,7 +4640,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "web3_demo_page_fmteth",
-      "community": 5,
+      "community": 66,
       "norm_label": "fmteth()"
     },
     {
@@ -4650,7 +4650,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "web3_demo_page_trunc",
-      "community": 5,
+      "community": 66,
       "norm_label": "trunc()"
     },
     {
@@ -4660,7 +4660,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "web3_demo_page_web3demopage",
-      "community": 5,
+      "community": 66,
       "norm_label": "web3demopage()"
     },
     {
@@ -8542,6 +8542,216 @@
       "id": "implementation_reports_production_hardening_report_3_security_cleanups_github_protection",
       "community": 13,
       "norm_label": "3. security cleanups (github protection)"
+    },
+    {
+      "label": "project-walkthrough.md",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "project_walkthrough",
+      "community": 29,
+      "norm_label": "project-walkthrough.md"
+    },
+    {
+      "label": "LUNIM Creative Rights & Revenue Distribution Platform \u2014 Complete Project Walkthrough",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L1",
+      "_origin": "ast",
+      "id": "project_walkthrough_lunim_creative_rights_revenue_distribution_platform_complete_project_walkthrough",
+      "community": 29,
+      "norm_label": "lunim creative rights & revenue distribution platform \u2014 complete project walkthrough"
+    },
+    {
+      "label": "1. Project Overview",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L9",
+      "_origin": "ast",
+      "id": "project_walkthrough_1_project_overview",
+      "community": 29,
+      "norm_label": "1. project overview"
+    },
+    {
+      "label": "2. Platform Architecture",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L19",
+      "_origin": "ast",
+      "id": "project_walkthrough_2_platform_architecture",
+      "community": 29,
+      "norm_label": "2. platform architecture"
+    },
+    {
+      "label": "3. Core Modules & User Roles",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L53",
+      "_origin": "ast",
+      "id": "project_walkthrough_3_core_modules_user_roles",
+      "community": 29,
+      "norm_label": "3. core modules & user roles"
+    },
+    {
+      "label": "\ud83d\udcbc Admin Module (Production Managers & Finance Officers)",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L57",
+      "_origin": "ast",
+      "id": "project_walkthrough_admin_module_production_managers_finance_officers",
+      "community": 29,
+      "norm_label": "\ud83d\udcbc admin module (production managers & finance officers)"
+    },
+    {
+      "label": "\ud83c\udfa8 Creator / Rights Holder Module",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L64",
+      "_origin": "ast",
+      "id": "project_walkthrough_creator_rights_holder_module",
+      "community": 29,
+      "norm_label": "\ud83c\udfa8 creator / rights holder module"
+    },
+    {
+      "label": "4. Permissions Matrix & Restrictions",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L73",
+      "_origin": "ast",
+      "id": "project_walkthrough_4_permissions_matrix_restrictions",
+      "community": 29,
+      "norm_label": "4. permissions matrix & restrictions"
+    },
+    {
+      "label": "API Protection Implementations",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L88",
+      "_origin": "ast",
+      "id": "project_walkthrough_api_protection_implementations",
+      "community": 29,
+      "norm_label": "api protection implementations"
+    },
+    {
+      "label": "5. Security Measures Taken",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L94",
+      "_origin": "ast",
+      "id": "project_walkthrough_5_security_measures_taken",
+      "community": 29,
+      "norm_label": "5. security measures taken"
+    },
+    {
+      "label": "6. How to Use & Operating Guide",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L116",
+      "_origin": "ast",
+      "id": "project_walkthrough_6_how_to_use_operating_guide",
+      "community": 29,
+      "norm_label": "6. how to use & operating guide"
+    },
+    {
+      "label": "Running Local Development Sandbox",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L118",
+      "_origin": "ast",
+      "id": "project_walkthrough_running_local_development_sandbox",
+      "community": 29,
+      "norm_label": "running local development sandbox"
+    },
+    {
+      "label": "Workflow Steps for Admin",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L137",
+      "_origin": "ast",
+      "id": "project_walkthrough_workflow_steps_for_admin",
+      "community": 29,
+      "norm_label": "workflow steps for admin"
+    },
+    {
+      "label": "7. Frequently Asked Questions (FAQ)",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L145",
+      "_origin": "ast",
+      "id": "project_walkthrough_7_frequently_asked_questions_faq",
+      "community": 29,
+      "norm_label": "7. frequently asked questions (faq)"
+    },
+    {
+      "label": "Q1: Do creators need to pay gas fees to withdraw or view their royalties?",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L147",
+      "_origin": "ast",
+      "id": "project_walkthrough_q1_do_creators_need_to_pay_gas_fees_to_withdraw_or_view_their_royalties",
+      "community": 29,
+      "norm_label": "q1: do creators need to pay gas fees to withdraw or view their royalties?"
+    },
+    {
+      "label": "Q2: How does the system handle rounding errors? For example, split percentages like 33.33%?",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L150",
+      "_origin": "ast",
+      "id": "project_walkthrough_q2_how_does_the_system_handle_rounding_errors_for_example_split_percentages_like_33_33",
+      "community": 29,
+      "norm_label": "q2: how does the system handle rounding errors? for example, split percentages like 33.33%?"
+    },
+    {
+      "label": "Q3: Where are the user private keys stored?",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L153",
+      "_origin": "ast",
+      "id": "project_walkthrough_q3_where_are_the_user_private_keys_stored",
+      "community": 29,
+      "norm_label": "q3: where are the user private keys stored?"
+    },
+    {
+      "label": "Q4: What happens if the Express backend or contract listener goes offline?",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L156",
+      "_origin": "ast",
+      "id": "project_walkthrough_q4_what_happens_if_the_express_backend_or_contract_listener_goes_offline",
+      "community": 29,
+      "norm_label": "q4: what happens if the express backend or contract listener goes offline?"
+    },
+    {
+      "label": "Q5: Can project share allocations be edited after a contract is deployed?",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L159",
+      "_origin": "ast",
+      "id": "project_walkthrough_q5_can_project_share_allocations_be_edited_after_a_contract_is_deployed",
+      "community": 29,
+      "norm_label": "q5: can project share allocations be edited after a contract is deployed?"
+    },
+    {
+      "label": "Q6: How does the database protect user transaction splits from being tampered with?",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L162",
+      "_origin": "ast",
+      "id": "project_walkthrough_q6_how_does_the_database_protect_user_transaction_splits_from_being_tampered_with",
+      "community": 29,
+      "norm_label": "q6: how does the database protect user transaction splits from being tampered with?"
+    },
+    {
+      "label": "Q7: Can this platform be deployed on Base Mainnet?",
+      "file_type": "document",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L165",
+      "_origin": "ast",
+      "id": "project_walkthrough_q7_can_this_platform_be_deployed_on_base_mainnet",
+      "community": 29,
+      "norm_label": "q7: can this platform be deployed on base mainnet?"
     }
   ],
   "links": [
@@ -9231,9 +9441,9 @@
       "source_file": "package.json",
       "source_location": "L62",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "package_dependencies",
-      "target": "package_dependencies_zod",
-      "confidence_score": 1.0
+      "target": "package_dependencies_zod"
     },
     {
       "relation": "contains",
@@ -9665,9 +9875,9 @@
       "source_file": "scripts/seed.js",
       "source_location": "L182",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_seed_seeddata",
-      "target": "scripts_seed_getwallet",
-      "confidence_score": 1.0
+      "target": "scripts_seed_getwallet"
     },
     {
       "relation": "contains",
@@ -9675,9 +9885,9 @@
       "source_file": "scripts/verify-demo.js",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_verify_demo",
-      "target": "scripts_verify_demo_createclient",
-      "confidence_score": 1.0
+      "target": "scripts_verify_demo_createclient"
     },
     {
       "relation": "contains",
@@ -9685,9 +9895,9 @@
       "source_file": "scripts/verify-demo.js",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_verify_demo",
-      "target": "scripts_verify_demo_fs",
-      "confidence_score": 1.0
+      "target": "scripts_verify_demo_fs"
     },
     {
       "relation": "contains",
@@ -9695,9 +9905,9 @@
       "source_file": "scripts/verify-demo.js",
       "source_location": "L2",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_verify_demo",
-      "target": "scripts_verify_demo_path",
-      "confidence_score": 1.0
+      "target": "scripts_verify_demo_path"
     },
     {
       "relation": "contains",
@@ -9705,9 +9915,9 @@
       "source_file": "scripts/verify-demo.js",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "scripts_verify_demo",
-      "target": "scripts_verify_demo_verify",
-      "confidence_score": 1.0
+      "target": "scripts_verify_demo_verify"
     },
     {
       "relation": "contains",
@@ -9789,9 +9999,9 @@
       "source_file": "src/app/api/activities/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "activities_route",
-      "target": "lib_apisecurity_requireauth",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_requireauth"
     },
     {
       "relation": "imports",
@@ -9800,9 +10010,9 @@
       "source_file": "src/app/api/activities/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "activities_route",
-      "target": "lib_ratelimit_checkratelimit",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_checkratelimit"
     },
     {
       "relation": "imports",
@@ -9897,9 +10107,9 @@
       "source_file": "src/app/api/auth/sync/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "sync_route",
-      "target": "lib_ratelimit_checkratelimit",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_checkratelimit"
     },
     {
       "relation": "imports",
@@ -9971,9 +10181,9 @@
       "source_file": "src/app/api/dashboard/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "dashboard_route",
-      "target": "lib_ratelimit_checkratelimit",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_checkratelimit"
     },
     {
       "relation": "imports",
@@ -10035,9 +10245,9 @@
       "source_file": "src/app/api/diagnostics/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "diagnostics_route",
-      "target": "lib_apisecurity_requireadmin",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_requireadmin"
     },
     {
       "relation": "imports",
@@ -10046,9 +10256,9 @@
       "source_file": "src/app/api/diagnostics/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "diagnostics_route",
-      "target": "lib_ratelimit_checkratelimit",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_checkratelimit"
     },
     {
       "relation": "imports_from",
@@ -10100,9 +10310,9 @@
       "source_file": "src/app/api/etl/aggregate/route.ts",
       "source_location": "L166",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "aggregate_route",
-      "target": "aggregate_route_computeaggregates",
-      "confidence_score": 1.0
+      "target": "aggregate_route_computeaggregates"
     },
     {
       "relation": "contains",
@@ -10110,9 +10320,9 @@
       "source_file": "src/app/api/etl/aggregate/route.ts",
       "source_location": "L69",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "aggregate_route",
-      "target": "aggregate_route_computeliveaggregates",
-      "confidence_score": 1.0
+      "target": "aggregate_route_computeliveaggregates"
     },
     {
       "relation": "contains",
@@ -10120,9 +10330,9 @@
       "source_file": "src/app/api/etl/aggregate/route.ts",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "aggregate_route",
-      "target": "aggregate_route_get",
-      "confidence_score": 1.0
+      "target": "aggregate_route_get"
     },
     {
       "relation": "imports",
@@ -10131,9 +10341,9 @@
       "source_file": "src/app/api/etl/aggregate/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "aggregate_route",
-      "target": "lib_apisecurity_requireauth",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_requireauth"
     },
     {
       "relation": "imports",
@@ -10142,9 +10352,9 @@
       "source_file": "src/app/api/etl/aggregate/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "aggregate_route",
-      "target": "lib_ratelimit_checkratelimit",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_checkratelimit"
     },
     {
       "relation": "imports",
@@ -10153,9 +10363,9 @@
       "source_file": "src/app/api/etl/aggregate/route.ts",
       "source_location": "L2",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "aggregate_route",
-      "target": "lib_supabaseserver_supabaseadmin",
-      "confidence_score": 1.0
+      "target": "lib_supabaseserver_supabaseadmin"
     },
     {
       "relation": "calls",
@@ -10164,9 +10374,9 @@
       "source_file": "src/app/api/etl/aggregate/route.ts",
       "source_location": "L33",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "aggregate_route_get",
-      "target": "aggregate_route_computeaggregates",
-      "confidence_score": 1.0
+      "target": "aggregate_route_computeaggregates"
     },
     {
       "relation": "calls",
@@ -10175,9 +10385,9 @@
       "source_file": "src/app/api/etl/aggregate/route.ts",
       "source_location": "L52",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "aggregate_route_get",
-      "target": "aggregate_route_computeliveaggregates",
-      "confidence_score": 1.0
+      "target": "aggregate_route_computeliveaggregates"
     },
     {
       "relation": "calls",
@@ -10208,9 +10418,9 @@
       "source_file": "src/app/api/etl/aggregate/route.ts",
       "source_location": "L171",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "aggregate_route_computeaggregates",
-      "target": "aggregate_route_computeliveaggregates",
-      "confidence_score": 1.0
+      "target": "aggregate_route_computeliveaggregates"
     },
     {
       "relation": "contains",
@@ -10218,9 +10428,9 @@
       "source_file": "src/app/api/etl/ingest/route.ts",
       "source_location": "L79",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "ingest_route",
-      "target": "ingest_route_get",
-      "confidence_score": 1.0
+      "target": "ingest_route_get"
     },
     {
       "relation": "contains",
@@ -10228,9 +10438,9 @@
       "source_file": "src/app/api/etl/ingest/route.ts",
       "source_location": "L13",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "ingest_route",
-      "target": "ingest_route_post",
-      "confidence_score": 1.0
+      "target": "ingest_route_post"
     },
     {
       "relation": "imports",
@@ -10239,9 +10449,9 @@
       "source_file": "src/app/api/etl/ingest/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "ingest_route",
-      "target": "lib_apisecurity_auditlog",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_auditlog"
     },
     {
       "relation": "imports",
@@ -10250,9 +10460,9 @@
       "source_file": "src/app/api/etl/ingest/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "ingest_route",
-      "target": "lib_apisecurity_requireadmin",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_requireadmin"
     },
     {
       "relation": "imports",
@@ -10261,9 +10471,9 @@
       "source_file": "src/app/api/etl/ingest/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "ingest_route",
-      "target": "lib_ratelimit_checkratelimit",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_checkratelimit"
     },
     {
       "relation": "imports",
@@ -10272,9 +10482,9 @@
       "source_file": "src/app/api/etl/ingest/route.ts",
       "source_location": "L2",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "ingest_route",
-      "target": "lib_supabaseserver_supabaseadmin",
-      "confidence_score": 1.0
+      "target": "lib_supabaseserver_supabaseadmin"
     },
     {
       "relation": "imports",
@@ -10283,9 +10493,9 @@
       "source_file": "src/app/api/etl/ingest/route.ts",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "ingest_route",
-      "target": "lib_validation_etlingestschema",
-      "confidence_score": 1.0
+      "target": "lib_validation_etlingestschema"
     },
     {
       "relation": "imports",
@@ -10294,9 +10504,9 @@
       "source_file": "src/app/api/etl/ingest/route.ts",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "ingest_route",
-      "target": "lib_validation_validatebody",
-      "confidence_score": 1.0
+      "target": "lib_validation_validatebody"
     },
     {
       "relation": "calls",
@@ -10371,9 +10581,9 @@
       "source_file": "src/app/api/etl/reconcile/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "reconcile_route",
-      "target": "lib_apisecurity_auditlog",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_auditlog"
     },
     {
       "relation": "imports",
@@ -10382,9 +10592,9 @@
       "source_file": "src/app/api/etl/reconcile/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "reconcile_route",
-      "target": "lib_apisecurity_requireadmin",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_requireadmin"
     },
     {
       "relation": "imports",
@@ -10393,9 +10603,9 @@
       "source_file": "src/app/api/etl/reconcile/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "reconcile_route",
-      "target": "lib_ratelimit_checkratelimit",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_checkratelimit"
     },
     {
       "relation": "imports",
@@ -10404,9 +10614,9 @@
       "source_file": "src/app/api/etl/reconcile/route.ts",
       "source_location": "L2",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "reconcile_route",
-      "target": "lib_supabaseserver_supabaseadmin",
-      "confidence_score": 1.0
+      "target": "lib_supabaseserver_supabaseadmin"
     },
     {
       "relation": "contains",
@@ -10414,9 +10624,9 @@
       "source_file": "src/app/api/etl/reconcile/route.ts",
       "source_location": "L12",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "reconcile_route",
-      "target": "reconcile_route_get",
-      "confidence_score": 1.0
+      "target": "reconcile_route_get"
     },
     {
       "relation": "calls",
@@ -10458,9 +10668,9 @@
       "source_file": "src/app/api/milestones/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "milestones_route",
-      "target": "lib_apisecurity_requireauth",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_requireauth"
     },
     {
       "relation": "imports",
@@ -10469,9 +10679,9 @@
       "source_file": "src/app/api/milestones/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "milestones_route",
-      "target": "lib_ratelimit_checkratelimit",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_checkratelimit"
     },
     {
       "relation": "imports_from",
@@ -10545,9 +10755,9 @@
       "source_file": "src/app/api/payments/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "payments_route",
-      "target": "lib_apisecurity_auditlog",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_auditlog"
     },
     {
       "relation": "imports",
@@ -10567,9 +10777,9 @@
       "source_file": "src/app/api/payments/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "payments_route",
-      "target": "lib_apisecurity_requireauth",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_requireauth"
     },
     {
       "relation": "imports",
@@ -10578,9 +10788,9 @@
       "source_file": "src/app/api/payments/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "payments_route",
-      "target": "lib_ratelimit_checkratelimit",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_checkratelimit"
     },
     {
       "relation": "imports_from",
@@ -10610,9 +10820,9 @@
       "source_file": "src/app/api/payments/route.ts",
       "source_location": "L128",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "payments_route",
-      "target": "payments_route_get",
-      "confidence_score": 1.0
+      "target": "payments_route_get"
     },
     {
       "relation": "contains",
@@ -10805,9 +11015,9 @@
       "source_file": "src/app/api/projects/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "projects_route",
-      "target": "lib_ratelimit_checkratelimit",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_checkratelimit"
     },
     {
       "relation": "imports_from",
@@ -10890,9 +11100,9 @@
       "source_file": "src/app/api/reports/export/route.ts",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "export_route",
-      "target": "lib_apisecurity_requireauth",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_requireauth"
     },
     {
       "relation": "imports_from",
@@ -10923,9 +11133,9 @@
       "source_file": "src/app/api/reports/export/route.ts",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "export_route",
-      "target": "lib_ratelimit_checkratelimit",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_checkratelimit"
     },
     {
       "relation": "calls",
@@ -10967,9 +11177,9 @@
       "source_file": "src/app/api/reports/route.ts",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "reports_route",
-      "target": "lib_apisecurity_requireauth",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_requireauth"
     },
     {
       "relation": "imports_from",
@@ -11000,9 +11210,9 @@
       "source_file": "src/app/api/reports/route.ts",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "reports_route",
-      "target": "lib_ratelimit_checkratelimit",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_checkratelimit"
     },
     {
       "relation": "imports",
@@ -11162,9 +11372,9 @@
       "source_file": "src/app/api/revenue/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "revenue_route",
-      "target": "lib_apisecurity_requireauth",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_requireauth"
     },
     {
       "relation": "imports",
@@ -11173,9 +11383,9 @@
       "source_file": "src/app/api/revenue/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "revenue_route",
-      "target": "lib_ratelimit_checkratelimit",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_checkratelimit"
     },
     {
       "relation": "imports",
@@ -11335,9 +11545,9 @@
       "source_file": "src/app/api/rights/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rights_route",
-      "target": "lib_apisecurity_requireauth",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_requireauth"
     },
     {
       "relation": "imports",
@@ -11346,9 +11556,9 @@
       "source_file": "src/app/api/rights/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "rights_route",
-      "target": "lib_ratelimit_checkratelimit",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_checkratelimit"
     },
     {
       "relation": "imports_from",
@@ -11410,9 +11620,9 @@
       "source_file": "src/app/api/stripe/checkout/route.ts",
       "source_location": "L15",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "checkout_route",
-      "target": "checkout_route_getstripe",
-      "confidence_score": 1.0
+      "target": "checkout_route_getstripe"
     },
     {
       "relation": "contains",
@@ -11431,9 +11641,9 @@
       "source_file": "src/app/api/stripe/checkout/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "checkout_route",
-      "target": "lib_apisecurity_auditlog",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_auditlog"
     },
     {
       "relation": "imports",
@@ -11442,9 +11652,9 @@
       "source_file": "src/app/api/stripe/checkout/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "checkout_route",
-      "target": "lib_apisecurity_requireauth",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_requireauth"
     },
     {
       "relation": "imports",
@@ -11453,9 +11663,9 @@
       "source_file": "src/app/api/stripe/checkout/route.ts",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "checkout_route",
-      "target": "lib_ratelimit_checkratelimit",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_checkratelimit"
     },
     {
       "relation": "imports",
@@ -11464,9 +11674,9 @@
       "source_file": "src/app/api/stripe/checkout/route.ts",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "checkout_route",
-      "target": "lib_validation_stripecheckoutschema",
-      "confidence_score": 1.0
+      "target": "lib_validation_stripecheckoutschema"
     },
     {
       "relation": "imports",
@@ -11475,9 +11685,9 @@
       "source_file": "src/app/api/stripe/checkout/route.ts",
       "source_location": "L6",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "checkout_route",
-      "target": "lib_validation_validatebody",
-      "confidence_score": 1.0
+      "target": "lib_validation_validatebody"
     },
     {
       "relation": "calls",
@@ -11486,9 +11696,9 @@
       "source_file": "src/app/api/stripe/checkout/route.ts",
       "source_location": "L45",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "checkout_route_post",
-      "target": "checkout_route_getstripe",
-      "confidence_score": 1.0
+      "target": "checkout_route_getstripe"
     },
     {
       "relation": "calls",
@@ -11541,9 +11751,9 @@
       "source_file": "src/app/api/users/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "users_route",
-      "target": "lib_apisecurity_requireadmin",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_requireadmin"
     },
     {
       "relation": "imports",
@@ -11552,9 +11762,9 @@
       "source_file": "src/app/api/users/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "users_route",
-      "target": "lib_ratelimit_checkratelimit",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_checkratelimit"
     },
     {
       "relation": "imports",
@@ -11574,9 +11784,9 @@
       "source_file": "src/app/api/users/route.ts",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "users_route",
-      "target": "lib_validation_updateuserroleschema",
-      "confidence_score": 1.0
+      "target": "lib_validation_updateuserroleschema"
     },
     {
       "relation": "imports",
@@ -11585,9 +11795,9 @@
       "source_file": "src/app/api/users/route.ts",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "users_route",
-      "target": "lib_validation_validatebody",
-      "confidence_score": 1.0
+      "target": "lib_validation_validatebody"
     },
     {
       "relation": "contains",
@@ -11701,9 +11911,9 @@
       "source_file": "src/app/api/web3/auto-distribute/route.ts",
       "source_location": "L3",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "auto_distribute_route",
-      "target": "lib_apisecurity_auditlog",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_auditlog"
     },
     {
       "relation": "imports",
@@ -11734,9 +11944,9 @@
       "source_file": "src/app/api/web3/auto-distribute/route.ts",
       "source_location": "L4",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "auto_distribute_route",
-      "target": "lib_ratelimit_checkratelimit",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_checkratelimit"
     },
     {
       "relation": "imports",
@@ -11756,9 +11966,9 @@
       "source_file": "src/app/api/web3/auto-distribute/route.ts",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "auto_distribute_route",
-      "target": "lib_validation_distributepayloadschema",
-      "confidence_score": 1.0
+      "target": "lib_validation_distributepayloadschema"
     },
     {
       "relation": "imports",
@@ -11767,9 +11977,9 @@
       "source_file": "src/app/api/web3/auto-distribute/route.ts",
       "source_location": "L5",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "auto_distribute_route",
-      "target": "lib_validation_validatebody",
-      "confidence_score": 1.0
+      "target": "lib_validation_validatebody"
     },
     {
       "relation": "calls",
@@ -14984,9 +15194,9 @@
       "source_file": "src/app/lib/apiSecurity.ts",
       "source_location": "L11",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_apisecurity",
-      "target": "lib_apisecurity_auditentry",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_auditentry"
     },
     {
       "relation": "contains",
@@ -14994,9 +15204,9 @@
       "source_file": "src/app/lib/apiSecurity.ts",
       "source_location": "L29",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_apisecurity",
-      "target": "lib_apisecurity_auditlog",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_auditlog"
     },
     {
       "relation": "contains",
@@ -15004,9 +15214,9 @@
       "source_file": "src/app/lib/apiSecurity.ts",
       "source_location": "L21",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_apisecurity",
-      "target": "lib_apisecurity_getrequestmeta",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_getrequestmeta"
     },
     {
       "relation": "contains",
@@ -15044,9 +15254,9 @@
       "source_file": "src/app/lib/apiSecurity.ts",
       "source_location": "L156",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_apisecurity",
-      "target": "lib_apisecurity_requirerole",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_requirerole"
     },
     {
       "relation": "imports_from",
@@ -15110,9 +15320,9 @@
       "source_file": "src/app/lib/apiSecurity.ts",
       "source_location": "L35",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_apisecurity_auditlog",
-      "target": "lib_apisecurity_getrequestmeta",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_getrequestmeta"
     },
     {
       "relation": "calls",
@@ -15121,9 +15331,9 @@
       "source_file": "src/app/lib/apiSecurity.ts",
       "source_location": "L146",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_apisecurity_requireadmin",
-      "target": "lib_apisecurity_auditlog",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_auditlog"
     },
     {
       "relation": "calls",
@@ -15132,9 +15342,9 @@
       "source_file": "src/app/lib/apiSecurity.ts",
       "source_location": "L137",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_apisecurity_requireauth",
-      "target": "lib_apisecurity_auditlog",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_auditlog"
     },
     {
       "relation": "calls",
@@ -15143,9 +15353,9 @@
       "source_file": "src/app/lib/apiSecurity.ts",
       "source_location": "L168",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_apisecurity_requirerole",
-      "target": "lib_apisecurity_auditlog",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_auditlog"
     },
     {
       "relation": "calls",
@@ -15176,9 +15386,9 @@
       "source_file": "src/app/lib/apiSecurity.ts",
       "source_location": "L159",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_apisecurity_requirerole",
-      "target": "lib_apisecurity_requireauth",
-      "confidence_score": 1.0
+      "target": "lib_apisecurity_requireauth"
     },
     {
       "relation": "imports_from",
@@ -15885,9 +16095,9 @@
       "source_file": "src/app/lib/rateLimit.ts",
       "source_location": "L80",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_ratelimit",
-      "target": "lib_ratelimit_checkratelimit",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_checkratelimit"
     },
     {
       "relation": "contains",
@@ -15895,9 +16105,9 @@
       "source_file": "src/app/lib/rateLimit.ts",
       "source_location": "L46",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_ratelimit",
-      "target": "lib_ratelimit_cleanupstore",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_cleanupstore"
     },
     {
       "relation": "contains",
@@ -15905,9 +16115,9 @@
       "source_file": "src/app/lib/rateLimit.ts",
       "source_location": "L62",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_ratelimit",
-      "target": "lib_ratelimit_getclientip",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_getclientip"
     },
     {
       "relation": "contains",
@@ -15915,9 +16125,9 @@
       "source_file": "src/app/lib/rateLimit.ts",
       "source_location": "L35",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_ratelimit",
-      "target": "lib_ratelimit_getstore",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_getstore"
     },
     {
       "relation": "contains",
@@ -15925,9 +16135,9 @@
       "source_file": "src/app/lib/rateLimit.ts",
       "source_location": "L19",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_ratelimit",
-      "target": "lib_ratelimit_ratelimitconfig",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_ratelimitconfig"
     },
     {
       "relation": "contains",
@@ -15935,9 +16145,9 @@
       "source_file": "src/app/lib/rateLimit.ts",
       "source_location": "L11",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_ratelimit",
-      "target": "lib_ratelimit_ratelimitentry",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_ratelimitentry"
     },
     {
       "relation": "contains",
@@ -15945,9 +16155,9 @@
       "source_file": "src/app/lib/rateLimit.ts",
       "source_location": "L17",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_ratelimit",
-      "target": "lib_ratelimit_stores",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_stores"
     },
     {
       "relation": "contains",
@@ -15955,9 +16165,9 @@
       "source_file": "src/app/lib/rateLimit.ts",
       "source_location": "L28",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_ratelimit",
-      "target": "lib_ratelimit_tier_defaults",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_tier_defaults"
     },
     {
       "relation": "calls",
@@ -15966,9 +16176,9 @@
       "source_file": "src/app/lib/rateLimit.ts",
       "source_location": "L84",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_ratelimit_checkratelimit",
-      "target": "lib_ratelimit_getstore",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_getstore"
     },
     {
       "relation": "calls",
@@ -15977,9 +16187,9 @@
       "source_file": "src/app/lib/rateLimit.ts",
       "source_location": "L89",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_ratelimit_checkratelimit",
-      "target": "lib_ratelimit_cleanupstore",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_cleanupstore"
     },
     {
       "relation": "calls",
@@ -15988,9 +16198,9 @@
       "source_file": "src/app/lib/rateLimit.ts",
       "source_location": "L85",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_ratelimit_checkratelimit",
-      "target": "lib_ratelimit_getclientip",
-      "confidence_score": 1.0
+      "target": "lib_ratelimit_getclientip"
     },
     {
       "relation": "contains",
@@ -16382,9 +16592,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L75",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_addprojectschema",
-      "confidence_score": 1.0
+      "target": "lib_validation_addprojectschema"
     },
     {
       "relation": "contains",
@@ -16392,9 +16602,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L83",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_addrightsholderschema",
-      "confidence_score": 1.0
+      "target": "lib_validation_addrightsholderschema"
     },
     {
       "relation": "contains",
@@ -16402,9 +16612,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L129",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_authinviteschema",
-      "confidence_score": 1.0
+      "target": "lib_validation_authinviteschema"
     },
     {
       "relation": "contains",
@@ -16412,9 +16622,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L115",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_authsyncschema",
-      "confidence_score": 1.0
+      "target": "lib_validation_authsyncschema"
     },
     {
       "relation": "contains",
@@ -16422,9 +16632,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L53",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_distributepayloadschema",
-      "confidence_score": 1.0
+      "target": "lib_validation_distributepayloadschema"
     },
     {
       "relation": "contains",
@@ -16432,9 +16642,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L21",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_ethamount",
-      "confidence_score": 1.0
+      "target": "lib_validation_ethamount"
     },
     {
       "relation": "contains",
@@ -16442,9 +16652,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L15",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_ethereumaddress",
-      "confidence_score": 1.0
+      "target": "lib_validation_ethereumaddress"
     },
     {
       "relation": "contains",
@@ -16452,9 +16662,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L153",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_etlingestschema",
-      "confidence_score": 1.0
+      "target": "lib_validation_etlingestschema"
     },
     {
       "relation": "contains",
@@ -16462,9 +16672,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L93",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_managerightsholderschema",
-      "confidence_score": 1.0
+      "target": "lib_validation_managerightsholderschema"
     },
     {
       "relation": "contains",
@@ -16472,9 +16682,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L43",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_percentage",
-      "confidence_score": 1.0
+      "target": "lib_validation_percentage"
     },
     {
       "relation": "contains",
@@ -16482,9 +16692,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L144",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_reportexportschema",
-      "confidence_score": 1.0
+      "target": "lib_validation_reportexportschema"
     },
     {
       "relation": "contains",
@@ -16492,9 +16702,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L136",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_reportqueryschema",
-      "confidence_score": 1.0
+      "target": "lib_validation_reportqueryschema"
     },
     {
       "relation": "contains",
@@ -16502,9 +16712,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L30",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_safestring",
-      "confidence_score": 1.0
+      "target": "lib_validation_safestring"
     },
     {
       "relation": "contains",
@@ -16512,9 +16722,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L108",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_stripecheckoutschema",
-      "confidence_score": 1.0
+      "target": "lib_validation_stripecheckoutschema"
     },
     {
       "relation": "contains",
@@ -16522,9 +16732,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L38",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_txhash",
-      "confidence_score": 1.0
+      "target": "lib_validation_txhash"
     },
     {
       "relation": "contains",
@@ -16532,9 +16742,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L102",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_updateuserroleschema",
-      "confidence_score": 1.0
+      "target": "lib_validation_updateuserroleschema"
     },
     {
       "relation": "contains",
@@ -16542,9 +16752,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L27",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_uuid",
-      "confidence_score": 1.0
+      "target": "lib_validation_uuid"
     },
     {
       "relation": "contains",
@@ -16552,9 +16762,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L177",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_validatebody",
-      "confidence_score": 1.0
+      "target": "lib_validation_validatebody"
     },
     {
       "relation": "contains",
@@ -16562,9 +16772,9 @@
       "source_file": "src/app/lib/validation.ts",
       "source_location": "L229",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "lib_validation",
-      "target": "lib_validation_validatequery",
-      "confidence_score": 1.0
+      "target": "lib_validation_validatequery"
     },
     {
       "relation": "contains",
@@ -20415,9 +20625,9 @@
       "source_file": "implementation-reports/production-hardening-report.md",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "implementation_reports_production_hardening_report",
-      "target": "implementation_reports_production_hardening_report_lunim_web3_rights_revenue_dashboard_production_hardening_report",
-      "confidence_score": 1.0
+      "target": "implementation_reports_production_hardening_report_lunim_web3_rights_revenue_dashboard_production_hardening_report"
     },
     {
       "relation": "contains",
@@ -20425,9 +20635,9 @@
       "source_file": "implementation-reports/production-hardening-report.md",
       "source_location": "L16",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "implementation_reports_production_hardening_report_lunim_web3_rights_revenue_dashboard_production_hardening_report",
-      "target": "implementation_reports_production_hardening_report_1_accomplishments_by_phase",
-      "confidence_score": 1.0
+      "target": "implementation_reports_production_hardening_report_1_accomplishments_by_phase"
     },
     {
       "relation": "contains",
@@ -20435,9 +20645,9 @@
       "source_file": "implementation-reports/production-hardening-report.md",
       "source_location": "L51",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "implementation_reports_production_hardening_report_lunim_web3_rights_revenue_dashboard_production_hardening_report",
-      "target": "implementation_reports_production_hardening_report_2_verification_outcomes",
-      "confidence_score": 1.0
+      "target": "implementation_reports_production_hardening_report_2_verification_outcomes"
     },
     {
       "relation": "contains",
@@ -20445,9 +20655,9 @@
       "source_file": "implementation-reports/production-hardening-report.md",
       "source_location": "L95",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "implementation_reports_production_hardening_report_lunim_web3_rights_revenue_dashboard_production_hardening_report",
-      "target": "implementation_reports_production_hardening_report_3_security_cleanups_github_protection",
-      "confidence_score": 1.0
+      "target": "implementation_reports_production_hardening_report_3_security_cleanups_github_protection"
     },
     {
       "relation": "contains",
@@ -20455,9 +20665,9 @@
       "source_file": "implementation-reports/production-hardening-report.md",
       "source_location": "L8",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "implementation_reports_production_hardening_report_lunim_web3_rights_revenue_dashboard_production_hardening_report",
-      "target": "implementation_reports_production_hardening_report_executive_summary",
-      "confidence_score": 1.0
+      "target": "implementation_reports_production_hardening_report_executive_summary"
     },
     {
       "relation": "contains",
@@ -20465,9 +20675,9 @@
       "source_file": "implementation-reports/production-hardening-report.md",
       "source_location": "L18",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "implementation_reports_production_hardening_report_1_accomplishments_by_phase",
-      "target": "implementation_reports_production_hardening_report_phase_1_security_hardening_api_layer",
-      "confidence_score": 1.0
+      "target": "implementation_reports_production_hardening_report_phase_1_security_hardening_api_layer"
     },
     {
       "relation": "contains",
@@ -20475,9 +20685,9 @@
       "source_file": "implementation-reports/production-hardening-report.md",
       "source_location": "L24",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "implementation_reports_production_hardening_report_1_accomplishments_by_phase",
-      "target": "implementation_reports_production_hardening_report_phase_2_api_consolidation_bug_fixes",
-      "confidence_score": 1.0
+      "target": "implementation_reports_production_hardening_report_phase_2_api_consolidation_bug_fixes"
     },
     {
       "relation": "contains",
@@ -20485,9 +20695,9 @@
       "source_file": "implementation-reports/production-hardening-report.md",
       "source_location": "L30",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "implementation_reports_production_hardening_report_1_accomplishments_by_phase",
-      "target": "implementation_reports_production_hardening_report_phase_3_etl_pipeline_royalty_ingest_reconciliation",
-      "confidence_score": 1.0
+      "target": "implementation_reports_production_hardening_report_phase_3_etl_pipeline_royalty_ingest_reconciliation"
     },
     {
       "relation": "contains",
@@ -20495,9 +20705,9 @@
       "source_file": "implementation-reports/production-hardening-report.md",
       "source_location": "L36",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "implementation_reports_production_hardening_report_1_accomplishments_by_phase",
-      "target": "implementation_reports_production_hardening_report_phase_4_smart_contract_hardening_deploy_scripts",
-      "confidence_score": 1.0
+      "target": "implementation_reports_production_hardening_report_phase_4_smart_contract_hardening_deploy_scripts"
     },
     {
       "relation": "contains",
@@ -20505,9 +20715,9 @@
       "source_file": "implementation-reports/production-hardening-report.md",
       "source_location": "L41",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "implementation_reports_production_hardening_report_1_accomplishments_by_phase",
-      "target": "implementation_reports_production_hardening_report_phase_5_frontend_completion_zero_placeholders",
-      "confidence_score": 1.0
+      "target": "implementation_reports_production_hardening_report_phase_5_frontend_completion_zero_placeholders"
     },
     {
       "relation": "contains",
@@ -20515,9 +20725,9 @@
       "source_file": "implementation-reports/production-hardening-report.md",
       "source_location": "L45",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "implementation_reports_production_hardening_report_1_accomplishments_by_phase",
-      "target": "implementation_reports_production_hardening_report_phase_6_end_to_end_verification",
-      "confidence_score": 1.0
+      "target": "implementation_reports_production_hardening_report_phase_6_end_to_end_verification"
     },
     {
       "relation": "contains",
@@ -20525,9 +20735,9 @@
       "source_file": "implementation-reports/production-hardening-report.md",
       "source_location": "L53",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "implementation_reports_production_hardening_report_2_verification_outcomes",
-      "target": "implementation_reports_production_hardening_report_smart_contract_test_run_npx_hardhat_test",
-      "confidence_score": 1.0
+      "target": "implementation_reports_production_hardening_report_smart_contract_test_run_npx_hardhat_test"
     },
     {
       "relation": "contains",
@@ -20535,11 +20745,211 @@
       "source_file": "implementation-reports/production-hardening-report.md",
       "source_location": "L67",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "implementation_reports_production_hardening_report_2_verification_outcomes",
-      "target": "implementation_reports_production_hardening_report_system_verification_run_node_scripts_verify_demo_js",
+      "target": "implementation_reports_production_hardening_report_system_verification_run_node_scripts_verify_demo_js"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "project_walkthrough",
+      "target": "project_walkthrough_lunim_creative_rights_revenue_distribution_platform_complete_project_walkthrough",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L9",
+      "weight": 1.0,
+      "source": "project_walkthrough_lunim_creative_rights_revenue_distribution_platform_complete_project_walkthrough",
+      "target": "project_walkthrough_1_project_overview",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L19",
+      "weight": 1.0,
+      "source": "project_walkthrough_lunim_creative_rights_revenue_distribution_platform_complete_project_walkthrough",
+      "target": "project_walkthrough_2_platform_architecture",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L53",
+      "weight": 1.0,
+      "source": "project_walkthrough_lunim_creative_rights_revenue_distribution_platform_complete_project_walkthrough",
+      "target": "project_walkthrough_3_core_modules_user_roles",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L73",
+      "weight": 1.0,
+      "source": "project_walkthrough_lunim_creative_rights_revenue_distribution_platform_complete_project_walkthrough",
+      "target": "project_walkthrough_4_permissions_matrix_restrictions",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L94",
+      "weight": 1.0,
+      "source": "project_walkthrough_lunim_creative_rights_revenue_distribution_platform_complete_project_walkthrough",
+      "target": "project_walkthrough_5_security_measures_taken",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L116",
+      "weight": 1.0,
+      "source": "project_walkthrough_lunim_creative_rights_revenue_distribution_platform_complete_project_walkthrough",
+      "target": "project_walkthrough_6_how_to_use_operating_guide",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L145",
+      "weight": 1.0,
+      "source": "project_walkthrough_lunim_creative_rights_revenue_distribution_platform_complete_project_walkthrough",
+      "target": "project_walkthrough_7_frequently_asked_questions_faq",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L57",
+      "weight": 1.0,
+      "source": "project_walkthrough_3_core_modules_user_roles",
+      "target": "project_walkthrough_admin_module_production_managers_finance_officers",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L64",
+      "weight": 1.0,
+      "source": "project_walkthrough_3_core_modules_user_roles",
+      "target": "project_walkthrough_creator_rights_holder_module",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L88",
+      "weight": 1.0,
+      "source": "project_walkthrough_4_permissions_matrix_restrictions",
+      "target": "project_walkthrough_api_protection_implementations",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L118",
+      "weight": 1.0,
+      "source": "project_walkthrough_6_how_to_use_operating_guide",
+      "target": "project_walkthrough_running_local_development_sandbox",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L137",
+      "weight": 1.0,
+      "source": "project_walkthrough_6_how_to_use_operating_guide",
+      "target": "project_walkthrough_workflow_steps_for_admin",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L147",
+      "weight": 1.0,
+      "source": "project_walkthrough_7_frequently_asked_questions_faq",
+      "target": "project_walkthrough_q1_do_creators_need_to_pay_gas_fees_to_withdraw_or_view_their_royalties",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L150",
+      "weight": 1.0,
+      "source": "project_walkthrough_7_frequently_asked_questions_faq",
+      "target": "project_walkthrough_q2_how_does_the_system_handle_rounding_errors_for_example_split_percentages_like_33_33",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L153",
+      "weight": 1.0,
+      "source": "project_walkthrough_7_frequently_asked_questions_faq",
+      "target": "project_walkthrough_q3_where_are_the_user_private_keys_stored",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L156",
+      "weight": 1.0,
+      "source": "project_walkthrough_7_frequently_asked_questions_faq",
+      "target": "project_walkthrough_q4_what_happens_if_the_express_backend_or_contract_listener_goes_offline",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L159",
+      "weight": 1.0,
+      "source": "project_walkthrough_7_frequently_asked_questions_faq",
+      "target": "project_walkthrough_q5_can_project_share_allocations_be_edited_after_a_contract_is_deployed",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L162",
+      "weight": 1.0,
+      "source": "project_walkthrough_7_frequently_asked_questions_faq",
+      "target": "project_walkthrough_q6_how_does_the_database_protect_user_transaction_splits_from_being_tampered_with",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "project-walkthrough.md",
+      "source_location": "L165",
+      "weight": 1.0,
+      "source": "project_walkthrough_7_frequently_asked_questions_faq",
+      "target": "project_walkthrough_q7_can_this_platform_be_deployed_on_base_mainnet",
       "confidence_score": 1.0
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "0021951fc151dcf3605b425a9bb829da964c9c0d"
+  "built_at_commit": "f4f78da4cab548151b15bed4e017a857e0c2a735"
 }

@@ -1,16 +1,16 @@
 # Graph Report - web3-freedom-upgrade  (2026-06-19)
 
 ## Corpus Check
-- 129 files · ~69,354 words
+- 130 files · ~70,846 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 854 nodes · 1157 edges · 63 communities (58 shown, 5 thin omitted)
+- 875 nodes · 1177 edges · 69 communities (62 shown, 7 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 6 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `0021951f`
+- Built from commit: `f4f78da4`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -44,11 +44,13 @@
 - [[_COMMUNITY_Community 26|Community 26]]
 - [[_COMMUNITY_Community 27|Community 27]]
 - [[_COMMUNITY_Community 28|Community 28]]
+- [[_COMMUNITY_Community 29|Community 29]]
 - [[_COMMUNITY_Community 30|Community 30]]
 - [[_COMMUNITY_Community 31|Community 31]]
 - [[_COMMUNITY_Community 32|Community 32]]
 - [[_COMMUNITY_Community 33|Community 33]]
 - [[_COMMUNITY_Community 34|Community 34]]
+- [[_COMMUNITY_Community 35|Community 35]]
 - [[_COMMUNITY_Community 36|Community 36]]
 - [[_COMMUNITY_Community 37|Community 37]]
 - [[_COMMUNITY_Community 38|Community 38]]
@@ -65,10 +67,14 @@
 - [[_COMMUNITY_Community 49|Community 49]]
 - [[_COMMUNITY_Community 50|Community 50]]
 - [[_COMMUNITY_Community 51|Community 51]]
+- [[_COMMUNITY_Community 52|Community 52]]
 - [[_COMMUNITY_Community 53|Community 53]]
 - [[_COMMUNITY_Community 55|Community 55]]
 - [[_COMMUNITY_Community 59|Community 59]]
 - [[_COMMUNITY_Community 60|Community 60]]
+- [[_COMMUNITY_Community 66|Community 66]]
+- [[_COMMUNITY_Community 67|Community 67]]
+- [[_COMMUNITY_Community 68|Community 68]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `checkRateLimit()` - 41 edges
@@ -97,11 +103,11 @@
 ## Import Cycles
 - None detected.
 
-## Communities (63 total, 5 thin omitted)
+## Communities (69 total, 7 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.07
-Nodes (49): GET(), computeAggregates(), computeLiveAggregates(), GET(), CONTRACT_ABI, getReceiptFromNetwork(), POST(), getStripe() (+41 more)
+Nodes (51): GET(), computeAggregates(), computeLiveAggregates(), GET(), CONTRACT_ABI, getReceiptFromNetwork(), POST(), getStripe() (+43 more)
 
 ### Community 1 - "Community 1"
 Cohesion: 0.04
@@ -112,20 +118,20 @@ Cohesion: 0.04
 Nodes (45): dependencies, autoprefixer, chart.js, clsx, cors, ethers, express, express-rate-limit (+37 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.06
-Nodes (31): Notice, RevenueFilterProps, mockContracts, mockMilestones, mockProjects, mockRevenue, mockRights, mockUsers (+23 more)
+Cohesion: 0.07
+Nodes (26): RevenueFilterProps, mockContracts, mockProjects, mockRevenue, mockUsers, ContractFunction, Contributor, ContributorUpdate (+18 more)
 
 ### Community 4 - "Community 4"
-Cohesion: 0.08
-Nodes (19): AdminPage(), Project, RightsHolder, metadata, HomePage(), LoginComponent(), DEMO_ACCOUNTS, Navbar() (+11 more)
+Cohesion: 0.19
+Nodes (6): AdminPage(), Project, RightsHolder, HomePage(), LoginComponent(), useAuth()
 
 ### Community 5 - "Community 5"
-Cohesion: 0.07
-Nodes (28): AddRightsHolderModal(), DistributePanel(), Project, RightsHolder, DashboardContent(), HolderProfileModal(), Project, RightsHolder (+20 more)
+Cohesion: 0.12
+Nodes (13): AddRightsHolderModal(), Project, RightsHolder, TabId, TABS_BASE, Transaction, TxSplit, formatUSD() (+5 more)
 
 ### Community 6 - "Community 6"
-Cohesion: 0.07
-Nodes (18): ProjectPage(), centsToGBP(), centsToUSD(), dollarsToCents(), formatCurrencyFromCentsGB(), formatCurrencyFromCentsUSD(), formatPaymentAmountFromCentsGB(), formatPaymentAmountFromCentsUSD() (+10 more)
+Cohesion: 0.09
+Nodes (17): ProjectPage(), centsToGBP(), centsToUSD(), dollarsToCents(), formatCurrencyFromCentsGB(), formatCurrencyFromCentsUSD(), formatPaymentAmountFromCentsGB(), formatPaymentAmountFromCentsUSD() (+9 more)
 
 ### Community 7 - "Community 7"
 Cohesion: 0.05
@@ -140,8 +146,8 @@ Cohesion: 0.08
 Nodes (23): 10. Refactor Recommendations, 11. Migration Strategy, 12. Risk Assessment, 13. Files Changed in This Phase, 14. Next Steps, 1. Architecture Overview, 2. Current Authentication Flow, 3. Current Payment / Revenue Flow (+15 more)
 
 ### Community 10 - "Community 10"
-Cohesion: 0.07
-Nodes (45): TwoFactorVerificationProps, ChartsPanel(), ChartsPanelProps, DEFAULT_COLORS, monthsNames, PROJECT_COLORS, RevenueData, ActivityItem (+37 more)
+Cohesion: 0.06
+Nodes (47): TwoFactorVerificationProps, ChartsPanel(), ChartsPanelProps, DEFAULT_COLORS, monthsNames, PROJECT_COLORS, RevenueData, Notice (+39 more)
 
 ### Community 11 - "Community 11"
 Cohesion: 0.10
@@ -211,6 +217,10 @@ Nodes (8): 1. Issue Summary, 2. Root Cause Analysis, 3. Active Variables Audit, 
 Cohesion: 0.22
 Nodes (8): 1. Completed Tasks, 2. Contract Architecture, 3. Files Created/Modified, 4. Graceful Degradation, 5. Build Verification, Frontend Contract Config, PHASE 3 — SMART CONTRACT INTEGRATION, RevenueSplitter.sol
 
+### Community 29 - "Community 29"
+Cohesion: 0.10
+Nodes (20): 1. Project Overview, 2. Platform Architecture, 3. Core Modules & User Roles, 4. Permissions Matrix & Restrictions, 5. Security Measures Taken, 6. How to Use & Operating Guide, 7. Frequently Asked Questions (FAQ), 💼 Admin Module (Production Managers & Finance Officers) (+12 more)
+
 ### Community 30 - "Community 30"
 Cohesion: 0.25
 Nodes (7): 1. Issue Summary, 2. Root Cause Analysis, 3. Provider Hierarchy Verification, 4. Auth Session & Wallet Sync Bridge, 5. Security & Hydration Safety, 6. Recommended Action, INVESTIGATION REPORT: Provider + Auth
@@ -230,6 +240,10 @@ Nodes (7): 1. Documentation Overview, 2. Infrastructure Overview, 3. Project Con
 ### Community 34 - "Community 34"
 Cohesion: 0.29
 Nodes (7): { createClient }, getWallet(), { HDNodeWallet, Mnemonic }, mnemonic, path, seedData(), supabase
+
+### Community 35 - "Community 35"
+Cohesion: 0.19
+Nodes (11): DistributePanel(), Project, RightsHolder, ABI, Address, REVENUE_SPLITTER_ADDRESS, useRevenueSplitter(), ProfilePage() (+3 more)
 
 ### Community 36 - "Community 36"
 Cohesion: 0.29
@@ -299,25 +313,33 @@ Nodes (3): { ethers }, { expect }, {
 Cohesion: 0.40
 Nodes (4): buildCommand, framework, installCommand, outputDirectory
 
+### Community 52 - "Community 52"
+Cohesion: 0.22
+Nodes (7): AuthContext, AuthContextType, AuthProvider(), DEFAULT_SETTINGS, Role, Settings, User
+
+### Community 66 - "Community 66"
+Cohesion: 0.27
+Nodes (9): DEMO_ACCOUNTS, DashboardContent(), HolderProfileModal(), fmt(), fmtEth(), Project, RightsHolder, trunc() (+1 more)
+
 ## Knowledge Gaps
-- **461 isolated node(s):** `extends`, `no-unused-vars`, `react/no-unescaped-entities`, `path`, `config` (+456 more)
+- **476 isolated node(s):** `extends`, `no-unused-vars`, `react/no-unescaped-entities`, `path`, `config` (+471 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **5 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **7 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `checkRateLimit()` connect `Community 0` to `Community 3`?**
-  _High betweenness centrality (0.025) - this node is a cross-community bridge._
+  _High betweenness centrality (0.024) - this node is a cross-community bridge._
 - **Why does `requireAuth()` connect `Community 0` to `Community 3`?**
   _High betweenness centrality (0.016) - this node is a cross-community bridge._
-- **Why does `supabaseAdmin` connect `Community 0` to `Community 3`, `Community 6`?**
-  _High betweenness centrality (0.015) - this node is a cross-community bridge._
+- **Why does `supabaseAdmin` connect `Community 0` to `Community 3`, `Community 68`?**
+  _High betweenness centrality (0.014) - this node is a cross-community bridge._
 - **Are the 2 inferred relationships involving `requireAdmin()` (e.g. with `POST()` and `POST()`) actually correct?**
   _`requireAdmin()` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `extends`, `no-unused-vars`, `react/no-unescaped-entities` to the rest of the system?**
-  _461 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _476 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
-  _Cohesion score 0.06918918918918919 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.0673274094326726 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**
   _Cohesion score 0.04081632653061224 - nodes in this community are weakly interconnected._
