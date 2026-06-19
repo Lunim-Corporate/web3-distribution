@@ -54,7 +54,7 @@ export const WalletIcon = () => (
 
 export const Navbar: React.FC = () => {
   const { user, logout, linkWallet, connectUserWallet, disconnectUserWallet } = useAuth();
-  const { smartAccountAddress, isInitializing } = useRevenueSplitter();
+  const { smartAccountAddress } = useRevenueSplitter();
   const { wallets } = useWallets();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -337,12 +337,7 @@ export const Navbar: React.FC = () => {
 
   const isOnDashboard = pathname.startsWith('/dashboard');
 
-  const WALLETS = []; // Deprecated manual list
 
-  const isActive = (href: string, exact?: boolean) => {
-    if (exact) return pathname === href;
-    return pathname.startsWith(href);
-  };
 
   if (pathname === '/' || pathname === '/login' || pathname === '/signup') return null;
 

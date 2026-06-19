@@ -15,6 +15,7 @@ export type User = {
   email: string;
   name?: string;
   isAdmin?: boolean;
+  isDemo?: boolean;
   role?: Role;
   settings?: Settings;
   wallet_address?: string | null;
@@ -25,19 +26,12 @@ export type User = {
 type AuthContextType = {
   user: User | null;
   isAuthHydrated: boolean;
-  login: (email?: string, password?: string) => Promise<void>;
+  login: () => Promise<void>;
   logout: () => Promise<void>;
-  signup: (name: string, email: string, role: Role, password: string) => Promise<void>;
   settings: Settings | null;
   setNotifyResurfacingHours: (hours: number) => void;
-  listUsers: () => Promise<User[]>;
-  setUserRole: (userId: string, role: Role) => Promise<void>;
-  inviteUser: (email: string, name: string, role: Role) => Promise<void>;
   connectUserWallet: (walletAddress: string, walletType?: 'metamask' | 'local') => Promise<void>;
   disconnectUserWallet: () => Promise<void>;
-  pending2FA: any;
-  verify2FA: (code: string) => Promise<void>;
-  cancel2FA: () => void;
   exportWallet: () => Promise<void>;
   linkWallet: () => Promise<void>;
 };
@@ -46,36 +40,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const DEFAULT_SETTINGS: Settings = { notifyResurfacingHours: 24 };
 const SETTINGS_LS_KEY = 'crt_settings';
-
-/**
- * Fetches the public user profile from the `users` table.
- * Returns a merged User object.
- */
-async function fetchPublicProfile(authUserId: string, authUser: { email?: string; user_metadata?: Record<string, unknown> }): Promise<User> {
-  const { data: dbUser } = await supabase
-    .from('users_profile')
-    .select('id, role, display_name')
-    .eq('id', authUserId)
-    .maybeSingle();
-
-  const meta = (authUser?.user_metadata ?? {}) as Record<string, unknown>;
-  const rawRole = (dbUser?.role as string | undefined) ?? (meta.role as string | undefined) ?? 'RIGHTS_HOLDER';
-  const role = rawRole.toLowerCase() as Role;
-
-  return {
-    id: authUserId,
-    email: authUser.email || '',
-    name: dbUser?.display_name || (meta.name as string) || '',
-    isAdmin: role === 'admin',
-    role,
-  };
-}
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [isAuthHydrated, setIsAuthHydrated] = useState(false);
-  const [pending2FA, setPending2FA] = useState<{ email: string; sessionId: string; password?: string } | null>(null);
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
   const effectiveSettings = useMemo<Settings>(() => {
     return settings ?? DEFAULT_SETTINGS;
@@ -104,8 +73,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
+    setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
+    const handler = (e: CustomEvent) => setIsDemoMode(e.detail);
+    const storageHandler = () => setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
+    window.addEventListener('demo-mode-changed', handler as EventListener);
+    window.addEventListener('storage', storageHandler);
+    return () => {
+      window.removeEventListener('demo-mode-changed', handler as EventListener);
+      window.removeEventListener('storage', storageHandler);
+    };
+  }, []);
+
+  useEffect(() => {
     async function syncPrivyUser() {
       if (!privyReady) return;
+
+      if (!privyUser && isDemoMode) {
+        const demoUser: User = {
+          id: 'demo-admin-id',
+          email: 'demo@lunim.io',
+          name: 'Demo Admin',
+          isAdmin: true,
+          role: 'admin',
+          isDemo: true,
+        };
+        setUser(demoUser);
+        setCookie(demoUser);
+        setIsAuthHydrated(true);
+        return;
+      }
+
       
       if (!privyUser) {
         clearCookie();
@@ -151,9 +148,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     
     syncPrivyUser();
-  }, [privyUser, privyReady, getAccessToken]);
+  }, [privyUser, privyReady, getAccessToken, isDemoMode]);
 
-  async function login(email?: string, password?: string) {
+  async function login() {
     privyLogin();
   }
 
@@ -165,16 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAuthHydrated(true);
   }
 
-  async function signup(name: string, email: string, role: Role, password: string) {
-    const response = await fetch('/api/auth/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, role, password }),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Signup failed');
-    setPending2FA({ email, sessionId: Math.random().toString(36).substr(2, 9), password });
-  }
+
 
   function setNotifyResurfacingHours(hours: number) {
     setSettings((prev) => {
@@ -184,36 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
-  async function listUsers(): Promise<User[]> {
-    const res = await fetch('/api/users');
-    if (!res.ok) throw new Error('Failed to fetch users');
-    const data = await res.json();
-    return (data || []).map((u: any) => ({
-      id: u.id,
-      email: '', // Email not in public profile
-      name: u.display_name,
-      role: u.role?.toLowerCase() as Role,
-      isAdmin: u.role?.toUpperCase() === 'ADMIN',
-    }));
-  }
 
-  async function setUserRole(userId: string, role: Role) {
-    const res = await fetch('/api/users', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, role })
-    });
-    if (!res.ok) throw new Error('Failed to update role');
-  }
-
-  async function inviteUser(email: string, name: string, role: Role) {
-    const response = await fetch('/api/auth/invite', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, name, role }),
-    });
-    if (!response.ok) throw new Error((await response.json()).error || 'Invite failed');
-  }
 
   async function connectUserWallet(walletAddress: string, walletType: 'metamask' | 'local' = 'local') {
     if (!user) return;
@@ -241,28 +200,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser((prev) => (prev ? { ...prev, wallet_address: null, wallet_connected: false, wallet_connected_at: null } : null));
   }
 
-  async function verify2FA(code: string) {
-    throw new Error('MFA is handled by Privy securely.');
-  }
-
-  function cancel2FA() {}
-
   const value: AuthContextType = {
     user,
     isAuthHydrated,
     login,
     logout,
-    signup,
     settings: effectiveSettings,
     setNotifyResurfacingHours,
-    listUsers,
-    setUserRole,
-    inviteUser,
     connectUserWallet,
     disconnectUserWallet,
-    pending2FA: null,
-    verify2FA,
-    cancel2FA,
     exportWallet: async () => {
       try {
         await privyExportWallet();

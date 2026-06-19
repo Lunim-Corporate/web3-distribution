@@ -17,7 +17,7 @@ export async function GET(req: Request) {
       .from('users_profile')
       .select('role, wallet_address')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     const isAdmin = profile?.role === 'ADMIN' || profile?.role === 'admin' || user.role === 'admin' || user.isAdmin;
 
@@ -116,6 +116,10 @@ export async function GET(req: Request) {
     });
 
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg === 'Unauthorized') {
+      return NextResponse.json({ error: msg }, { status: 401 });
+    }
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

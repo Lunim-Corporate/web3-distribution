@@ -1,6 +1,6 @@
 'use client';
  
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -33,7 +33,7 @@ export default function ProfilePage() {
     ? (demoAccount || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266')
     : (wallets.find((w) => w.walletClientType === 'privy') || wallets[0])?.address;
 
-  const fetchAccruedBalance = async () => {
+  const fetchAccruedBalance = useCallback(async () => {
     if (!activeWalletAddress) return;
     setIsLoadingBalance(true);
     try {
@@ -44,7 +44,7 @@ export default function ProfilePage() {
     } finally {
       setIsLoadingBalance(false);
     }
-  };
+  }, [activeWalletAddress, getAccruedBalanceEth]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -101,7 +101,7 @@ export default function ProfilePage() {
     const handlePayment = () => fetchAccruedBalance();
     window.addEventListener('payment-recorded', handlePayment);
     return () => window.removeEventListener('payment-recorded', handlePayment);
-  }, [activeWalletAddress, isDemoMode]);
+  }, [fetchAccruedBalance]);
 
   const handleClaim = async () => {
     if (parseFloat(claimableBalance) <= 0) {
@@ -379,7 +379,7 @@ export default function ProfilePage() {
             <CardContent className="space-y-3">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
                 Your account uses a Smart Account (ERC-4337) with sponsored gas fees. 
-                You don't need to hold ETH to pay for transactions.
+                You don&apos;t need to hold ETH to pay for transactions.
               </p>
 
               {isInitializing ? (

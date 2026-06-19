@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run chain\" \"npm run server:dev\" \"npm run client\"",
+    "dev": "concurrently \"npm run chain\" \"npm run client\"",
     "client": "next dev",
     "build": "next build",
     "start": "next start",
@@ -12,15 +12,15 @@
     "compile": "node --stack-size=10000 node_modules/.bin/hardhat compile",
     "deploy:local": "node --stack-size=10000 node_modules/.bin/hardhat run scripts/deploy.js --network localhost",
     "seed": "node scripts/seed.js",
-    "server": "node server/index.js",
-    "server:dev": "nodemon server/index.js",
-    "demo:full": "npm run compile && npm run deploy:local && npm run seed"
+    "demo:full": "npm run compile && npm run deploy:local && npm run seed",
+    "test:api": "node scripts/api-smoke-test.js"
   },
   "dependencies": {
     "@farcaster/mini-app-solana": "^2.0.0",
     "@farcaster/miniapp-sdk": "^0.3.0",
     "@metamask/connect-evm": "^1.2.0",
     "@privy-io/react-auth": "^3.24.0",
+    "@privy-io/server-auth": "^1.32.5",
     "@privy-io/wagmi": "^4.0.7",
     "@safe-global/api-kit": "^4.1.0",
     "@safe-global/protocol-kit": "^7.1.0",

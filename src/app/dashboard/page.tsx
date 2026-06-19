@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabaseClient';
 import { ChartsPanel } from '@/components/dashboard/ChartsPanel';
@@ -11,7 +11,7 @@ import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { ReportGenerator } from '@/components/dashboard/ReportGenerator';
 import { DistributePanel } from '@/components/dashboard/DistributePanel';
 import { AddRightsHolderModal } from '@/components/dashboard/AddRightsHolderModal';
-import { toast } from 'react-hot-toast';
+
 import { ETH_PRICE_USD, formatUSD as fmtUSD, formatETH as fmtETH } from '@/app/lib/constants';
 
 /* ─── Types ──────────────────────────────────────────────── */
@@ -21,7 +21,7 @@ interface TxSplit { id: string; rights_holder_id: string; full_name: string; rol
 interface Transaction { id: string; tx_hash: string; sender_address: string; total_amount_eth: number; status: string; created_at: string; transaction_splits?: TxSplit[]; }
 
 /* ─── Formatters ─────────────────────────────────────────── */
-const trunc = (addr: string) => addr ? `${addr.slice(0,6)}…${addr.slice(-4)}` : '';
+
 
 /* ─── Loading / Error screens ────────────────────────────── */
 const Spinner = ({ text }: { text: string }) => (
@@ -71,7 +71,7 @@ export default function Dashboard() {
 function DashboardContent() {
   const { isAuthHydrated, user } = useAuth();
   const searchParams = useSearchParams();
-  const router = useRouter();
+
 
   /* Auth / init */
   const [stage, setStage] = useState('Checking authentication…');
@@ -93,8 +93,7 @@ function DashboardContent() {
   });
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [isAddHolderModalOpen, setIsAddHolderModalOpen] = useState(false);
-  const [expandedTx, setExpandedTx] = useState<Record<string, boolean>>({});
-  const toggleTx = (id: string) => setExpandedTx(prev => ({ ...prev, [id]: !prev[id] }));
+
   const [selectedHolder, setSelectedHolder] = useState<RightsHolder | null>(null);
 
   /* ── Read ?tab= query param on navigation ────────────────── */
@@ -334,7 +333,7 @@ function DashboardContent() {
                     </div>
                     {holders.length === 0 ? (
                       <p className="text-xs text-gray-500">No rights holders visible.</p>
-                    ) : holders.slice(0, 3).map((h, i) => (
+                    ) : holders.slice(0, 3).map((h) => (
                       <div key={h.id} onClick={() => setSelectedHolder(h)} className="bg-white/5 border border-white/10 rounded-2xl p-4 backdrop-blur-xl hover:border-indigo-500/40 cursor-pointer transition-all">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center text-indigo-300 font-black text-sm border border-indigo-500/10">

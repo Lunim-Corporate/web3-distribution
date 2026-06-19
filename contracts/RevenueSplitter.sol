@@ -19,9 +19,18 @@ contract RevenueSplitter {
     event PaymentReleased(address to, uint256 amount);
     event PaymentReceived(address from, uint256 amount);
 
+    bool private locked;
+
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can configure payees");
         _;
+    }
+
+    modifier nonReentrant() {
+        require(!locked, "ReentrancyGuard: reentrant call");
+        locked = true;
+        _;
+        locked = false;
     }
 
     constructor() {
@@ -52,7 +61,7 @@ contract RevenueSplitter {
     /**
      * @dev Triggers a transfer to a specified payee of their owed percentage relative to network scale.
      */
-    function release(address payable account) external {
+    function release(address payable account) external nonReentrant {
         require(shares[account] > 0, "Account has no shares");
 
         uint256 totalReceived = address(this).balance + totalReleased;
@@ -63,7 +72,8 @@ contract RevenueSplitter {
         released[account] = released[account] + payment;
         totalReleased = totalReleased + payment;
 
-        account.transfer(payment);
+        (bool success, ) = account.call{value: payment}("");
+        require(success, "Transfer failed");
         emit PaymentReleased(account, payment);
     }
 }

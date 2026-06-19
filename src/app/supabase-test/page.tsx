@@ -17,7 +17,7 @@ export default async function Page() {
           <p className="font-bold">Connection Error:</p>
           <pre className="text-xs mt-2">{JSON.stringify(error, null, 2)}</pre>
           <p className="mt-4 text-sm text-red-300">
-            Note: This error is expected if your API keys are still the "sb_publishable_..." Stripe keys.
+            Note: This error is expected if your API keys are still the &quot;sb_publishable_...&quot; Stripe keys.
           </p>
         </div>
       ) : (

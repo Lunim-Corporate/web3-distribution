@@ -2,18 +2,19 @@
 
 import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 
 export default function HomePage() {
   const { user, isAuthHydrated } = useAuth();
-  const router = typeof window !== 'undefined' ? require('next/navigation').useRouter() : null;
+  const router = useRouter();
 
   React.useEffect(() => {
     if (isAuthHydrated && user) {
-      window.location.href = '/dashboard';
+      router.push('/dashboard');
     }
-  }, [isAuthHydrated, user]);
+  }, [isAuthHydrated, user, router]);
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 overflow-hidden selection:bg-blue-500/30 font-sans">

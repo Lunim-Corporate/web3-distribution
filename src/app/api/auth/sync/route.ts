@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/app/lib/supabaseServer';
+import { PrivyClient } from '@privy-io/server-auth';
+
+const privy = new PrivyClient(
+  process.env.NEXT_PUBLIC_PRIVY_APP_ID || '',
+  process.env.PRIVY_APP_SECRET || ''
+);
 
 export async function POST(req: Request) {
   try {
@@ -17,8 +23,16 @@ export async function POST(req: Request) {
 
     const email = privyUser.email.address;
 
-    // Ideally, we would verify the Privy token here using @privy-io/server-auth
-    // For now, we trust the client request since it's an authenticated route in our architecture.
+    // Verify Privy Access Token
+    try {
+      const verifiedClaims = await privy.verifyAuthToken(token);
+      if (!verifiedClaims || verifiedClaims.userId !== privyUser.id) {
+        return NextResponse.json({ error: 'Unauthorized: Invalid token claims or user ID mismatch' }, { status: 401 });
+      }
+    } catch (tokenErr: any) {
+      console.error('[SECURITY] Privy token verification failed:', tokenErr);
+      return NextResponse.json({ error: 'Unauthorized: Invalid Privy token' }, { status: 401 });
+    }
 
     // 1. Find user in auth.users by email
     const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();

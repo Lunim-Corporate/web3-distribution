@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { supabase } from '@/lib/supabaseClient';
+
 import Link from 'next/link';
 import { ETH_PRICE_USD } from '@/app/lib/constants';
 import { DEMO_ACCOUNTS } from '@/app/components/Navbar';
@@ -31,7 +31,7 @@ const HARDHAT_CHAIN_ID_HEX = '0x7a69';
 export default function Web3DemoPage() {
   // Demo Mode state
   const [isDemoMode, setIsDemoMode] = useState(false);
-  const [demoAccount, setDemoAccount] = useState<string | null>(null);
+
 
   // Wallet state
   const [account, setAccount] = useState<string | null>(null);

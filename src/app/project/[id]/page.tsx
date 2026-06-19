@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth';
@@ -80,12 +80,7 @@ export default function ProjectPage() {
     wallet_address: '',
   });
 
-  useEffect(() => {
-    if (!projectId) return;
-    loadProject();
-  }, [projectId]);
-
-  async function loadProject() {
+  const loadProject = useCallback(async () => {
     try {
       const [proj, contribs, pays, rts, mls] = await Promise.all([
         getProjectById(projectId),
@@ -116,7 +111,12 @@ export default function ProjectPage() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId) return;
+    loadProject();
+  }, [projectId, loadProject]);
 
   async function handleRecordPayment() {
     try {

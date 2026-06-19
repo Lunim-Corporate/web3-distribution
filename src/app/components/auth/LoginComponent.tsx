@@ -28,6 +28,20 @@ export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login
     }
   };
 
+  const handleDemo = () => {
+    const demoUser = {
+      id: 'demo-admin-id',
+      email: 'demo@lunim.io',
+      name: 'Demo Admin',
+      isAdmin: true,
+      role: 'admin',
+      isDemo: true,
+    };
+    localStorage.setItem('demo_mode', 'true');
+    document.cookie = `crt_user=${encodeURIComponent(JSON.stringify(demoUser))}; path=/; SameSite=Lax; max-age=86400`;
+    window.location.href = '/dashboard';
+  };
+
   return (
     <div className="min-h-screen bg-[#020617] flex font-sans selection:bg-blue-500/30">
       
@@ -159,6 +173,25 @@ export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                   </span>
                 )}
+              </button>
+
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-700/50"></div>
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-slate-900/40 px-3 text-slate-500">or</span>
+                </div>
+              </div>
+
+              <button
+                onClick={handleDemo}
+                className="w-full bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 text-amber-400 border border-amber-500/20 hover:border-amber-500/40 font-bold py-4 rounded-xl transition-all"
+              >
+                <span className="flex items-center justify-center gap-2">
+                  Launch Demo Mode
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                </span>
               </button>
             </div>
           </div>

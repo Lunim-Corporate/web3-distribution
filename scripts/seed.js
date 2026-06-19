@@ -1,3 +1,5 @@
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') });
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
 const { HDNodeWallet, Mnemonic } = require('ethers');
@@ -13,8 +15,10 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Generate deterministic wallet addresses from default Hardhat mnemonic
-const mnemonic = Mnemonic.fromPhrase('test test test test test test test test test test test junk');
+// Generate deterministic wallet addresses from Hardhat mnemonic
+// Set HARDHAT_MNEMONIC in .env.local to override; defaults to Hardhat's standard test mnemonic
+const HARDHAT_MNEMONIC = process.env.HARDHAT_MNEMONIC || 'test test test test test test test test test test test junk';
+const mnemonic = Mnemonic.fromPhrase(HARDHAT_MNEMONIC);
 const getWallet = (index) => HDNodeWallet.fromMnemonic(mnemonic, `m/44'/60'/0'/0/${index}`).address;
 
 const seedData = async () => {

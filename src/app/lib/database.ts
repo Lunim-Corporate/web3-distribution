@@ -1,5 +1,4 @@
 import { supabase } from './supabaseClient';
-import type { ProjectUpdate, ContributorUpdate, CreativeRightUpdate, MilestoneUpdate } from './types';
 
 // Projects
 export async function getProjects() {

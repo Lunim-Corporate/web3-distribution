@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useWallets } from '@privy-io/react-auth';
 import { createPublicClient, createWalletClient, http, custom, encodeFunctionData, parseEther, formatEther } from 'viem';
-import { baseSepolia, hardhat } from 'viem/chains';
+import { hardhat } from 'viem/chains';
 import { activeChain } from './web3/config';
 import { createSmartAccountClient } from 'permissionless';
 import { toSafeSmartAccount } from 'permissionless/accounts';
@@ -16,9 +16,7 @@ const LOCAL_RPC = 'http://127.0.0.1:8545';
 const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL || ALCHEMY_RPC;
 const BUNDLER_URL = process.env.NEXT_PUBLIC_BUNDLER_URL || ALCHEMY_RPC;
 
-// Safe specific addresses for Base Sepolia (Entrypoint v0.6)
-const SAFE_4337_MODULE_ADDRESS = '0x39E9269c98CAF0ca8675071f105b31057022f462';
-const SAFE_FACTORY_ADDRESS = '0x4e1C6295da940866A45F924e38e65fB84F0E01a6';
+
 
 const ABI = [
   {
