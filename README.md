@@ -13,14 +13,14 @@ graph TD
     User([Content Admin]) -->|Initiates Split| FE[Next.js Frontend]
     FE -->|Authenticate & Sign| Privy[Privy Auth & Embedded EOA]
     
-    subgraph Web3 Gasless Pipeline
+    subgraph "Web3 Gasless Pipeline"
         Privy -->|Request UserOp| Safe[Safe Smart Account v1.4.1]
         Safe -->|Sponsorship Request| Paymaster[Alchemy Paymaster]
         Paymaster -->|Validate & Sponsor Gas| Bundler[Alchemy Bundler]
         Bundler -->|Submit Bundled Tx| Contract[RevenueRights Contract on Base Sepolia]
     end
 
-    subgraph EOA Fallback Pipeline (Cashless Fallback)
+    subgraph "EOA Fallback Pipeline (Cashless Fallback)"
         Privy -->|Direct Transaction Signature| EOA_Tx[Standard Wallet Transaction]
         EOA_Tx -->|Submit Tx with Gas| Contract
     end
