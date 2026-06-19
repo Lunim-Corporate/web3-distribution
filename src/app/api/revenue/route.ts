@@ -1,9 +1,17 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/app/lib/supabaseServer';
-import { normalizePaymentStatus } from '@/lib/utils';
+import { requireAuth } from '@/app/lib/apiSecurity';
+import { checkRateLimit } from '@/app/lib/rateLimit';
 
 export async function GET(req: Request) {
   try {
+    // Rate limit: read tier
+    const blocked = await checkRateLimit('read');
+    if (blocked) return blocked;
+
+    // Auth required
+    await requireAuth();
+
     const { searchParams } = new URL(req.url);
     const isDemoMode = searchParams.get('demo') === 'true';
 
@@ -41,8 +49,12 @@ export async function GET(req: Request) {
     });
     
     return NextResponse.json(formatted);
-  } catch (error) {
-    console.error('CRITICAL Error fetching revenue:', error);
+  } catch (error: any) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg === 'Unauthorized') {
+      return NextResponse.json({ error: msg }, { status: 401 });
+    }
+    console.error('Error fetching revenue:', msg);
     return NextResponse.json([], { status: 200 });
   }
 }

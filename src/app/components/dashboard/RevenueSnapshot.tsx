@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { formatCurrency } from '@/lib/utils';
+// formatCurrency available via @/lib/utils if needed
 import { toast } from 'react-hot-toast';
 import { ETH_PRICE_USD } from '@/app/lib/constants';
 
@@ -17,7 +17,7 @@ interface RevenueSnapshotProps {
   isDemoMode?: boolean;
 }
 
-export const RevenueSnapshot: React.FC<RevenueSnapshotProps> = ({ activeProjectId, projectsList, transactions, isDemoMode }) => {
+export const RevenueSnapshot: React.FC<RevenueSnapshotProps> = ({ activeProjectId, projectsList, isDemoMode }) => {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const toggleRow = (id: string) => setExpandedRows(prev => ({...prev, [id]: !prev[id]}));
   const [projectFilter, setProjectFilter] = useState<string>(activeProjectId || '');
@@ -299,7 +299,7 @@ export const RevenueSnapshot: React.FC<RevenueSnapshotProps> = ({ activeProjectI
                                 {/* Vertical connection line */}
                                 <div className="absolute left-1.5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-white/10 via-white/5 to-transparent rounded-full" />
                                 
-                                {r.splits.map((s: any, idx: number) => (
+                                {r.splits.map((s: any) => (
                                   <div key={s.id} className="flex justify-between items-center py-2 group/split">
                                     <div className="flex items-center gap-3">
                                       <div className="relative">

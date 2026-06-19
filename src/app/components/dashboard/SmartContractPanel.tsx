@@ -2,21 +2,17 @@
 
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
+// Badge available from '@/components/ui/Badge' if needed
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth';
 import { useRevenueSplitter } from '@/lib/web3';
 import { truncateAddress } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 
-const requiredChainIdDec = (() => {
-  const raw = process.env.NEXT_PUBLIC_CHAIN_ID;
-  const n = raw ? Number(raw) : NaN;
-  return Number.isFinite(n) ? n : null;
-})();
+// requiredChainIdDec unused in SmartContractPanel
 
-const requiredChainIdHex =
-  requiredChainIdDec != null ? `0x${requiredChainIdDec.toString(16)}` : null;
+// requiredChainIdHex available for wallet network switching:
+// const requiredChainIdHex = requiredChainIdDec != null ? `0x${requiredChainIdDec.toString(16)}` : null;
 
 export const SmartContractPanel: React.FC = () => {
   const { user, logout } = useAuth();
@@ -69,6 +65,7 @@ export const SmartContractPanel: React.FC = () => {
 
   useEffect(() => {
     if (smartAccountAddress) void refreshContractBalance();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [smartAccountAddress]);
 
   const handleSendETH = async () => {

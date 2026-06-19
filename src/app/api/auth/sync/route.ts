@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { PrivyClient } from '@privy-io/server-auth';
+import { checkRateLimit } from '@/app/lib/rateLimit';
 
 const privy = new PrivyClient(
   process.env.NEXT_PUBLIC_PRIVY_APP_ID || '',
@@ -9,6 +10,10 @@ const privy = new PrivyClient(
 
 export async function POST(req: Request) {
   try {
+    // Rate limit: auth tier (10 per minute)
+    const blocked = await checkRateLimit('auth');
+    if (blocked) return blocked;
+
     const authHeader = req.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Missing or invalid authorization header' }, { status: 401 });

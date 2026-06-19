@@ -1,21 +1,38 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseServer';
+import { supabaseAdmin } from '@/app/lib/supabaseServer';
+import { requireAuth } from '@/app/lib/apiSecurity';
+import { checkRateLimit } from '@/app/lib/rateLimit';
 
 export async function GET() {
   try {
-    const { data, error } = await supabaseAdmin
-      .from('milestones')
-      .select('*')
-      .order('date', { ascending: true });
+    const blocked = await checkRateLimit('read');
+    if (blocked) return blocked;
 
-    if (error) throw error;
+    await requireAuth();
+
+    const { data, error } = await supabaseAdmin
+      .from('activities')
+      .select('*')
+      .order('timestamp', { ascending: true });
+
+    if (error) {
+      // If milestones table doesn't exist, derive from activities
+      const { data: activities } = await supabaseAdmin
+        .from('activities')
+        .select('*, projects(name)')
+        .eq('action', 'milestone')
+        .order('timestamp', { ascending: true });
+
+      return NextResponse.json(activities || []);
+    }
+
     return NextResponse.json(data || []);
-  } catch (error) {
+  } catch (error: any) {
+    const msg = error instanceof Error ? error.message : 'Error';
+    if (msg === 'Unauthorized') return NextResponse.json({ error: msg }, { status: 401 });
     console.error('Error fetching milestones:', error);
     return NextResponse.json([], { status: 200 });
   }
 }
-
-
 
 export const dynamic = 'force-dynamic';

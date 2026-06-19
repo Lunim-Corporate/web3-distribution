@@ -29,8 +29,8 @@ type AuthContextType = {
   login: () => Promise<void>;
   logout: () => Promise<void>;
   settings: Settings | null;
-  setNotifyResurfacingHours: (hours: number) => void;
-  connectUserWallet: (walletAddress: string, walletType?: 'metamask' | 'local') => Promise<void>;
+  setNotifyResurfacingHours: (_hours: number) => void;
+  connectUserWallet: (_walletAddress: string, _walletType?: 'metamask' | 'local') => Promise<void>;
   disconnectUserWallet: () => Promise<void>;
   exportWallet: () => Promise<void>;
   linkWallet: () => Promise<void>;

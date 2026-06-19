@@ -9,7 +9,7 @@ import type { Revenue } from '@/lib/types';
 
 interface RevenueFilterProps {
   revenues: Revenue[];
-  onFiltered: (filtered: Revenue[]) => void;
+  onFiltered: (_filtered: Revenue[]) => void;
   className?: string;
 }
 

@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseServer';
+import { supabaseAdmin } from '@/app/lib/supabaseServer';
+import { requireAdmin } from '@/app/lib/apiSecurity';
+import { checkRateLimit } from '@/app/lib/rateLimit';
 
 interface DiagnosticsResult {
   timestamp: string;
@@ -7,6 +9,9 @@ interface DiagnosticsResult {
     supabaseUrl: string;
     supabaseKey: string;
     serviceRole: string;
+    privyAppId: string;
+    stripeKey: string;
+    chainId: string;
   };
   tables: Record<string, {
     status: string;
@@ -17,18 +22,27 @@ interface DiagnosticsResult {
 
 export async function GET() {
   try {
+    const blocked = await checkRateLimit('sensitive');
+    if (blocked) return blocked;
+
+    // Admin only — diagnostics exposes infrastructure details
+    await requireAdmin();
+
     const diagnostics: DiagnosticsResult = {
       timestamp: new Date().toISOString(),
       environment: {
         supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL ? '✓ Set' : '✗ Missing',
         supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? '✓ Set' : '✗ Missing',
         serviceRole: process.env.SUPABASE_SERVICE_ROLE_KEY ? '✓ Set' : '✗ Missing',
+        privyAppId: process.env.NEXT_PUBLIC_PRIVY_APP_ID ? '✓ Set' : '✗ Missing',
+        stripeKey: process.env.STRIPE_SECRET_KEY ? '✓ Set' : '✗ Missing',
+        chainId: process.env.NEXT_PUBLIC_CHAIN_ID || 'Not set (defaults to Hardhat 31337)',
       },
       tables: {},
     };
 
-    // Test each table
-    const tables = ['users', 'projects', 'project_contributors', 'creative_rights', 'payments', 'milestones', 'activities'];
+    // Test each table — use the actual schema tables
+    const tables = ['users_profile', 'projects', 'rights_holders', 'transactions', 'transaction_splits', 'activities'];
 
     for (const table of tables) {
       try {
@@ -56,12 +70,13 @@ export async function GET() {
     }
 
     return NextResponse.json(diagnostics);
-  } catch (error) {
+  } catch (error: any) {
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    if (msg === 'Unauthorized' || msg === 'Forbidden: Admins only') {
+      return NextResponse.json({ error: msg }, { status: msg === 'Unauthorized' ? 401 : 403 });
+    }
     return NextResponse.json(
-      {
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { status: 'error', message: msg },
       { status: 500 }
     );
   }

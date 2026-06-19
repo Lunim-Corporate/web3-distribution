@@ -1,9 +1,18 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/app/lib/supabaseServer';
+import { requireAuth } from '@/app/lib/apiSecurity';
+import { checkRateLimit } from '@/app/lib/rateLimit';
 import { ETH_PRICE_USD } from '@/app/lib/constants';
 
 export async function GET(req: Request) {
   try {
+    // Rate limit: read tier
+    const blocked = await checkRateLimit('read');
+    if (blocked) return blocked;
+
+    // Auth required
+    await requireAuth();
+
     const { searchParams } = new URL(req.url);
     const isDemoMode = searchParams.get('demo') === 'true';
 
@@ -61,9 +70,13 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json(activities);
-  } catch (error) {
+  } catch (error: any) {
+    const msg = error instanceof Error ? error.message : String(error);
+    if (msg === 'Unauthorized') {
+      return NextResponse.json({ error: msg }, { status: 401 });
+    }
     console.error('Error fetching activities:', error);
-    return NextResponse.json([], { status: 200 }); // Return empty array on failure
+    return NextResponse.json([], { status: 200 });
   }
 }
 

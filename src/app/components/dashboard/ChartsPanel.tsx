@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+// Card components unused in ChartsPanel
 import { Line, Doughnut } from 'react-chartjs-2';
 import { formatCurrency } from '@/lib/utils';
-import { formatCurrencyFromCentsGB } from '@/lib/currency';
+// formatCurrencyFromCentsGB unused in ChartsPanel
 import { ETH_PRICE_USD } from '@/app/lib/constants';
 import {
   Chart as ChartJS,
@@ -76,9 +76,7 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ projectId, isDemoMode }) => {
   // Build month buckets by year-month key
   const { labels, trendData, projectedData, projectSegments } = useMemo(() => {
     // Filter revenue by project if needed
-    const filteredRevenue = projectId && projectId !== 'all' 
-      ? revenue.filter(r => r.projectId === projectId)
-      : revenue;
+    // filteredRevenue unused — logic handled in loop below
 
     const monthly: Record<string, number> = {};
     const projectMap: Record<string, number> = {};

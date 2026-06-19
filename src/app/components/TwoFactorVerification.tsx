@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/Input';
 
 interface TwoFactorVerificationProps {
   email: string;
-  onVerify: (code: string) => Promise<void>;
+  onVerify: (_code: string) => Promise<void>;
   onCancel: () => void;
   isLoading?: boolean;
 }

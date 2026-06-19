@@ -3,7 +3,7 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import { mockMilestones } from '@/data/mockData';
+// mockMilestones removed — data now fetched from /api/milestones
 import { formatDate } from '@/lib/utils';
 
 export const UpcomingMilestones: React.FC = () => {

@@ -1,8 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 
 interface ActivityItem {
   id: string;
@@ -11,36 +10,7 @@ interface ActivityItem {
   icon: string;
 }
 
-interface RevenueData {
-  id: string;
-  projectId: string;
-  projectName: string;
-  amount: number;
-  date: string;
-}
 
-interface SplitData {
-  id: string;
-  projectId: string;
-  projectName?: string;
-  amount: number;
-  date?: string;
-}
-
-interface RightsData {
-  id: string;
-  projectName: string;
-  status?: string;
-  createdDate?: string;
-  expirationDate?: string;
-}
-
-interface MilestoneData {
-  id: string;
-  title: string;
-  date?: string;
-  target_date?: string;
-}
 
 interface RecentActivityProps {
   isDemoMode?: boolean;

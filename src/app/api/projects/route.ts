@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseServer';
 import { requireAuth } from '@/lib/apiSecurity';
+import { checkRateLimit } from '@/app/lib/rateLimit';
 
 export async function GET() {
   try {
+    const blocked = await checkRateLimit('read');
+    if (blocked) return blocked;
+
     await requireAuth();
+
     const { data, error } = await supabaseAdmin
       .from('projects')
       .select('*')

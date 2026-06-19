@@ -96,7 +96,6 @@ export function TxModal({ isOpen, onClose, steps, txHash, error }: TxModalProps)
                 const isRunning = step.status === 'running';
                 const isSuccess = step.status === 'success';
                 const isError = step.status === 'error';
-                const isIdle = step.status === 'idle';
 
                 return (
                   <div key={step.id} className="flex items-start gap-4 animate-fadeIn">

@@ -2,9 +2,16 @@ import { NextResponse } from 'next/server';
 // Use Node-specific distribution to avoid browser global dependencies
 const { jsPDF } = require('jspdf/dist/jspdf.node.min');
 import { generateRevenueReport } from '@/lib/database';
+import { requireAuth } from '@/app/lib/apiSecurity';
+import { checkRateLimit } from '@/app/lib/rateLimit';
 
 export async function GET(request: Request) {
   try {
+    const blocked = await checkRateLimit('write');
+    if (blocked) return blocked;
+
+    await requireAuth();
+
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period');
     const now = new Date();

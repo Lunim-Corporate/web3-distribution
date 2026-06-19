@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { requireAuth } from '@/app/lib/apiSecurity';
+import { checkRateLimit } from '@/app/lib/rateLimit';
 
 export async function GET(req: Request) {
   try {
+    // Rate limit: read tier
+    const blocked = await checkRateLimit('read');
+    if (blocked) return blocked;
+
     const { searchParams } = new URL(req.url);
     const pid = searchParams.get('pid');
     const isDemoMode = searchParams.get('demo') === 'true';

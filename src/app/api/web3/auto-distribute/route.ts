@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/app/lib/supabaseServer';
-import { requireAdmin, requireAuth } from '@/app/lib/apiSecurity';
+import { requireAdmin, requireAuth, auditLog } from '@/app/lib/apiSecurity';
+import { checkRateLimit } from '@/app/lib/rateLimit';
+import { validateBody, distributePayloadSchema } from '@/app/lib/validation';
 import { createWalletClient, http, parseEther, publicActions, createPublicClient, decodeEventLog, formatEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { hardhat, baseSepolia } from 'viem/chains';
@@ -53,26 +55,66 @@ async function getReceiptFromNetwork(hash: `0x${string}`) {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { project_id, amount_eth, holders, manual_tx_hash, is_demo } = body;
+    // Rate limit: sensitive tier (5 per minute) — this moves real money
+    const blocked = await checkRateLimit('sensitive');
+    if (blocked) return blocked;
 
+    // Validate input BEFORE any processing
+    const result = await validateBody(req, distributePayloadSchema);
+    if (result.error) return result.response;
+
+    const { project_id, amount_eth, holders, manual_tx_hash, is_demo, sender_address } = result.data;
+
+    // Auth: admin required for live, auth required for demo
+    let user;
     if (!is_demo) {
-      await requireAdmin();
+      user = await requireAdmin();
     } else {
-      await requireAuth();
+      user = await requireAuth();
     }
 
-    if (!project_id || !amount_eth || !holders?.length) {
-      return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+    // Audit log
+    await auditLog('distribute:init', user.id, true, `project=${project_id} amount=${amount_eth} ETH holders=${holders.length}`);
+
+    // Validate holder percentages sum to ~100%
+    const totalPercentage = holders.reduce((sum, h) => sum + h.percentage, 0);
+    if (Math.abs(totalPercentage - 100) > 1) {
+      return NextResponse.json(
+        { error: `Holder percentages sum to ${totalPercentage}%, expected ~100%` },
+        { status: 400 }
+      );
     }
 
-    let txHash = manual_tx_hash;
+    // Idempotency check: prevent double-recording the same tx_hash
+    if (manual_tx_hash) {
+      const { data: existing } = await supabaseAdmin
+        .from('transactions')
+        .select('id')
+        .eq('tx_hash', manual_tx_hash)
+        .maybeSingle();
+
+      if (existing) {
+        return NextResponse.json(
+          { error: 'Transaction already recorded', txHash: manual_tx_hash },
+          { status: 409 }
+        );
+      }
+    }
+
+    let txHash = manual_tx_hash || null;
     let isDemoMode = true;
     let verifiedHolders: any[] = [];
 
     if (!txHash) {
-      // Setup Viem using local hardhat network
-      const privateKey = process.env.PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+      // Require PRIVATE_KEY from environment — never hardcode
+      const privateKey = process.env.PRIVATE_KEY;
+      if (!privateKey) {
+        return NextResponse.json(
+          { error: 'Server private key not configured. Set PRIVATE_KEY in .env.local' },
+          { status: 500 }
+        );
+      }
+
       const account = privateKeyToAccount(privateKey as `0x${string}`);
       
       const walletClient = createWalletClient({
@@ -119,9 +161,8 @@ export async function POST(req: Request) {
               if (decoded.eventName === 'HolderPaid') {
                 const args: any = decoded.args;
                 
-                // Find matching holder from body to fetch rights_holder_id
                 const matchedHolder = holders.find(
-                  (h: any) => h.wallet_address?.toLowerCase() === args.recipient.toLowerCase()
+                  (h) => h.wallet_address?.toLowerCase() === args.recipient.toLowerCase()
                 );
 
                 verifiedHolders.push({
@@ -152,7 +193,7 @@ export async function POST(req: Request) {
       .insert({
         project_id,
         tx_hash: txHash,
-        sender_address: body.sender_address || '0x...', 
+        sender_address: sender_address || '0x0000000000000000000000000000000000000000', 
         total_amount_eth: finalAmountEth,
         method: manual_tx_hash ? 'web3' : 'demo',
         is_demo: isDemoMode,
@@ -231,6 +272,9 @@ export async function POST(req: Request) {
     } catch (err) {
       console.warn(`Could not update total for project ${project_id}:`, err);
     }
+
+    // Audit success
+    await auditLog('distribute:success', user.id, true, `txHash=${txHash} amount=${finalAmountEth} ETH`);
 
     return NextResponse.json({ success: true, txHash });
   } catch (err: any) {

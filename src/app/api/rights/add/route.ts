@@ -4,7 +4,7 @@ import { requireAdmin } from '@/app/lib/apiSecurity';
 
 export async function POST(req: Request) {
   try {
-    const user = await requireAdmin();
+    await requireAdmin();
     const body = await req.json();
     const { project_id, full_name, role, wallet_address, percentage } = body;
 

@@ -6,7 +6,7 @@ export async function POST(req: Request) {
   try {
     await requireAdmin();
     const body = await req.json();
-    const { action, id, percentage, project_id, full_name, wallet_address } = body;
+    const { action, id, percentage } = body;
 
     if (action === 'update') {
       if (!id || percentage === undefined) return NextResponse.json({ error: 'Missing ID or percentage' }, { status: 400 });

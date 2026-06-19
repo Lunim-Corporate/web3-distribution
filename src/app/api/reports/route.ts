@@ -2,10 +2,16 @@ import { NextResponse } from 'next/server';
 import { generateRevenueReport } from '@/lib/database';
 import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { ETH_PRICE_USD } from '@/app/lib/constants';
+import { requireAuth } from '@/app/lib/apiSecurity';
+import { checkRateLimit } from '@/app/lib/rateLimit';
 import type { RevenueReport, RevenueBySource, RevenueByProject, RevenueTrend } from '@/lib/types';
 
 export async function GET(request: Request) {
   try {
+    const blocked = await checkRateLimit('read');
+    if (blocked) return blocked;
+
+    await requireAuth();
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');

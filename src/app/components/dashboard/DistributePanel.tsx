@@ -13,7 +13,7 @@ interface RightsHolder { id: string; full_name: string; role: string; wallet_add
 
 export function DistributePanel({ project, holders }: { project: Project | null; holders: RightsHolder[] }) {
   const { user } = useAuth();
-  const { distributeRevenue, smartAccountAddress, isInitializing } = useRevenueSplitter();
+  const { distributeRevenue, smartAccountAddress } = useRevenueSplitter();
   const [amount, setAmount] = useState<string>('0.1');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
@@ -265,7 +265,7 @@ export function DistributePanel({ project, holders }: { project: Project | null;
               </div>
               
               <div className="space-y-5 flex-1 overflow-y-auto pr-2 scrollbar-thin max-h-[350px]">
-                {holders.map((h, i) => (
+                {holders.map((h) => (
                   <div key={h.id} className="flex items-center justify-between group">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-xs font-black text-gray-400 group-hover:bg-indigo-500/10 group-hover:text-indigo-400 transition-colors border border-white/5">

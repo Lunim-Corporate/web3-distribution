@@ -142,7 +142,7 @@ export async function updateContributor(id: string, updates: any) {
 }
 
 // Payments
-export async function recordPayment(data: any) {
+export async function recordPayment(_data: any) {
   return null; // Handled by server/index.js contract listener now
 }
 

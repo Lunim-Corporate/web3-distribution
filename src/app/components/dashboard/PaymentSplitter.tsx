@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { formatCurrency, formatPercentage, calculatePaymentSplit } from '@/lib/utils';
+import { formatPercentage, calculatePaymentSplit } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
 

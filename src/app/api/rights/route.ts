@@ -1,48 +1,56 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseServer';
+import { supabaseAdmin } from '@/app/lib/supabaseServer';
+import { requireAuth } from '@/app/lib/apiSecurity';
+import { checkRateLimit } from '@/app/lib/rateLimit';
 
+/**
+ * GET /api/rights — Fetch rights holders.
+ * 
+ * Uses the `rights_holders` table (the actual schema).
+ * Previous implementation referenced a non-existent `creative_rights` table.
+ */
 export async function GET() {
   try {
+    // Rate limit: read tier
+    const blocked = await checkRateLimit('read');
+    if (blocked) return blocked;
+
+    // Auth required
+    await requireAuth();
+
+    // Fetch rights holders with project name
     const { data, error } = await supabaseAdmin
-      .from('creative_rights')
-      .select('*, projects(name), users:owner_id(id,name,email)')
+      .from('rights_holders')
+      .select('*, projects(name)')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    const formatted = (data || []).map((r) => {
-      const row = r as Record<string, unknown>;
-      const projectRow = row['projects'] as Record<string, unknown> | undefined;
-      const ownerRow = row['users'] as Record<string, unknown> | undefined;
 
-      const projectName =
-        projectRow && typeof projectRow.name === 'string' ? projectRow.name : 'Unknown Project';
-      const ownerName =
-        ownerRow && typeof ownerRow.name === 'string'
-          ? ownerRow.name
-          : ownerRow && typeof ownerRow.email === 'string'
-            ? ownerRow.email
-            : 'Unknown';
-
+    const formatted = (data || []).map((r: any) => {
+      const projectName = r.projects?.name || 'Unknown Project';
       return {
-        id: String(row.id ?? ''),
-        projectId: String(row.project_id ?? ''),
+        id: String(r.id ?? ''),
+        projectId: String(r.project_id ?? ''),
         projectName,
-        rightsType: String(row.rights_type ?? ''),
-        owner: ownerName,
-        ownerId: String(row.owner_id ?? ''),
-        revenueShare: Number(row.revenue_share ?? 0),
-        status: String(row.status ?? 'active'),
-        expirationDate: String(row.expiration_date ?? ''),
+        rightsType: r.role || 'Contributor',
+        owner: r.full_name || 'Unknown',
+        ownerId: String(r.user_id ?? r.id ?? ''),
+        revenueShare: Number(r.percentage ?? 0),
+        walletAddress: r.wallet_address || '',
+        totalReceived: Number(r.total_received ?? 0),
+        status: 'active',
       };
     });
 
     return NextResponse.json(formatted);
   } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Error';
+    if (msg === 'Unauthorized') {
+      return NextResponse.json({ error: msg }, { status: 401 });
+    }
     console.error('Error fetching rights:', error);
     return NextResponse.json([], { status: 200 });
   }
 }
-
-
 
 export const dynamic = 'force-dynamic';
