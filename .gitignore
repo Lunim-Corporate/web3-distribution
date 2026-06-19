@@ -54,6 +54,9 @@ PRD.md
 IMPLEMENTATION_PRD.md
 AUDIT.md
 DEMO_WALKTHROUGH.md
+VERIFY.md
+CLAUDE.md
+AGENTS.md
 
 # IDE & AI agent local workspaces
 .agents/
