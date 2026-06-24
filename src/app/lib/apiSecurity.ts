@@ -90,19 +90,25 @@ export async function getVerifiedUser(): Promise<User | null> {
       }
     }
 
-    // 2. Fall back to crt_user cookie (client-set, used for demo fallback)
+    // 2. Fall back to crt_user cookie for non-demo users (client-set, verified against DB)
     const c = cookieStore.get('crt_user');
     if (!c?.value) return null;
 
-    const userData = JSON.parse(decodeURIComponent(c.value));
+    let userData: any;
+    try {
+      userData = JSON.parse(decodeURIComponent(c.value));
+    } catch {
+      return null;
+    }
     if (!userData?.id) return null;
 
-    // Demo mode bypass: skip DB verification — demo users don't exist in DB
+    // CRITICAL: Never trust client-set demo flag — always verify against DB
+    // Demo users don't exist in DB, so reject them in API routes
     if (userData.isDemo) {
-      return userData as User;
+      return null;
     }
 
-    // 3. Verify non-demo user exists and get fresh role/admin status from DB
+    // 3. Verify user exists in DB and get fresh role/admin status
     const { data: dbUser, error } = await supabaseAdmin
       .from('users_profile')
       .select('id, display_name, role')

@@ -80,11 +80,16 @@ contract RevenueRights {
      * Automatically triggers the distribution logic.
      */
     receive() external payable {
-        this.distributeRevenue{value: msg.value}();
+        // Use internal call to avoid external self-call gas overhead and reentrancy risk
+        _distributeRevenue();
     }
 
     function distributeRevenue() external payable {
         require(msg.value > 0, "Must send ETH");
+        _distributeRevenue();
+    }
+
+    function _distributeRevenue() internal nonReentrant {
         uint256 remaining = msg.value;
         uint256 len = rightsHolders.length;
 

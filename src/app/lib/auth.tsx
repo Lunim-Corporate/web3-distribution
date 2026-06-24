@@ -52,7 +52,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   function setCookie(u: User) {
     try {
-      document.cookie = `crt_user=${encodeURIComponent(JSON.stringify(u))}; path=/; SameSite=Lax; max-age=86400`;
+      // Strip isAdmin from cookie — server verifies role from DB, never trust client
+      const safeUser = { ...u, isAdmin: undefined };
+      document.cookie = `crt_user=${encodeURIComponent(JSON.stringify(safeUser))}; path=/; SameSite=Lax; max-age=86400`;
     } catch { /* ignore */ }
   }
 

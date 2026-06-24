@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getEthPriceUSD } from '@/app/lib/ethPrice';
+import { checkRateLimit } from '@/app/lib/rateLimit';
 
 /**
  * GET /api/eth-price
@@ -10,6 +11,10 @@ import { getEthPriceUSD } from '@/app/lib/ethPrice';
  */
 export async function GET() {
   try {
+    // Rate limit: read tier
+    const blocked = await checkRateLimit('read');
+    if (blocked) return blocked;
+
     const price = await getEthPriceUSD();
 
     return NextResponse.json(

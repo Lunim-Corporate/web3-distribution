@@ -125,7 +125,13 @@ export async function POST(req: Request) {
         transport: http(LOCAL_RPC)
       }).extend(publicActions);
       
-      const contractAddress = process.env.NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS || holders[0]?.wallet_address;
+      const contractAddress = process.env.NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS;
+      if (!contractAddress) {
+        return NextResponse.json(
+          { error: 'NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS is not configured on the server' },
+          { status: 500 }
+        );
+      }
       
       try {
         const weiAmount = parseEther(amount_eth.toString());
@@ -137,9 +143,11 @@ export async function POST(req: Request) {
         await walletClient.waitForTransactionReceipt({ hash });
         txHash = hash;
       } catch (e: any) {
-        console.warn("Hardhat transaction failed (is the node running?). Proceeding with simulation:", e.message);
-        // Create random TX hash to simulate if the node isn't running
-        txHash = '0x' + Array.from({length: 64}, () => Math.floor(Math.random()*16).toString(16)).join('');
+        console.error("Hardhat transaction failed:", e.message);
+        return NextResponse.json(
+          { error: `On-chain transaction failed: ${e.message}. Is the Hardhat node running?` },
+          { status: 500 }
+        );
       }
     }
 

@@ -243,7 +243,7 @@ export function useRevenueSplitter() {
 
     try {
       if (!process.env.NEXT_PUBLIC_ALCHEMY_GAS_POLICY_ID) {
-        throw new Error('No gas policy ID configured, falling back to direct EOA');
+        throw new Error('GASLESS_MODE_UNAVAILABLE');
       }
 
       const smartAccount = await toSafeSmartAccount({
@@ -262,32 +262,42 @@ export function useRevenueSplitter() {
         bundlerTransport: http(BUNDLER_URL),
         middleware: {
           sponsorUserOperation: async ({ userOperation }: { userOperation: any }) => {
-            const response = await fetch(PAYMASTER_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                jsonrpc: '2.0',
-                id: 1,
-                method: 'alchemy_requestGasAndPaymasterAndData',
-                params: [
-                  {
-                    ...userOperation,
-                    nonce: `0x${BigInt(userOperation.nonce || 0).toString(16)}`,
-                    sender: smartAccount.address,
-                    callData: userOperation.callData,
-                  },
-                  { policyId: process.env.NEXT_PUBLIC_ALCHEMY_GAS_POLICY_ID },
-                ],
-              }),
-            });
-            const result = await response.json();
-            if (result.error) throw new Error(result.error.message);
-            return {
-              paymasterAndData: result.result.paymasterAndData,
-              preVerificationGas: result.result.preVerificationGas,
-              verificationGasLimit: result.result.verificationGasLimit,
-              callGasLimit: result.result.callGasLimit,
-            };
+            // 10s timeout for paymaster request
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+            try {
+              const response = await fetch(PAYMASTER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  jsonrpc: '2.0',
+                  id: 1,
+                  method: 'alchemy_requestGasAndPaymasterAndData',
+                  params: [
+                    {
+                      ...userOperation,
+                      nonce: `0x${BigInt(userOperation.nonce || 0).toString(16)}`,
+                      sender: smartAccount.address,
+                      callData: userOperation.callData,
+                    },
+                    { policyId: process.env.NEXT_PUBLIC_ALCHEMY_GAS_POLICY_ID },
+                  ],
+                }),
+                signal: controller.signal,
+              });
+
+              const result = await response.json();
+              if (result.error) throw new Error(result.error.message);
+              return {
+                paymasterAndData: result.result.paymasterAndData,
+                preVerificationGas: result.result.preVerificationGas,
+                verificationGasLimit: result.result.verificationGasLimit,
+                callGasLimit: result.result.callGasLimit,
+              };
+            } finally {
+              clearTimeout(timeoutId);
+            }
           },
         },
       } as any);
@@ -302,8 +312,12 @@ export function useRevenueSplitter() {
       await publicClient.waitForTransactionReceipt({ hash: txHash });
       return txHash;
 
-    } catch (smartAccountError) {
-      console.warn('Smart Account/Paymaster failed, falling back to direct EOA transaction:', smartAccountError);
+    } catch (smartAccountError: any) {
+      const isGaslessUnavailable = smartAccountError?.message === 'GASLESS_MODE_UNAVAILABLE';
+      const msg = isGaslessUnavailable
+        ? 'Gasless mode not configured — you will pay gas fees for this transaction'
+        : `Paymaster failed (${smartAccountError?.message || 'unknown error'}) — falling back to direct EOA`;
+      console.warn(msg, smartAccountError);
 
       const walletClient = createWalletClient({
         account: activeWallet.address as Address,

@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { requireAdmin } from '@/app/lib/apiSecurity';
+import { checkRateLimit } from '@/app/lib/rateLimit';
 
 export async function POST(req: Request) {
   try {
+    // Rate limit: write tier
+    const blocked = await checkRateLimit('write');
+    if (blocked) return blocked;
+
     await requireAdmin();
     const { name, genre, status } = await req.json();
 

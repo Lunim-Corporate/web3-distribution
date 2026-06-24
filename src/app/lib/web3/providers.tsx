@@ -12,6 +12,9 @@ export default function Web3Providers({ children }: { children: React.ReactNode 
   const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
   
   if (!privyAppId) {
+    if (typeof window !== 'undefined') {
+      console.warn('[LUNIM] NEXT_PUBLIC_PRIVY_APP_ID is not set. Web3 features (wallet connection, on-chain transactions) are disabled. Authentication via Privy is also unavailable.');
+    }
     return <>{children}</>;
   }
 

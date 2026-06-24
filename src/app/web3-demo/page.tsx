@@ -349,26 +349,52 @@ export default function Web3DemoPage() {
     setTxStatus('pending'); setTxError(''); setTxHash('');
 
     try {
-      const contractAddress = process.env.NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS || holders[0]?.wallet_address;
-      if (!contractAddress) throw new Error('No contract/recipient address configured');
+      const contractAddress = process.env.NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS;
+      if (!contractAddress) throw new Error('NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS is not configured. Set it in .env.local');
 
       // The function selector for distributeRevenue() is 0x2d07953a
       const data = '0x2d07953a';
 
+      // On Hardhat localhost, gas is free — use gasPrice 0x0 for sponsored gas
+      // On real networks (Base Sepolia/Mainnet), let MetaMask estimate gas
+      const txParams: any = {
+        from: account,
+        to: contractAddress,
+        value: weiHex,
+        data: data,
+      };
+      if (isCorrectNetwork) {
+        txParams.gasPrice = '0x0'; // Hardhat only — zero gas for local sandbox
+      }
+
       const hash = await window.ethereum!.request({
         method: 'eth_sendTransaction',
-        params: [{ 
-          from: account, 
-          to: contractAddress, 
-          value: weiHex,
-          data: data,
-          gasPrice: '0x0' // Set gas price to 0 for sponsored gas on localhost
-        }],
+        params: [txParams],
       }) as string;
 
       setTxHash(hash);
 
-      // Record the real transaction to Supabase via server route
+      // Wait for on-chain confirmation before recording to DB
+      // Poll for tx receipt (MetaMask doesn't expose waitForTransactionReceipt)
+      let receipt = null;
+      for (let i = 0; i < 30; i++) {
+        await new Promise(r => setTimeout(r, 1000));
+        receipt = await window.ethereum!.request({
+          method: 'eth_getTransactionReceipt',
+          params: [hash],
+        });
+        if (receipt) break;
+      }
+
+      if (!receipt) {
+        throw new Error('Transaction timed out waiting for confirmation');
+      }
+
+      if ((receipt as any).status === '0x0') {
+        throw new Error('Transaction reverted on-chain');
+      }
+
+      // Record the confirmed transaction to Supabase via server route
       const res = await fetch('/api/web3/record-transaction', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -412,7 +438,17 @@ export default function Web3DemoPage() {
       window.dispatchEvent(new CustomEvent('payment-recorded', { detail: { txHash: hash, projectId: selectedProject } }));
     } catch (e: any) {
       setTxStatus('error');
-      setTxError(e.code === 4001 ? 'Transaction rejected by user' : (e.message || 'Transaction failed'));
+      if (e.code === 4001) {
+        setTxError('Transaction rejected by user');
+      } else if (e.code === -32000 || e.message?.includes('insufficient funds')) {
+        setTxError('Insufficient funds for this transaction');
+      } else if (e.code === 4100 || e.message?.includes('unauthorized')) {
+        setTxError('Wallet not authorized. Please reconnect.');
+      } else if (e.code === 4902 || e.message?.includes('chain')) {
+        setTxError('Wrong network. Please switch to Hardhat Localhost.');
+      } else {
+        setTxError(e.message || 'Transaction failed');
+      }
     }
   };
 
@@ -607,11 +643,15 @@ export default function Web3DemoPage() {
                   </div>
                 )}
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (isDemoMode) {
                       localStorage.removeItem('active_demo_wallet');
                       window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: null }));
                     } else {
+                      // Revoke MetaMask permissions for this site
+                      try {
+                        await window.ethereum?.request({ method: 'wallet_revokePermissions', params: [{ eth_accounts: {} }] });
+                      } catch { /* best effort */ }
                       setAccount(null); setBalance(null); setChainId(null);
                     }
                   }}

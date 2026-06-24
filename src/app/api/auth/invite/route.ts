@@ -1,12 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/apiSecurity';
+import { checkRateLimit } from '@/lib/rateLimit';
+import crypto from 'crypto';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'noreply@updates.lunim.io';
 
 export async function POST(request: Request) {
   try {
+    // Rate limit: write tier
+    const blocked = await checkRateLimit('write');
+    if (blocked) return blocked;
+
     await requireAdmin();
     const { email, name, role } = await request.json();
 
@@ -20,8 +26,8 @@ export async function POST(request: Request) {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
-    // Generate temp password securely via standard Math for demo setup
-    const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8);
+    // Generate cryptographically secure temp password
+    const tempPassword = crypto.randomBytes(12).toString('base64url');
 
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
