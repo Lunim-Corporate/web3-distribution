@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 // formatCurrency available via @/lib/utils if needed
 import { toast } from 'react-hot-toast';
-import { ETH_PRICE_USD } from '@/app/lib/constants';
+import { useEthPrice } from '@/app/lib/useEthPrice';
 
 const formatUSD = (amount: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -20,6 +20,7 @@ interface RevenueSnapshotProps {
 export const RevenueSnapshot: React.FC<RevenueSnapshotProps> = ({ activeProjectId, projectsList, isDemoMode }) => {
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const toggleRow = (id: string) => setExpandedRows(prev => ({...prev, [id]: !prev[id]}));
+  const { ethPrice } = useEthPrice();
   const [projectFilter, setProjectFilter] = useState<string>(activeProjectId || '');
   
   React.useEffect(() => {
@@ -111,8 +112,8 @@ export const RevenueSnapshot: React.FC<RevenueSnapshotProps> = ({ activeProjectI
       doc.text(`Generated At: ${new Date().toLocaleString()}`, 20, 62);
       
       doc.setFont('helvetica', 'bold');
-      doc.text(`Total Revenue: USD ${(report.totalRevenue * ETH_PRICE_USD).toFixed(2)}`, 20, 78);
-      doc.text(`Total Paid: USD ${(report.totalPaid * ETH_PRICE_USD).toFixed(2)}`, 20, 86);
+      doc.text(`Total Revenue: USD ${(report.totalRevenue * ethPrice).toFixed(2)}`, 20, 78);
+      doc.text(`Total Paid: USD ${(report.totalPaid * ethPrice).toFixed(2)}`, 20, 86);
       doc.text(`Payment Count: ${report.paymentCount}`, 20, 94);
       
       doc.setFontSize(14);
@@ -125,11 +126,45 @@ export const RevenueSnapshot: React.FC<RevenueSnapshotProps> = ({ activeProjectI
         report.projects.slice(0, 15).forEach((proj: any) => {
           if (y > 270) { doc.addPage(); y = 20; }
           const share = proj.sharePercentage ? `${proj.sharePercentage.toFixed(1)}%` : '0%';
-          doc.text(`${proj.projectName}: USD ${(proj.totalRevenue * ETH_PRICE_USD).toFixed(2)} (${share} share)`, 25, y);
+          doc.text(`${proj.projectName}: USD ${(proj.totalRevenue * ethPrice).toFixed(2)} (${share} share)`, 25, y);
           y += 8;
         });
       } else {
         doc.text('No matching project data found for this period.', 25, y);
+      }
+
+      // Transaction History Section
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('TRANSACTION HISTORY', 20, y + 10);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      y += 20;
+
+      if (report.trends && report.trends.length > 0) {
+        // Headers
+        doc.setFont('helvetica', 'bold');
+        doc.text('Date & Time', 25, y);
+        doc.text('Project', 75, y);
+        doc.text('Amount (ETH)', 135, y);
+        doc.text('Value (USD)', 170, y);
+        doc.setFont('helvetica', 'normal');
+        y += 8;
+
+        report.trends.slice(0, 20).forEach((t: any) => {
+          if (y > 270) { doc.addPage(); y = 20; }
+          const formattedDate = new Date(t.date).toLocaleString();
+          const txPrice = t.ethPriceAtTx || ethPrice; // Fallback to current live price if not stored
+          const usdValue = t.amount * txPrice;
+          
+          doc.text(formattedDate, 25, y);
+          doc.text(t.projectName.slice(0, 20), 75, y);
+          doc.text(`${t.amount.toFixed(4)} ETH`, 135, y);
+          doc.text(`$${usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 170, y);
+          y += 8;
+        });
+      } else {
+        doc.text('No transactions found for this period.', 25, y);
       }
       
       doc.save(`lunim_report_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -224,7 +259,7 @@ export const RevenueSnapshot: React.FC<RevenueSnapshotProps> = ({ activeProjectI
             <div className="absolute inset-0 bg-gradient-to-t from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             <p className="text-[10px] font-bold text-indigo-400/70 uppercase tracking-widest mb-1">Total Revenue</p>
             <p className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-br from-indigo-300 to-indigo-500 tracking-tight font-mono">
-              {formatUSD(totals.total * ETH_PRICE_USD)}
+              {formatUSD(totals.total * ethPrice)}
             </p>
           </div>
 
@@ -260,7 +295,7 @@ export const RevenueSnapshot: React.FC<RevenueSnapshotProps> = ({ activeProjectI
                       </td>
                       <td className="px-5 py-3.5 text-sm text-gray-200 font-medium">{r.projectName}</td>
                       <td className="px-5 py-3.5 text-sm text-gray-400">{r.source}</td>
-                      <td className="px-5 py-3.5 text-sm font-bold text-white text-right font-mono">{formatUSD(r.amount * ETH_PRICE_USD)}</td>
+                      <td className="px-5 py-3.5 text-sm font-bold text-white text-right font-mono">{formatUSD(r.amount * ethPrice)}</td>
                       <td className="px-5 py-3.5">
                         <div className="flex items-center justify-end gap-4">
                           <span className={`px-2.5 py-1 rounded-full text-[10px] font-black tracking-wide ${
@@ -319,7 +354,7 @@ export const RevenueSnapshot: React.FC<RevenueSnapshotProps> = ({ activeProjectI
                                         <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tighter">Share</span>
                                       </div>
                                       <div className="flex flex-col items-end min-w-[100px]">
-                                        <span className="text-sm font-black text-emerald-400 font-mono tracking-tight">{formatUSD(s.amount_eth * ETH_PRICE_USD)}</span>
+                                          <span className="text-sm font-black text-emerald-400 font-mono tracking-tight">{formatUSD(s.amount_eth * ethPrice)}</span>
                                         <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tighter">{s.amount_eth.toFixed(4)} ETH</span>
                                       </div>
                                     </div>

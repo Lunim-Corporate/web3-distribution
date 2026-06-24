@@ -12,7 +12,8 @@ import { ReportGenerator } from '@/components/dashboard/ReportGenerator';
 import { DistributePanel } from '@/components/dashboard/DistributePanel';
 import { AddRightsHolderModal } from '@/components/dashboard/AddRightsHolderModal';
 
-import { ETH_PRICE_USD, formatUSD as fmtUSD, formatETH as fmtETH } from '@/app/lib/constants';
+import { useEthPrice } from '@/app/lib/useEthPrice';
+import { formatUSD as fmtUSD, formatETH as fmtETH } from '@/app/lib/constants';
 
 /* ─── Types ──────────────────────────────────────────────── */
 interface Project { id: string; name: string; genre?: string; status: string; total_distributed: number; }
@@ -71,6 +72,7 @@ export default function Dashboard() {
 function DashboardContent() {
   const { isAuthHydrated, user } = useAuth();
   const searchParams = useSearchParams();
+  const { ethPrice } = useEthPrice();
 
 
   /* Auth / init */
@@ -231,7 +233,7 @@ function DashboardContent() {
   }
 
   const totalDistributed = Number(project?.total_distributed || 0);
-  const totalUSD = totalDistributed * ETH_PRICE_USD;
+  const totalUSD = totalDistributed * ethPrice;
 
   const statCards = [
     { label: 'Total Distributed', value: fmtUSD(totalUSD), sub: fmtETH(totalDistributed), color: 'indigo' },
@@ -426,7 +428,7 @@ function DashboardContent() {
                             </div>
                             <div className="flex justify-between text-xs">
                               <span className="text-gray-500">USD Value</span>
-                              <span className="text-emerald-400 font-bold">{fmtUSD(h.total_received * ETH_PRICE_USD)}</span>
+                              <span className="text-emerald-400 font-bold">{fmtUSD(h.total_received * ethPrice)}</span>
                             </div>
                             <div className="mt-3 pt-3 border-t border-white/5">
                               <p className="text-[10px] text-gray-500 mb-1">Wallet</p>
@@ -514,6 +516,7 @@ function HolderProfileModal({
   transactions: Transaction[];
 }) {
   const project = projectsList.find(p => p.id === holder.project_id);
+  const { ethPrice } = useEthPrice();
   
   // All transactions for this holder with split details
   const holderTxs = transactions.filter(tx => 
@@ -525,7 +528,7 @@ function HolderProfileModal({
     const split = tx.transaction_splits?.find(s => s.rights_holder_id === holder.id || s.full_name === holder.full_name);
     return acc + (split?.amount_eth || 0);
   }, 0);
-  const totalReceivedUsd = totalReceivedEth * ETH_PRICE_USD;
+  const totalReceivedUsd = totalReceivedEth * ethPrice;
 
   // Role descriptions for flavour text
   const roleDescriptions: Record<string, string> = {
@@ -656,14 +659,14 @@ function HolderProfileModal({
                       }`}>{tx.status}</span>
                     </div>
                     <div className="col-span-2 text-right">
-                      <span className="text-xs text-gray-300 font-mono font-medium">{fmtUSD(tx.total_amount_eth * ETH_PRICE_USD)}</span>
+                      <span className="text-xs text-gray-300 font-mono font-medium">{fmtUSD(tx.total_amount_eth * ethPrice)}</span>
                       <p className="text-[10px] text-gray-600 font-mono">{tx.total_amount_eth.toFixed(4)}</p>
                     </div>
                     <div className="col-span-2 text-right">
                       <span className="text-xs text-indigo-400 font-black font-mono">{split.percentage}%</span>
                     </div>
                     <div className="col-span-2 text-right">
-                      <span className="text-xs text-emerald-400 font-black font-mono">{fmtUSD(split.amount_eth * ETH_PRICE_USD)}</span>
+                      <span className="text-xs text-emerald-400 font-black font-mono">{fmtUSD(split.amount_eth * ethPrice)}</span>
                       <p className="text-[10px] text-gray-600 font-mono">{split.amount_eth.toFixed(4)}</p>
                     </div>
                   </div>

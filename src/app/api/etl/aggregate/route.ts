@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { requireAuth } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
-import { ETH_PRICE_USD } from '@/app/lib/constants';
+import { getEthPriceUSD } from '@/app/lib/ethPrice';
 
 /**
  * GET /api/etl/aggregate — Pre-computed financial aggregations.
@@ -71,9 +71,11 @@ async function computeLiveAggregates(
   projectId: string | null,
   isDemoMode: boolean
 ): Promise<any[]> {
+  const ethPrice = await getEthPriceUSD();
+
   let query = supabaseAdmin
     .from('transactions')
-    .select('project_id, total_amount_eth, created_at, transaction_splits(rights_holder_id)')
+    .select('project_id, total_amount_eth, created_at, eth_price_at_tx, transaction_splits(rights_holder_id)')
     .order('created_at', { ascending: true });
 
   if (projectId) query = query.eq('project_id', projectId);
@@ -137,7 +139,8 @@ async function computeLiveAggregates(
     const bucket = buckets.get(key)!;
     const ethAmount = Number(tx.total_amount_eth || 0);
     bucket.total_eth += ethAmount;
-    bucket.total_usd += ethAmount * ETH_PRICE_USD;
+    const txPrice = tx.eth_price_at_tx ? Number(tx.eth_price_at_tx) : ethPrice;
+    bucket.total_usd += ethAmount * txPrice;
     bucket.transaction_count += 1;
 
     // Count unique holders

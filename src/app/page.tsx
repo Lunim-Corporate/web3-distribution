@@ -32,7 +32,7 @@ export default function HomePage() {
           transition={{ duration: 22, repeat: Infinity, ease: "easeInOut", delay: 2 }}
           className="absolute -bottom-[10%] -left-[10%] w-[50vw] h-[50vw] bg-blue-600/20 rounded-full blur-[140px] mix-blend-screen"
         />
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-[0.05] z-20 mix-blend-overlay" />
+        <div className="absolute inset-0 bg-[url('/textures/stardust.png')] opacity-[0.05] z-20 mix-blend-overlay" />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#020617]/70 to-[#020617] z-30" />
       </div>
 

@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseServer';
+import { requireAuth } from '@/app/lib/apiSecurity';
+import { checkRateLimit } from '@/app/lib/rateLimit';
 
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
   try {
+    const blocked = await checkRateLimit('read');
+    if (blocked) return blocked;
+
+    await requireAuth();
+
     const id = params.id;
     if (!id) {
       return NextResponse.json({ error: 'missing id' }, { status: 400 });

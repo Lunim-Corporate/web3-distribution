@@ -21,10 +21,28 @@ const mnemonic = Mnemonic.fromPhrase(HARDHAT_MNEMONIC);
 const getWallet = (index) => HDNodeWallet.fromMnemonic(mnemonic, `m/44'/60'/0'/0/${index}`).address;
 
 // ETH price constant (matches src/app/lib/constants.ts)
-const ETH_PRICE_USD = 2500;
+let ETH_PRICE_USD = 3200;
+
+async function getLivePrice() {
+  try {
+    const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
+    const data = await res.json();
+    const price = data?.ethereum?.usd;
+    if (price && typeof price === 'number') {
+      console.log(`  ✓ Fetched live ETH price for seeding: $${price}`);
+      return price;
+    }
+  } catch (e) {
+    console.log(`  ⚠ Failed to fetch live ETH price, using fallback $3200: ${e.message}`);
+  }
+  return 3200;
+}
 
 const seedData = async () => {
   console.log("🌱 Starting database seed...\n");
+  
+  const livePrice = await getLivePrice();
+  ETH_PRICE_USD = livePrice;
 
   // ──────────────────────────────────────────────
   // 1. Clean existing data (order matters for FK constraints)
@@ -167,6 +185,7 @@ const seedData = async () => {
     const holders = project.holders || [];
     // Each project gets 2-3 transactions with realistic dates spread over past 60 days
     const txCount = 2 + (projIdx % 2); // 2 or 3
+    let projectTotalEth = 0;
 
     for (let t = 0; t < txCount; t++) {
       const amount = txAmounts[(projIdx * 3 + t) % txAmounts.length];
@@ -181,25 +200,47 @@ const seedData = async () => {
 
       const senderWallet = getWallet(0); // Hardhat account #0
 
-      const { data: txRecord, error: txErr } = await supabase
+      const insertPayloadWithPrice = {
+        project_id: project.id,
+        tx_hash: txHash,
+        sender_address: senderWallet,
+        total_amount_eth: amount,
+        method: 'demo',
+        is_demo: true,
+        status: 'confirmed',
+        created_at: txDate.toISOString(),
+        eth_price_at_tx: ETH_PRICE_USD,
+      };
+
+      let txRecord = null;
+      let txErr = null;
+
+      const firstTry = await supabase
         .from('transactions')
-        .insert({
-          project_id: project.id,
-          tx_hash: txHash,
-          sender_address: senderWallet,
-          total_amount_eth: amount,
-          method: 'demo',
-          is_demo: true,
-          status: 'confirmed',
-          created_at: txDate.toISOString(),
-        })
+        .insert([insertPayloadWithPrice])
         .select('id')
         .single();
+
+      if (firstTry.error && (firstTry.error.code === '42703' || firstTry.error.message?.includes('eth_price_at_tx'))) {
+        const { eth_price_at_tx, ...insertPayloadWithoutPrice } = insertPayloadWithPrice;
+        const secondTry = await supabase
+          .from('transactions')
+          .insert([insertPayloadWithoutPrice])
+          .select('id')
+          .single();
+        txRecord = secondTry.data;
+        txErr = secondTry.error;
+      } else {
+        txRecord = firstTry.data;
+        txErr = firstTry.error;
+      }
 
       if (txErr) {
         console.warn(`  ⚠ Transaction insert failed:`, txErr.message);
         continue;
       }
+
+      projectTotalEth += amount;
 
       // Create splits for each holder
       const splits = holders.map(h => ({
@@ -223,7 +264,6 @@ const seedData = async () => {
     }
 
     // Update project total_distributed
-    const projectTotalEth = txAmounts.slice(0, 2 + (projIdx % 2)).reduce((s, a) => s + a, 0);
     await supabase
       .from('projects')
       .update({ total_distributed: projectTotalEth })

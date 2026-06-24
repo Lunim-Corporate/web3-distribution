@@ -16,6 +16,7 @@ contract RevenueSplitter {
     address[] public payees;
 
     event PayeeAdded(address account, uint256 shares);
+    event SharesUpdated(address account, uint256 oldShares, uint256 newShares);
     event PaymentReleased(address to, uint256 amount);
     event PaymentReceived(address from, uint256 amount);
 
@@ -75,5 +76,19 @@ contract RevenueSplitter {
         (bool success, ) = account.call{value: payment}("");
         require(success, "Transfer failed");
         emit PaymentReleased(account, payment);
+    }
+
+    /**
+     * @dev Updates shares for a payee. Only the owner can configure payees.
+     */
+    function updateShares(address account, uint256 newShares) external onlyOwner {
+        require(account != address(0), "Account is zero address");
+        require(shares[account] > 0, "Account has no shares allocated");
+        require(newShares > 0, "Shares must be > 0");
+
+        uint256 oldShares = shares[account];
+        shares[account] = newShares;
+        totalShares = totalShares - oldShares + newShares;
+        emit SharesUpdated(account, oldShares, newShares);
     }
 }

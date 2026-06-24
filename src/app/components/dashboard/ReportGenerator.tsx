@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { formatCurrency, formatDate, formatPercentage } from '@/lib/utils';
 import type { RevenueReport } from '@/lib/types';
-import { ETH_PRICE_USD } from '@/app/lib/constants';
+import { useEthPrice } from '@/app/lib/useEthPrice';
 import toast from 'react-hot-toast';
 
 interface ReportGeneratorProps {
@@ -15,6 +15,7 @@ interface ReportGeneratorProps {
 }
 
 export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ isDemoMode, activeProjectId }) => {
+  const { ethPrice } = useEthPrice();
   const [startDate, setStartDate] = useState<string>(
     new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().split('T')[0]
   );
@@ -145,13 +146,13 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ isDemoMode, ac
               <div className="p-4 bg-blue-50 dark:bg-gray-800 rounded-lg">
                 <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">Total Revenue</p>
                 <p className="text-lg font-bold text-blue-600 dark:text-blue-400 mt-1">
-                  {formatCurrency(report.totalRevenue * ETH_PRICE_USD)}
+                  {formatCurrency(report.totalRevenue * ethPrice)}
                 </p>
               </div>
               <div className="p-4 bg-green-50 dark:bg-gray-800 rounded-lg">
                 <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">Total Paid</p>
                 <p className="text-lg font-bold text-green-600 dark:text-green-400 mt-1">
-                  {formatCurrency(report.totalPaid * ETH_PRICE_USD)}
+                  {formatCurrency(report.totalPaid * ethPrice)}
                 </p>
               </div>
               <div className="p-4 bg-purple-50 dark:bg-gray-800 rounded-lg">
@@ -163,7 +164,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ isDemoMode, ac
               <div className="p-4 bg-indigo-50 dark:bg-gray-800 rounded-lg">
                 <p className="text-xs text-gray-600 dark:text-gray-400 uppercase">Avg Payment</p>
                 <p className="text-lg font-bold text-indigo-600 dark:text-indigo-400 mt-1">
-                  {formatCurrency(report.averagePaymentAmount * ETH_PRICE_USD)}
+                  {formatCurrency(report.averagePaymentAmount * ethPrice)}
                 </p>
               </div>
             </div>
@@ -194,7 +195,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ isDemoMode, ac
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-gray-900 dark:text-white">
-                        {formatCurrency(source.amount * ETH_PRICE_USD)}
+                        {formatCurrency(source.amount * ethPrice)}
                       </p>
                       <p className="text-xs text-gray-500">
                         {formatPercentage(source.percentage)} · {source.paymentCount} payments
@@ -239,7 +240,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ isDemoMode, ac
                             {project.projectName}
                           </td>
                           <td className="px-4 py-3 text-right text-gray-900 dark:text-white font-mono">
-                            {formatCurrency(project.totalRevenue * ETH_PRICE_USD)}
+                            {formatCurrency(project.totalRevenue * ethPrice)}
                           </td>
                           <td className="px-4 py-3 text-center text-gray-900 dark:text-white">
                             {project.contributorCount}
@@ -275,7 +276,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ isDemoMode, ac
                                     </div>
                                     <div className="text-right">
                                       <span className="text-sm font-bold text-green-600 dark:text-green-400">
-                                        {formatCurrency(split.amount * ETH_PRICE_USD)}
+                                        {formatCurrency(split.amount * ethPrice)}
                                       </span>
                                     </div>
                                   </div>

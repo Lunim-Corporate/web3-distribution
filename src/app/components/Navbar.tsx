@@ -548,7 +548,7 @@ export const Navbar: React.FC = () => {
                                   <MetaMaskIcon />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-bold text-gray-900 dark:text-white">Demo Wallet (Localhost - FREE)</p>
+                                  <p className="text-sm font-bold text-gray-900 dark:text-white">Developer Sandbox Wallet (Localhost)</p>
                                   {demoAccount ? (
                                     <div className="flex items-center gap-1.5 mt-0.5">
                                       <p className="text-[10px] font-mono text-gray-500 dark:text-gray-400 truncate">

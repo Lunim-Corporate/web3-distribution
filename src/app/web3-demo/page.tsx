@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import Link from 'next/link';
-import { ETH_PRICE_USD } from '@/app/lib/constants';
+import { useEthPrice } from '@/app/lib/useEthPrice';
 import { DEMO_ACCOUNTS } from '@/app/components/Navbar';
 
 /* ─────────────────────────────────────────────────────────────
@@ -16,12 +16,11 @@ interface RightsHolder {
   percentage: number; avatar_initials?: string; total_received: number;
 }
 
-const ETH_TO_USD = ETH_PRICE_USD;
 const fmt = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
 const fmtEth = (n: number) => `${n.toFixed(4)} ETH`;
 const trunc = (addr: string) => addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : '';
 
-// Hardhat local network — Chain ID 31337. FREE. No real ETH ever used.
+// Hardhat local network — Chain ID 31337. Local development sandbox.
 const HARDHAT_CHAIN_ID = 31337;
 const HARDHAT_CHAIN_ID_HEX = '0x7a69';
 
@@ -29,6 +28,8 @@ const HARDHAT_CHAIN_ID_HEX = '0x7a69';
    Page
 ───────────────────────────────────────────────────────────── */
 export default function Web3DemoPage() {
+  const { ethPrice, formatEthAsUsd } = useEthPrice();
+
   // Demo Mode state
   const [isDemoMode, setIsDemoMode] = useState(false);
 
@@ -96,10 +97,10 @@ export default function Web3DemoPage() {
         name: h.full_name,
         pct: h.percentage,
         eth: (h.percentage / 100) * eth,
-        usd: (h.percentage / 100) * eth * ETH_TO_USD,
+        usd: (h.percentage / 100) * eth * ethPrice,
       }))
     );
-  }, [amount, holders]);
+  }, [amount, holders, ethPrice]);
 
   /* ── MetaMask helpers ───────────────────────────────────── */
   const getBalance = useCallback(async (addr: string) => {
@@ -116,7 +117,7 @@ export default function Web3DemoPage() {
       if (err?.code === 4902) {
         await window.ethereum.request({
           method: 'wallet_addEthereumChain',
-          params: [{ chainId: HARDHAT_CHAIN_ID_HEX, chainName: 'Hardhat Localhost (FREE)', rpcUrls: ['http://127.0.0.1:8545'], nativeCurrency: { name: 'Test ETH', symbol: 'ETH', decimals: 18 } }],
+          params: [{ chainId: HARDHAT_CHAIN_ID_HEX, chainName: 'Local Development Sandbox', rpcUrls: ['http://127.0.0.1:8545'], nativeCurrency: { name: 'Test ETH', symbol: 'ETH', decimals: 18 } }],
         });
       } else { throw err; }
     }
@@ -138,7 +139,7 @@ export default function Web3DemoPage() {
         const chainRaw = await window.ethereum.request({ method: 'eth_chainId' }) as string;
         setChainId(parseInt(chainRaw, 16));
         await getBalance(accounts[0]);
-        // Always auto-switch to Hardhat — FREE local network
+        // Always auto-switch to Hardhat — local development sandbox
         try { await switchToHardhat(); } catch { /* user can switch manually */ }
       }
     } catch (e: any) {
@@ -361,7 +362,7 @@ export default function Web3DemoPage() {
           to: contractAddress, 
           value: weiHex,
           data: data,
-          gasPrice: '0x0' // Set gas price to 0 for local Hardhat (FREE)
+          gasPrice: '0x0' // Set gas price to 0 for sponsored gas on localhost
         }],
       }) as string;
 
@@ -418,9 +419,9 @@ export default function Web3DemoPage() {
   const isCorrectNetwork = chainId === HARDHAT_CHAIN_ID;
 
   const networkName = (cid: number | null) => {
-    if (cid === HARDHAT_CHAIN_ID) return '🟢 Hardhat Localhost (FREE)';
-    if (cid === 1)   return '🔴 Ethereum Mainnet (REAL $$$)';
-    if (cid === 137) return '🔴 Polygon Mainnet (REAL $$$)';
+    if (cid === HARDHAT_CHAIN_ID) return '🟢 Development Sandbox';
+    if (cid === 1)   return '🔴 Ethereum Mainnet';
+    if (cid === 137) return '🔴 Polygon Mainnet';
     if (!cid)        return 'Not connected';
     return `⚠️ Chain ${cid}`;
   };
@@ -442,9 +443,9 @@ export default function Web3DemoPage() {
               <h1 className="text-base font-black text-white tracking-tight">⚡ Web3 Revenue Distribution</h1>
               <p className="text-xs text-gray-500 font-medium">
                 {isDemoMode ? (
-                  <span>Sandbox Simulator · <span className="text-amber-400 font-bold">Demo Mode Active (FREE)</span></span>
+                  <span>Sandbox Simulator · <span className="text-amber-400 font-bold">Sandbox Mode Active</span></span>
                 ) : (
-                  <span>Hardhat Localhost · <span className="text-emerald-400 font-bold">FREE — No real ETH spent</span></span>
+                  <span>Hardhat Localhost · <span className="text-emerald-400 font-bold">Sponsored Gas Sandbox</span></span>
                 )}
               </p>
             </div>
@@ -469,7 +470,7 @@ export default function Web3DemoPage() {
                   ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                   : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
               }`}>
-                {isDemoMode ? '🟢 Sandbox (FREE)' : networkName(chainId)}
+                {isDemoMode ? '🟢 Sandbox Network' : networkName(chainId)}
               </div>
             )}
           </div>
@@ -487,16 +488,18 @@ export default function Web3DemoPage() {
                 <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto ${
                   isDemoMode 
                     ? 'bg-amber-500/10 border border-amber-500/20' 
-                    : 'bg-orange-500/10 border border-orange-500/20'
+                    : 'bg-indigo-500/10 border border-indigo-500/20'
                 }`}>
-                  <span className="text-3xl">🦊</span>
+                  <svg className={`w-8 h-8 ${isDemoMode ? 'text-amber-400' : 'text-indigo-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                  </svg>
                 </div>
                 <div>
-                  <p className="text-white font-bold">{isDemoMode ? 'Select a Demo Wallet' : 'Connect MetaMask'}</p>
+                  <p className="text-white font-bold">{isDemoMode ? 'Select a Sandbox Account' : 'Connect Web3 Wallet'}</p>
                   <p className="text-gray-400 text-xs mt-1">
                     {isDemoMode 
-                      ? 'Choose one of our pre-seeded local Hardhat accounts to simulate transactions with zero costs.' 
-                      : 'Connect your real MetaMask wallet to execute transactions on the local Hardhat chain.'}
+                      ? 'Choose one of our pre-seeded local Hardhat accounts to simulate transactions with zero real-world cost.' 
+                      : 'Connect your web3 client wallet to execute transactions on the local Hardhat sandbox chain.'}
                   </p>
                 </div>
                 {isDemoMode ? (
@@ -526,9 +529,9 @@ export default function Web3DemoPage() {
                     <button
                       onClick={connectWallet}
                       disabled={isConnecting}
-                      className="w-full py-3 px-6 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-xl hover:opacity-90 transition-all disabled:opacity-50 shadow-lg shadow-orange-500/20"
+                      className="w-full py-3.5 px-6 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold rounded-xl hover:opacity-90 transition-all disabled:opacity-50 shadow-lg shadow-indigo-500/25"
                     >
-                      {isConnecting ? 'Connecting…' : '🦊 Connect MetaMask'}
+                      {isConnecting ? 'Connecting…' : 'Connect Web3 Wallet'}
                     </button>
                   </>
                 )}
@@ -570,7 +573,7 @@ export default function Web3DemoPage() {
                   <div className="p-3 bg-white/5 rounded-xl">
                     <p className="text-[10px] text-gray-500 uppercase tracking-widest">Network</p>
                     <p className="text-sm font-bold text-white mt-0.5">
-                      {isDemoMode ? '🟢 Sandbox (FREE)' : networkName(chainId)}
+                      {isDemoMode ? '🟢 Sandbox Network' : networkName(chainId)}
                     </p>
                   </div>
                 </div>
@@ -656,7 +659,7 @@ export default function Web3DemoPage() {
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">ETH</span>
               </div>
-              <p className="text-gray-400 text-xs text-center">≈ {fmt((parseFloat(amount) || 0) * ETH_TO_USD)} USD at current rates</p>
+              <p className="text-gray-400 text-xs text-center">≈ {formatEthAsUsd(parseFloat(amount) || 0)} USD at current rates</p>
               <div className="flex gap-2">
                 {['0.001','0.01','0.1','1'].map(v => (
                   <button key={v} onClick={() => setAmount(v)} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${amount === v ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-white/5 text-gray-400 border border-white/5 hover:border-white/15'}`}>{v}</button>
@@ -679,7 +682,7 @@ export default function Web3DemoPage() {
               </div>
               <div className="text-right">
                 <p className="text-2xl font-black text-white">{fmtEth(parseFloat(amount) || 0)}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{fmt((parseFloat(amount) || 0) * ETH_TO_USD)}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{formatEthAsUsd(parseFloat(amount) || 0)}</p>
               </div>
             </div>
 
@@ -720,18 +723,17 @@ export default function Web3DemoPage() {
               {txStatus === 'idle' && (
                 <motion.div key="idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                   {!account ? (
-                    <div className="text-center py-4">
-                      <p className="text-gray-400 font-medium">Connect your MetaMask wallet to distribute</p>
-                      <button onClick={connectWallet} className="mt-4 px-8 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-xl hover:opacity-90 transition-all">
-                        🦊 Connect MetaMask
+                    <div className="text-center py-6">
+                      <p className="text-gray-400 font-medium">Connect your wallet to execute distribution</p>
+                      <button onClick={connectWallet} className="mt-4 px-8 py-3.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-bold rounded-xl hover:opacity-90 transition-all shadow-lg shadow-indigo-500/20">
+                        Connect Web3 Wallet
                       </button>
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {/* FREE badge */}
                       <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
-                        <p className="text-emerald-300 text-sm font-bold mb-1">🟢 100% Free — Hardhat Local Network</p>
-                        <p className="text-emerald-200/70 text-xs">This uses <strong>test ETH only</strong> on your local Hardhat chain (Chain ID 31337). No real money, no gas fees, nothing leaves your machine.</p>
+                        <p className="text-emerald-300 text-sm font-bold mb-1">🟢 Gas-Sponsored Local Sandbox Network</p>
+                        <p className="text-emerald-200/70 text-xs">This uses <strong>sandbox assets</strong> on your local development chain (Chain ID 31337). Transactions are fully simulated on your machine with zero real-world cost or gas fees.</p>
                       </div>
                       {/* Network warning if wrong chain */}
                       {!isCorrectNetwork && chainId && (
@@ -748,7 +750,7 @@ export default function Web3DemoPage() {
                         disabled={!selectedProject || holders.length === 0 || !parseFloat(amount) || !isCorrectNetwork}
                         className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-lg rounded-xl hover:opacity-90 transition-all disabled:opacity-40 shadow-xl shadow-indigo-500/25 hover:shadow-indigo-500/40"
                       >
-                        ⚡ Distribute {amount} Test ETH (FREE)
+                        ⚡ Distribute {amount} Sandbox ETH
                       </button>
                     </div>
                   )}
@@ -809,18 +811,39 @@ export default function Web3DemoPage() {
           {/* How it works */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
             <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-4">How This Works</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {[
-                { icon: '🦊', title: 'Connect MetaMask', desc: 'Your real wallet signs the transaction on Ethereum/Hardhat' },
-                { icon: '⛓️', title: 'On-Chain Settlement', desc: 'ETH is sent to the smart contract for proportional distribution' },
-                { icon: '📊', title: 'Dashboard Sync', desc: 'Transaction is recorded in Supabase and the main dashboard updates' },
-              ].map((step, i) => (
-                <div key={i} className="text-center p-4">
-                  <div className="text-3xl mb-3">{step.icon}</div>
-                  <p className="font-bold text-white text-sm">{step.title}</p>
-                  <p className="text-gray-400 text-xs mt-1 leading-relaxed">{step.desc}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              {/* Step 1 */}
+              <div className="text-center p-4 flex flex-col items-center">
+                <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-400 mb-3">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                  </svg>
                 </div>
-              ))}
+                <p className="font-bold text-white text-sm">Connect Web3 Wallet</p>
+                <p className="text-gray-400 text-xs mt-1 leading-relaxed">Establish a secure session to authorize smart contract revenue distribution calls.</p>
+              </div>
+              
+              {/* Step 2 */}
+              <div className="text-center p-4 flex flex-col items-center">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 mb-3">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                  </svg>
+                </div>
+                <p className="font-bold text-white text-sm">On-Chain Distribution</p>
+                <p className="text-gray-400 text-xs mt-1 leading-relaxed">Assets are processed through the immutable protocol contract and split proportionally.</p>
+              </div>
+
+              {/* Step 3 */}
+              <div className="text-center p-4 flex flex-col items-center">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 mb-3">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <p className="font-bold text-white text-sm">Dashboard Ledger Sync</p>
+                <p className="text-gray-400 text-xs mt-1 leading-relaxed">Real-time indexing logs details and syncs project totals automatically in Supabase.</p>
+              </div>
             </div>
           </div>
         </div>

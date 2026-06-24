@@ -9,6 +9,17 @@ export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login
   const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showSandbox, setShowSandbox] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const isDev = process.env.NODE_ENV === 'development';
+      const hasSandboxParam = searchParams.get('sandbox') === 'true' || searchParams.get('demo') === 'true';
+      setShowSandbox(isDev || hasSandboxParam);
+    }
+  }, []);
+
 
   useEffect(() => {
     if (isAuthHydrated && user) {
@@ -175,24 +186,28 @@ export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login
                 )}
               </button>
 
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-700/50"></div>
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="bg-slate-900/40 px-3 text-slate-500">or</span>
-                </div>
-              </div>
+              {showSandbox && (
+                <>
+                  <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-slate-700/50"></div>
+                    </div>
+                    <div className="relative flex justify-center text-xs">
+                      <span className="bg-slate-900/40 px-3 text-slate-500">or</span>
+                    </div>
+                  </div>
 
-              <button
-                onClick={handleDemo}
-                className="w-full bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 text-amber-400 border border-amber-500/20 hover:border-amber-500/40 font-bold py-4 rounded-xl transition-all"
-              >
-                <span className="flex items-center justify-center gap-2">
-                  Launch Demo Mode
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                </span>
-              </button>
+                  <button
+                    onClick={handleDemo}
+                    className="w-full bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 text-amber-400 border border-amber-500/20 hover:border-amber-500/40 font-bold py-4 rounded-xl transition-all"
+                  >
+                    <span className="flex items-center justify-center gap-2">
+                      Launch Sandbox Bypass
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+                    </span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
 

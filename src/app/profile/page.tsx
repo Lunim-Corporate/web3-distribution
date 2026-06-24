@@ -10,7 +10,7 @@ import { useRevenueSplitter } from '@/lib/web3';
 import { DEMO_ACCOUNTS } from '@/app/components/Navbar';
 import { useWallets } from '@privy-io/react-auth';
 import { toast } from 'react-hot-toast';
-import { ETH_PRICE_USD } from '@/app/lib/constants';
+import { useEthPrice } from '@/app/lib/useEthPrice';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -18,6 +18,7 @@ export default function ProfilePage() {
   const { smartAccountAddress, isInitializing, getAccruedBalanceEth, claimRevenue } = useRevenueSplitter();
   const { wallets } = useWallets();
   const hasEmbeddedWallet = wallets.some((w) => w.walletClientType === 'privy');
+  const { formatEthAsUsd } = useEthPrice();
 
   const [hours, setHours] = useState<number>(settings?.notifyResurfacingHours ?? 24);
   const [isDemoMode, setIsDemoMode] = useState(true);
@@ -182,7 +183,7 @@ export default function ProfilePage() {
                   <span className="text-lg font-black text-indigo-400 font-mono">Ξ ETH</span>
                 </div>
                 <div className="text-xs text-gray-400 dark:text-gray-500 font-medium">
-                  ≈ {(parseFloat(claimableBalance) * ETH_PRICE_USD).toLocaleString('en-US', { style: 'currency', currency: 'USD' })} USD
+                  ≈ {formatEthAsUsd(parseFloat(claimableBalance))} USD
                 </div>
               </div>
 

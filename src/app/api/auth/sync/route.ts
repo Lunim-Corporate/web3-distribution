@@ -40,10 +40,32 @@ export async function POST(req: Request) {
     }
 
     // 1. Find user in auth.users by email
-    const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-    if (listError) throw listError;
+    let supabaseUser = null;
 
-    let supabaseUser = existingUsers.users.find(u => u.email === email);
+    try {
+      const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('get_user_id_by_email', {
+        email_address: email,
+      });
+
+      if (rpcError && (rpcError.code === '42883' || rpcError.message?.includes('get_user_id_by_email'))) {
+        // Fallback: RPC function does not exist, use listUsers() linear lookup
+        const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+        if (listError) throw listError;
+        supabaseUser = existingUsers.users.find(u => u.email === email) || null;
+      } else if (rpcError) {
+        throw rpcError;
+      } else if (rpcData && rpcData.length > 0) {
+        // We have the user ID from the RPC, fetch user by ID
+        const { data: userData, error: getErr } = await supabaseAdmin.auth.admin.getUserById(rpcData[0].id);
+        if (getErr) throw getErr;
+        supabaseUser = userData.user;
+      }
+    } catch (err) {
+      console.warn('Efficient email lookup failed, using listUsers fallback:', err);
+      const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+      if (listError) throw listError;
+      supabaseUser = existingUsers.users.find(u => u.email === email) || null;
+    }
 
     // 2. If not found, create a dummy auth.users row
     if (!supabaseUser) {
@@ -129,3 +151,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+export const dynamic = 'force-dynamic';

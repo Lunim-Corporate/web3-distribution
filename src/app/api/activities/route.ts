@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { requireAuth } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
-import { ETH_PRICE_USD } from '@/app/lib/constants';
+import { getEthPriceUSD } from '@/app/lib/ethPrice';
 
 export async function GET(req: Request) {
   try {
+    const ethPrice = await getEthPriceUSD();
     // Rate limit: read tier
     const blocked = await checkRateLimit('read');
     if (blocked) return blocked;
@@ -54,7 +55,7 @@ export async function GET(req: Request) {
     const activities = (transactions || []).map((p: any) => {
       const projectName = p.projects?.name || 'Unknown Project';
       const ethAmount = Number(p.total_amount_eth || 0);
-      const usdValue = ethAmount * ETH_PRICE_USD; 
+      const usdValue = ethAmount * ethPrice; 
       
       const formattedUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(usdValue);
       const formattedETH = `${ethAmount.toFixed(4)} ETH`;

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { ETH_PRICE_USD } from '@/app/lib/constants';
+import { getEthPriceUSD } from '@/app/lib/ethPrice';
 import { requireAuth, auditLog } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { validateBody, stripeCheckoutSchema } from '@/app/lib/validation';
@@ -43,8 +43,8 @@ export async function POST(req: Request) {
     const { amount_eth, project_id, project_name } = result.data;
 
     const stripe = getStripe();
-    const eth_price = ETH_PRICE_USD;
-    const amount_usd = Math.round(amount_eth * eth_price * 100); // In cents
+    const ethPrice = await getEthPriceUSD();
+    const amount_usd = Math.round(amount_eth * ethPrice * 100); // In cents
 
     if (amount_usd < 50) {
       return NextResponse.json(
@@ -95,3 +95,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+export const dynamic = 'force-dynamic';

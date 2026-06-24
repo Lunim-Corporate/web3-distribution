@@ -1,9 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { checkRateLimit } from '@/app/lib/rateLimit';
 
 export async function POST(request: Request) {
   try {
-    const { name, email, role, password } = await request.json();
+    const blocked = await checkRateLimit('auth');
+    if (blocked) return blocked;
+
+    const { name, email, password } = await request.json();
 
     // Validate input
     if (!email || !password || !name) {
@@ -36,7 +40,7 @@ export async function POST(request: Request) {
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      user_metadata: { name, role },
+      user_metadata: { name, role: 'RIGHTS_HOLDER' },
       email_confirm: true, // Auto-confirm email for testing
     });
 
@@ -56,7 +60,7 @@ export async function POST(request: Request) {
       .insert({
         id: userId,
         display_name: name,
-        role: (role || 'RIGHTS_HOLDER').toUpperCase(),
+        role: 'RIGHTS_HOLDER',
       })
       .select()
       .single();
@@ -75,7 +79,7 @@ export async function POST(request: Request) {
           id: userId,
           email,
           name,
-          role,
+          role: 'RIGHTS_HOLDER',
         },
       },
       { status: 201 }
@@ -88,3 +92,5 @@ export async function POST(request: Request) {
     );
   }
 }
+
+export const dynamic = 'force-dynamic';

@@ -1,16 +1,20 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { requireAdmin } from '@/app/lib/apiSecurity';
+import { checkRateLimit } from '@/app/lib/rateLimit';
+import { validateBody, addRightsHolderSchema } from '@/app/lib/validation';
 
 export async function POST(req: Request) {
   try {
-    await requireAdmin();
-    const body = await req.json();
-    const { project_id, full_name, role, wallet_address, percentage } = body;
+    const blocked = await checkRateLimit('write');
+    if (blocked) return blocked;
 
-    if (!project_id || !full_name || !wallet_address || percentage === undefined) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
+    await requireAdmin();
+
+    const result = await validateBody(req, addRightsHolderSchema);
+    if (result.error) return result.response;
+
+    const { project_id, full_name, role, wallet_address, percentage } = result.data;
 
     // 1. Add to rights_holders table
     const { data, error } = await supabaseAdmin
@@ -31,7 +35,13 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, data });
   } catch (err: any) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg === 'Unauthorized' || msg === 'Forbidden: Admins only') {
+      return NextResponse.json({ error: msg }, { status: msg === 'Unauthorized' ? 401 : 403 });
+    }
     console.error('Add rights holder error:', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+export const dynamic = 'force-dynamic';

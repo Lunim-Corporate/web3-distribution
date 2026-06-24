@@ -406,6 +406,7 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
         amount: Number(p.total_amount_eth || p.total_amount) || 0,
         source: 'Client Payment',
         projectName: p.projects?.name || 'Unknown',
+        ethPriceAtTx: p.eth_price_at_tx ? Number(p.eth_price_at_tx) : null,
       })) || [],
     };
   } catch (error) {

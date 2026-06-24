@@ -6,7 +6,7 @@ import { validateBody, distributePayloadSchema } from '@/app/lib/validation';
 import { createWalletClient, http, parseEther, publicActions, createPublicClient, decodeEventLog, formatEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { hardhat, baseSepolia } from 'viem/chains';
-import { ETH_PRICE_USD } from '@/app/lib/constants';
+import { getEthPriceUSD } from '@/app/lib/ethPrice';
 
 const LOCAL_RPC = 'http://127.0.0.1:8545';
 const ALCHEMY_RPC = process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC || 'https://sepolia.base.org';
@@ -58,6 +58,8 @@ export async function POST(req: Request) {
     // Rate limit: sensitive tier (5 per minute) — this moves real money
     const blocked = await checkRateLimit('sensitive');
     if (blocked) return blocked;
+
+    const ethPrice = await getEthPriceUSD();
 
     // Validate input BEFORE any processing
     const result = await validateBody(req, distributePayloadSchema);
@@ -125,9 +127,6 @@ export async function POST(req: Request) {
       
       const contractAddress = process.env.NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS || holders[0]?.wallet_address;
       
-      // Create random TX hash to simulate if the node isn't running
-      txHash = '0x' + Array.from({length: 64}, () => Math.floor(Math.random()*16).toString(16)).join('');
-
       try {
         const weiAmount = parseEther(amount_eth.toString());
         const hash = await walletClient.sendTransaction({
@@ -139,6 +138,8 @@ export async function POST(req: Request) {
         txHash = hash;
       } catch (e: any) {
         console.warn("Hardhat transaction failed (is the node running?). Proceeding with simulation:", e.message);
+        // Create random TX hash to simulate if the node isn't running
+        txHash = '0x' + Array.from({length: 64}, () => Math.floor(Math.random()*16).toString(16)).join('');
       }
     }
 
@@ -188,23 +189,48 @@ export async function POST(req: Request) {
       : Number(amount_eth);
 
     // Save to Supabase (bypassing RLS)
-    const { data: txRecord, error: txErr } = await supabaseAdmin
+    const insertPayloadWithPrice = {
+      project_id,
+      tx_hash: txHash,
+      sender_address: sender_address || '0x0000000000000000000000000000000000000000', 
+      total_amount_eth: finalAmountEth,
+      method: manual_tx_hash ? 'web3' : 'demo',
+      is_demo: isDemoMode,
+      status: 'confirmed',
+      eth_price_at_tx: ethPrice,
+    };
+
+    let txRecord = null;
+    let txErr = null;
+
+    const firstTry = await supabaseAdmin
       .from('transactions')
-      .insert({
-        project_id,
-        tx_hash: txHash,
-        sender_address: sender_address || '0x0000000000000000000000000000000000000000', 
-        total_amount_eth: finalAmountEth,
-        method: manual_tx_hash ? 'web3' : 'demo',
-        is_demo: isDemoMode,
-        status: 'confirmed'
-      })
+      .insert([insertPayloadWithPrice])
       .select('id')
       .single();
+
+    if (firstTry.error && (firstTry.error.code === '42703' || firstTry.error.message?.includes('eth_price_at_tx'))) {
+      const insertPayloadWithoutPrice = { ...insertPayloadWithPrice };
+      delete (insertPayloadWithoutPrice as any).eth_price_at_tx;
+      const secondTry = await supabaseAdmin
+        .from('transactions')
+        .insert([insertPayloadWithoutPrice])
+        .select('id')
+        .single();
+      txRecord = secondTry.data;
+      txErr = secondTry.error;
+    } else {
+      txRecord = firstTry.data;
+      txErr = firstTry.error;
+    }
 
     if (txErr) {
       console.error('Transaction insert failed:', txErr);
       throw txErr;
+    }
+
+    if (!txRecord) {
+      throw new Error('Transaction record creation failed');
     }
 
     // Save splits
@@ -227,51 +253,71 @@ export async function POST(req: Request) {
       throw splitErr;
     }
 
-    // Update total distributed for each holder
+    // Update total distributed for each holder atomically
     for (const h of finalHolders) {
       if (!h.rights_holder_id) continue;
       try {
-        const { data: curr } = await supabaseAdmin
-          .from('rights_holders')
-          .select('total_received')
-          .eq('id', h.rights_holder_id)
-          .single();
-          
-        const newTotal = Number(curr?.total_received || 0) + Number(h.amount_eth);
-        await supabaseAdmin
-          .from('rights_holders')
-          .update({ total_received: newTotal })
-          .eq('id', h.rights_holder_id);
+        const rpcRes = await supabaseAdmin.rpc('increment_holder_received', {
+          holder_id: h.rights_holder_id,
+          amount: Number(h.amount_eth),
+        });
+
+        if (rpcRes.error && (rpcRes.error.code === '42883' || rpcRes.error.message?.includes('increment_holder_received'))) {
+          // Graceful fallback: RPC does not exist
+          const { data: curr } = await supabaseAdmin
+            .from('rights_holders')
+            .select('total_received')
+            .eq('id', h.rights_holder_id)
+            .single();
+            
+          const newTotal = Number(curr?.total_received || 0) + Number(h.amount_eth);
+          await supabaseAdmin
+            .from('rights_holders')
+            .update({ total_received: newTotal })
+            .eq('id', h.rights_holder_id);
+        } else if (rpcRes.error) {
+          throw rpcRes.error;
+        }
       } catch (err) {
         console.warn(`Could not update total for holder ${h.rights_holder_id}:`, err);
       }
     }
     
-    // Also update project total
-    try {
-      const { data: projCurr } = await supabaseAdmin
-        .from('projects')
-        .select('total_distributed, name')
-        .eq('id', project_id)
-        .single();
-        
-      const newProjTotal = Number(projCurr?.total_distributed || 0) + Number(finalAmountEth);
-      await supabaseAdmin
-        .from('projects')
-        .update({ total_distributed: newProjTotal })
-        .eq('id', project_id);
+    // Also update project total atomically
+    const { data: projCurr } = await supabaseAdmin
+      .from('projects')
+      .select('name, total_distributed')
+      .eq('id', project_id)
+      .single();
 
-      // Log activity
-      const projectName = projCurr?.name || 'Project';
-      await supabaseAdmin.from('activities').insert([{
+    try {
+      const rpcRes = await supabaseAdmin.rpc('increment_project_distributed', {
         project_id,
-        action: 'payment_recorded',
-        description: `Automated distribution of $${(Number(finalAmountEth) * ETH_PRICE_USD).toLocaleString()} for ${projectName}`,
-        timestamp: new Date().toISOString(),
-      }]);
+        amount: Number(finalAmountEth),
+      });
+
+      if (rpcRes.error && (rpcRes.error.code === '42883' || rpcRes.error.message?.includes('increment_project_distributed'))) {
+        // Graceful fallback: RPC does not exist
+        const newProjTotal = Number(projCurr?.total_distributed || 0) + Number(finalAmountEth);
+        await supabaseAdmin
+          .from('projects')
+          .update({ total_distributed: newProjTotal })
+          .eq('id', project_id);
+      } else if (rpcRes.error) {
+        throw rpcRes.error;
+      }
     } catch (err) {
       console.warn(`Could not update total for project ${project_id}:`, err);
     }
+
+    // Log activity
+    const projectName = projCurr?.name || 'Project';
+    await supabaseAdmin.from('activities').insert([{
+      project_id,
+      action: 'payment_recorded',
+      description: `Automated distribution of $${(Number(finalAmountEth) * ethPrice).toLocaleString()} for ${projectName}`,
+      timestamp: new Date().toISOString(),
+    }]);
 
     // Audit success
     await auditLog('distribute:success', user.id, true, `txHash=${txHash} amount=${finalAmountEth} ETH`);
@@ -282,3 +328,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
   }
 }
+
+export const dynamic = 'force-dynamic';

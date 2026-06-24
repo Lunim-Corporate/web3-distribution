@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { requireAdmin, requireAuth, auditLog } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
-import { ETH_PRICE_USD } from '@/app/lib/constants';
+import { getEthPriceUSD } from '@/app/lib/ethPrice';
 
 /**
  * POST /api/payments — Record a payment and distribute to rights holders.
@@ -20,6 +20,8 @@ export async function POST(request: Request) {
 
     const body = await request.json();
 
+    const ethPrice = await getEthPriceUSD();
+
     // Normalize amount: accept amount_cents, amount, or amount_eth
     let amountEth: number;
     if (typeof body.amount_eth === 'number') {
@@ -30,7 +32,7 @@ export async function POST(request: Request) {
         : typeof body.amount === 'number'
           ? body.amount
           : Number(body.amount_cents ?? body.amount ?? 0);
-      amountEth = amountCents / (ETH_PRICE_USD * 100); // Convert cents to ETH
+      amountEth = amountCents / (ethPrice * 100); // Convert cents to ETH
     }
 
     if (!body.project_id) {
@@ -38,21 +40,43 @@ export async function POST(request: Request) {
     }
 
     // 1. Record the transaction
-    const { data: txRecord, error: txError } = await supabaseAdmin
+    const insertPayloadWithPrice = {
+      project_id: body.project_id,
+      tx_hash: body.tx_hash || `manual-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      sender_address: body.sender_address || '0x0000000000000000000000000000000000000000',
+      total_amount_eth: amountEth,
+      method: body.source || 'manual',
+      is_demo: body.is_demo || false,
+      status: 'confirmed',
+      eth_price_at_tx: ethPrice,
+    };
+
+    let txRecord = null;
+    let txError = null;
+
+    const firstTry = await supabaseAdmin
       .from('transactions')
-      .insert({
-        project_id: body.project_id,
-        tx_hash: body.tx_hash || `manual-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        sender_address: body.sender_address || '0x0000000000000000000000000000000000000000',
-        total_amount_eth: amountEth,
-        method: body.source || 'manual',
-        is_demo: body.is_demo || false,
-        status: 'confirmed',
-      })
+      .insert([insertPayloadWithPrice])
       .select('id')
       .single();
 
+    if (firstTry.error && (firstTry.error.code === '42703' || firstTry.error.message?.includes('eth_price_at_tx'))) {
+      const insertPayloadWithoutPrice = { ...insertPayloadWithPrice };
+      delete (insertPayloadWithoutPrice as any).eth_price_at_tx;
+      const secondTry = await supabaseAdmin
+        .from('transactions')
+        .insert([insertPayloadWithoutPrice])
+        .select('id')
+        .single();
+      txRecord = secondTry.data;
+      txError = secondTry.error;
+    } else {
+      txRecord = firstTry.data;
+      txError = firstTry.error;
+    }
+
     if (txError) throw txError;
+    if (!txRecord) throw new Error('Transaction record creation failed');
 
     // 2. Fetch rights holders for this project and compute splits
     const { data: holders } = await supabaseAdmin
@@ -100,7 +124,7 @@ export async function POST(request: Request) {
 
     // 4. Log activity
     const projectName = project?.name || 'Project';
-    const usdValue = amountEth * ETH_PRICE_USD;
+    const usdValue = amountEth * ethPrice;
     await supabaseAdmin.from('activities').insert([{
       project_id: body.project_id,
       action: 'payment_recorded',
@@ -161,3 +185,5 @@ export async function GET(request: Request) {
     return NextResponse.json([], { status: 200 });
   }
 }
+
+export const dynamic = 'force-dynamic';

@@ -72,4 +72,9 @@ AGENTS.md
 .windsurf/
 test-query.*
 
+# Generated reports & graphs
+graphify-out/
+implementation-reports/
+docs/*.pdf
+
 

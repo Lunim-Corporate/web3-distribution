@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseServer';
-import { ETH_PRICE_USD } from '@/app/lib/constants';
+import { supabaseAdmin } from '@/app/lib/supabaseServer';
+import { getEthPriceUSD } from '@/app/lib/ethPrice';
+import { requireAuth } from '@/app/lib/apiSecurity';
+import { checkRateLimit } from '@/app/lib/rateLimit';
 
 export async function POST(req: NextRequest) {
   try {
+    // 1. Rate Limit
+    const blocked = await checkRateLimit('sensitive');
+    if (blocked) return blocked;
+
+    // 2. Authentication
+    const user = await requireAuth();
+
     const body = await req.json();
     const { project_id, tx_hash, sender_address, total_amount_eth, holders, is_demo } = body;
 
@@ -11,21 +20,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    const ethPrice = await getEthPriceUSD();
+
     // 1. Insert the transaction record
-    const { data: tx, error: txErr } = await supabaseAdmin
+    const insertPayloadWithPrice = {
+      project_id,
+      tx_hash,
+      sender_address,
+      total_amount_eth,
+      status: 'confirmed',
+      network: 'metamask',
+      confirmed_at: new Date().toISOString(),
+      is_demo: is_demo === true,
+      eth_price_at_tx: ethPrice,
+    };
+
+    let tx = null;
+    let txErr = null;
+
+    const firstTry = await supabaseAdmin
       .from('transactions')
-      .insert([{
-        project_id,
-        tx_hash,
-        sender_address,
-        total_amount_eth,
-        status: 'confirmed',
-        network: 'metamask',
-        confirmed_at: new Date().toISOString(),
-        is_demo: is_demo === true,
-      }])
+      .insert([insertPayloadWithPrice])
       .select()
       .single();
+
+    if (firstTry.error && (firstTry.error.code === '42703' || firstTry.error.message?.includes('eth_price_at_tx'))) {
+      // Fallback: column doesn't exist, retry without it
+      const insertPayloadWithoutPrice = { ...insertPayloadWithPrice };
+      delete (insertPayloadWithoutPrice as any).eth_price_at_tx;
+      const secondTry = await supabaseAdmin
+        .from('transactions')
+        .insert([insertPayloadWithoutPrice])
+        .select()
+        .single();
+      tx = secondTry.data;
+      txErr = secondTry.error;
+    } else {
+      tx = firstTry.data;
+      txErr = firstTry.error;
+    }
 
     if (txErr) {
       // tx_hash might be duplicate (unique constraint) — that's fine
@@ -53,41 +86,65 @@ export async function POST(req: NextRequest) {
       for (const h of holders) {
         if (!h.rights_holder_id) continue;
         try {
-          const { data: current } = await supabaseAdmin
-            .from('rights_holders')
-            .select('total_received')
-            .eq('id', h.rights_holder_id)
-            .single();
+          const rpcRes = await supabaseAdmin.rpc('increment_holder_received', {
+            holder_id: h.rights_holder_id,
+            amount: Number(h.amount_eth),
+          });
 
-          await supabaseAdmin
-            .from('rights_holders')
-            .update({ total_received: (Number(current?.total_received || 0) + Number(h.amount_eth)) })
-            .eq('id', h.rights_holder_id);
+          if (rpcRes.error && (rpcRes.error.code === '42883' || rpcRes.error.message?.includes('increment_holder_received'))) {
+            // Graceful fallback: RPC does not exist (migration not run yet)
+            const { data: current } = await supabaseAdmin
+              .from('rights_holders')
+              .select('total_received')
+              .eq('id', h.rights_holder_id)
+              .single();
+
+            await supabaseAdmin
+              .from('rights_holders')
+              .update({ total_received: (Number(current?.total_received || 0) + Number(h.amount_eth)) })
+              .eq('id', h.rights_holder_id);
+          } else if (rpcRes.error) {
+            throw rpcRes.error;
+          }
         } catch (err) {
           console.warn(`Could not update total for holder ${h.rights_holder_id}:`, err);
         }
       }
     }
 
-    // 4. Update project total_distributed
+    // 4. Get project details and update total_distributed atomically
     const { data: proj } = await supabaseAdmin
       .from('projects')
-      .select('total_distributed, name')
+      .select('name, total_distributed')
       .eq('id', project_id)
       .single();
 
-    await supabaseAdmin
-      .from('projects')
-      .update({ total_distributed: Number(proj?.total_distributed || 0) + Number(total_amount_eth) })
-      .eq('id', project_id);
+    try {
+      const rpcRes = await supabaseAdmin.rpc('increment_project_distributed', {
+        project_id,
+        amount: Number(total_amount_eth),
+      });
+
+      if (rpcRes.error && (rpcRes.error.code === '42883' || rpcRes.error.message?.includes('increment_project_distributed'))) {
+        // Graceful fallback: RPC does not exist
+        await supabaseAdmin
+          .from('projects')
+          .update({ total_distributed: Number(proj?.total_distributed || 0) + Number(total_amount_eth) })
+          .eq('id', project_id);
+      } else if (rpcRes.error) {
+        throw rpcRes.error;
+      }
+    } catch (err) {
+      console.warn(`Could not update total for project ${project_id}:`, err);
+    }
 
     // 5. Log activity
     const projectName = proj?.name || 'Project';
     await supabaseAdmin.from('activities').insert([{
       project_id,
       action: 'payment_recorded',
-      description: `Payment of $${(Number(total_amount_eth) * ETH_PRICE_USD).toLocaleString()} recorded for ${projectName}`,
-      user_id: tx?.sender_address,
+      description: `Payment of $${(Number(total_amount_eth) * ethPrice).toLocaleString()} recorded for ${projectName}`,
+      user_id: user.isDemo ? null : user.id,
       timestamp: new Date().toISOString(),
     }]);
 

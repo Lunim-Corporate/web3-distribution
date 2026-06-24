@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'react-hot-toast';
-import { ETH_PRICE_USD, formatUSD as fmtUSD } from '@/app/lib/constants';
+import { useEthPrice } from '@/app/lib/useEthPrice';
 import { useAuth } from '@/app/lib/auth';
 import { useRevenueSplitter } from '@/lib/web3';
 import { TxModal, TxStep } from '../ui/TxModal';
@@ -17,6 +17,7 @@ export function DistributePanel({ project, holders }: { project: Project | null;
   const [amount, setAmount] = useState<string>('0.1');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const { formatEthAsUsd } = useEthPrice();
   
   useEffect(() => {
     setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
@@ -223,7 +224,7 @@ export function DistributePanel({ project, holders }: { project: Project | null;
                 </div>
                 <div className="flex justify-between items-center pt-6 border-t border-white/5">
                   <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Est. USD Value</span>
-                  <span className="text-xl font-black text-emerald-400">{fmtUSD(parseFloat(amount || '0') * ETH_PRICE_USD)}</span>
+                  <span className="text-xl font-black text-emerald-400">{formatEthAsUsd(parseFloat(amount || '0'))}</span>
                 </div>
               </div>
 
@@ -283,8 +284,12 @@ export function DistributePanel({ project, holders }: { project: Project | null;
                   </div>
                 ))}
                 {holders.length === 0 && (
-                  <div className="text-center py-12">
-                    <div className="text-4xl mb-4 opacity-20">👥</div>
+                  <div className="text-center py-12 flex flex-col items-center justify-center">
+                    <div className="w-12 h-12 rounded-full bg-white/5 border border-white/5 flex items-center justify-center text-gray-500 mb-3">
+                      <svg className="w-6 h-6 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
                     <p className="text-xs text-gray-600 font-black uppercase tracking-widest">No holders assigned in Admin</p>
                   </div>
                 )}
@@ -306,19 +311,48 @@ export function DistributePanel({ project, holders }: { project: Project | null;
       
       {/* Simulation Info */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[
-          { label: 'Blockchain Network', value: isDemoMode ? 'Hardhat (Demo)' : 'Ethereum Mainnet', icon: '⛓️', color: 'indigo' },
-          { label: 'Distribution Logic', value: 'Immutable Splitter', icon: '📝', color: 'emerald' },
-          { label: 'Transaction Status', value: isProcessing ? 'Syncing...' : (txHash ? 'Confirmed' : 'Standby'), icon: '⚡', color: 'purple' },
-        ].map(item => (
-          <div key={item.label} className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-xl flex items-center gap-5">
-            <div className="text-3xl">{item.icon}</div>
-            <div>
-              <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">{item.label}</p>
-              <p className={`text-xs font-black text-white mt-0.5`}>{item.value}</p>
-            </div>
+        {/* Network */}
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-xl flex items-center gap-5 relative overflow-hidden group hover:border-indigo-500/30 transition-all duration-300">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 group-hover:bg-indigo-500/20 transition-all duration-300">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
           </div>
-        ))}
+          <div>
+            <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Blockchain Network</p>
+            <p className="text-xs font-black text-white mt-0.5">
+              {isDemoMode ? 'Hardhat Development Chain' : (process.env.NEXT_PUBLIC_CHAIN_ID === '84532' ? 'Base Sepolia' : (process.env.NEXT_PUBLIC_CHAIN_ID === '8453' ? 'Base Mainnet' : 'Localhost'))}
+            </p>
+          </div>
+        </div>
+
+        {/* Logic */}
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-xl flex items-center gap-5 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-300">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:bg-emerald-500/20 transition-all duration-300">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Distribution Logic</p>
+            <p className="text-xs font-black text-white mt-0.5">Immutable Revenue Splitter</p>
+          </div>
+        </div>
+
+        {/* Status */}
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-xl flex items-center gap-5 relative overflow-hidden group hover:border-purple-500/30 transition-all duration-300">
+          <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-400 group-hover:bg-purple-500/20 transition-all duration-300">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Transaction Status</p>
+            <p className="text-xs font-black text-white mt-0.5">
+              {isProcessing ? 'Syncing Ledger...' : (txHash ? 'Confirmed & Indexed' : 'Protocol Standby')}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Transaction progress modal */}

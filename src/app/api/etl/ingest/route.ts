@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { requireAdmin, auditLog } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { validateBody, etlIngestSchema } from '@/app/lib/validation';
+import { getEthPriceUSD } from '@/app/lib/ethPrice';
 
 /**
  * POST /api/etl/ingest — Ingest royalty data from external sources.
@@ -40,9 +41,9 @@ export async function POST(req: Request) {
     }
 
     // Compute missing value: if only USD provided, estimate ETH; if only ETH, estimate USD
-    const ETH_PRICE_USD = 2500; // Should come from oracle in production
-    const finalEth = amount_eth || (amount_usd ? amount_usd / ETH_PRICE_USD : 0);
-    const finalUsd = amount_usd || (amount_eth ? amount_eth * ETH_PRICE_USD : 0);
+    const ethPrice = await getEthPriceUSD();
+    const finalEth = amount_eth || (amount_usd ? amount_usd / ethPrice : 0);
+    const finalUsd = amount_usd || (amount_eth ? amount_eth * ethPrice : 0);
 
     const { data: inflow, error } = await supabaseAdmin
       .from('royalty_inflows')

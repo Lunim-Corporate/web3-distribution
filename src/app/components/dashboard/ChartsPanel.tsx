@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Line, Doughnut } from 'react-chartjs-2';
 import { formatCurrency } from '@/lib/utils';
 // formatCurrencyFromCentsGB unused in ChartsPanel
-import { ETH_PRICE_USD } from '@/app/lib/constants';
+import { useEthPrice } from '@/app/lib/useEthPrice';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -59,6 +59,7 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ projectId, isDemoMode }) => {
   const [revenue, setRevenue] = useState<RevenueData[]>([]);
   const [timeframe, setTimeframe] = useState<'6'|'12'|'ytd'>('6');
   const [cumulative, setCumulative] = useState(false);
+  const { ethPrice } = useEthPrice();
 
   const fetchRevenue = React.useCallback(() => {
     fetch(`/api/revenue?demo=${isDemoMode}&ts=${Date.now()}`, { cache: 'no-store' })
@@ -88,7 +89,7 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ projectId, isDemoMode }) => {
       
       const key = `${d.getFullYear()}-${d.getMonth()}`;
       // Data in DB is ETH, convert to USD for chart consistency with Reports
-      const amountUSD = Number(r.amount || 0) * ETH_PRICE_USD;
+      const amountUSD = Number(r.amount || 0) * ethPrice;
       
       // Trend data uses filtered revenue
       if (!projectId || projectId === 'all' || r.projectId === projectId) {
@@ -185,7 +186,7 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ projectId, isDemoMode }) => {
     }
 
     return { labels: lbls, trendData: displayTrend, projectedData: displayProjected, projectSegments: segments };
-  }, [revenue, timeframe, cumulative, projectId, isDemoMode]);
+  }, [revenue, timeframe, cumulative, projectId, isDemoMode, ethPrice]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

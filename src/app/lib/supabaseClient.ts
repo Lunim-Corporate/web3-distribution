@@ -8,7 +8,7 @@ export const supabase = createClient(url, anonKey);
 export async function fetchProjectByName(name: string) {
   const { data, error } = await supabase
     .from('projects')
-    .select('id,name,description,total_revenue,is_public,created_at,cover_image,status,progress')
+    .select('id, name, genre, description, poster_url, contract_address, network, status, total_distributed, created_at, updated_at')
     .ilike('name', `%${name}%`)
     .limit(1)
     .single();

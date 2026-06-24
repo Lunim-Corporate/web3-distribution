@@ -89,9 +89,10 @@ export const addRightsHolderSchema = z.object({
   email: z.string().email().optional(),
 });
 
-/** PUT /api/rights/manage */
+/** POST /api/rights/manage */
 export const manageRightsHolderSchema = z.object({
   id: uuid,
+  action: z.enum(['update', 'delete']),
   full_name: safeString(200).optional(),
   role: safeString(100).optional(),
   percentage: percentage.optional(),

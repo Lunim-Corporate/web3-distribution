@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 // Use Node-specific distribution to avoid browser global dependencies
 const { jsPDF } = require('jspdf/dist/jspdf.node.min');
-import { generateRevenueReport } from '@/lib/database';
+import { generateRevenueReport } from '@/app/lib/database';
 import { requireAuth } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
+import { getEthPriceUSD } from '@/app/lib/ethPrice';
 
 export async function GET(request: Request) {
   try {
@@ -37,6 +38,7 @@ export async function GET(request: Request) {
     
     // FETCH DATA ON SERVER
     const report = await generateRevenueReport(startDate, endDate, searchParams.get('projectId') || undefined);
+    const ethPrice = await getEthPriceUSD();
     
     // GENERATE PDF ON SERVER (Node-compatible version)
     const doc = new jsPDF({
@@ -66,9 +68,9 @@ export async function GET(request: Request) {
     doc.text(`Reporting Period: ${startDate} to ${endDate}`, 20, 68);
     
     doc.setFont('helvetica', 'bold');
-    doc.text(`Total Revenue: USD ${report.totalRevenue.toLocaleString()}`, 20, 78);
-    doc.text(`Total Paid: USD ${report.totalPaid.toLocaleString()}`, 20, 86);
-    doc.text(`Total Pending: USD ${report.totalPending.toLocaleString()}`, 20, 94);
+    doc.text(`Total Revenue: USD ${(report.totalRevenue * ethPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 20, 78);
+    doc.text(`Total Paid: USD ${(report.totalPaid * ethPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 20, 86);
+    doc.text(`Total Pending: USD ${(report.totalPending * ethPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 20, 94);
     doc.text(`Payment Count: ${report.paymentCount}`, 20, 102);
 
     // Top Projects Section
@@ -81,11 +83,45 @@ export async function GET(request: Request) {
     if (report.projects && report.projects.length > 0) {
       report.projects.slice(0, 15).forEach((proj: any) => {
         if (y > 270) { doc.addPage(); y = 20; }
-        doc.text(`${proj.projectName}: USD ${proj.totalRevenue.toLocaleString()}`, 25, y);
+        doc.text(`${proj.projectName}: USD ${(proj.totalRevenue * ethPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 25, y);
         y += 8;
       });
     } else {
       doc.text('No matching project data found for this period.', 25, y);
+    }
+
+    // Transaction History Section
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TRANSACTION HISTORY', 20, y + 10);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    y += 20;
+
+    if (report.trends && report.trends.length > 0) {
+      // Headers
+      doc.setFont('helvetica', 'bold');
+      doc.text('Date & Time', 25, y);
+      doc.text('Project', 75, y);
+      doc.text('Amount (ETH)', 135, y);
+      doc.text('Value (USD)', 170, y);
+      doc.setFont('helvetica', 'normal');
+      y += 8;
+
+      report.trends.slice(0, 20).forEach((t: any) => {
+        if (y > 270) { doc.addPage(); y = 20; }
+        const formattedDate = new Date(t.date).toLocaleString();
+        const txPrice = t.ethPriceAtTx || ethPrice; // Fallback to current live price if not stored
+        const usdValue = t.amount * txPrice;
+        
+        doc.text(formattedDate, 25, y);
+        doc.text(t.projectName.slice(0, 20), 75, y);
+        doc.text(`${t.amount.toFixed(4)} ETH`, 135, y);
+        doc.text(`$${usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 170, y);
+        y += 8;
+      });
+    } else {
+      doc.text('No transactions found for this period.', 25, y);
     }
 
     // Footer
