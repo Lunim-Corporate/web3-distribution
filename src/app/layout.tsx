@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
-import { AuthProvider } from '@/lib/auth';
-import Web3Providers from '@/lib/web3/providers';
-import { Toaster } from 'react-hot-toast';
-import { Navbar } from '@/components/Navbar';
+import dynamic from 'next/dynamic';
 import './globals.css';
+
+const AuthProvider = dynamic(() => import('@/lib/auth').then(m => m.AuthProvider), { ssr: false });
+const Web3Providers = dynamic(() => import('@/lib/web3/providers'), { ssr: false });
+const Navbar = dynamic(() => import('@/components/Navbar').then(m => m.Navbar), { ssr: false });
+const Toaster = dynamic(() => import('react-hot-toast').then(m => m.Toaster), { ssr: false });
 
 export const metadata: Metadata = {
   title: 'LUNIM — Web3 Creative Rights & Revenue Distribution Platform',
