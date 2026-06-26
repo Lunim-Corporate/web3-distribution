@@ -143,9 +143,9 @@ export async function POST(req: Request) {
         await walletClient.waitForTransactionReceipt({ hash });
         txHash = hash;
       } catch (e: any) {
-        console.error("Hardhat transaction failed:", e.message);
+        console.error("On-chain transaction failed:", e.message);
         return NextResponse.json(
-          { error: `On-chain transaction failed: ${e.message}. Is the Hardhat node running?` },
+          { error: 'On-chain transaction failed. Check server configuration and try again.' },
           { status: 500 }
         );
       }
@@ -333,7 +333,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, txHash });
   } catch (err: any) {
     console.error('Auto distribute error:', err);
-    return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 

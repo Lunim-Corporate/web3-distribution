@@ -2,7 +2,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') });
 require('dotenv').config();
 const { createClient } = require('@supabase/supabase-js');
-const { HDNodeWallet, Mnemonic } = require('ethers');
+const { HDNodeWallet, Mnemonic, JsonRpcProvider, Wallet, parseEther, Contract } = require('ethers');
 
 // Initialize Supabase admin client
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
@@ -56,6 +56,8 @@ const seedData = async () => {
   // ──────────────────────────────────────────────
   // 2. Seed Projects & Rights Holders
   // ──────────────────────────────────────────────
+  const ADMIN_LIVE_ADDRESS = process.env.ADMIN_LIVE_ADDRESS || null;
+
   const projects = [
     {
       name: "Neon Requiem",
@@ -63,11 +65,13 @@ const seedData = async () => {
       description: "A rogue AI infiltrates a megacity's neural grid, forcing a burned intelligence officer to confront her own manufactured memories.",
       status: "active",
       holders: [
-        { full_name: "Aria Voss", role: "Director", percentage: 28 },
-        { full_name: "Marcus Delgado", role: "Lead Actor", percentage: 22 },
-        { full_name: "Priya Nair", role: "Producer", percentage: 18 },
-        { full_name: "Theo Harrington", role: "Music Composer", percentage: 17 },
-        { full_name: "Simone Okafor", role: "Screenplay Writer", percentage: 15 }
+        { full_name: "Aria Voss", role: "Director", percentage: 25 },
+        { full_name: "Marcus Delgado", role: "Lead Actor", percentage: 20 },
+        { full_name: "Priya Nair", role: "Producer", percentage: 15 },
+        { full_name: "Theo Harrington", role: "Music Composer", percentage: 15 },
+        { full_name: "Simone Okafor", role: "Screenplay Writer", percentage: 15 },
+        { full_name: "Jeevesh (Admin - Local)", role: "Platform Admin", percentage: 5, wallet_address: getWallet(0) },
+        { full_name: "Jeevesh (Admin - Live)", role: "Platform Admin", percentage: 5, wallet_address: ADMIN_LIVE_ADDRESS },
       ]
     },
     {
@@ -148,7 +152,8 @@ const seedData = async () => {
 
     const projectId = projectData.id;
     const holdersToInsert = proj.holders.map(h => {
-      const addr = getWallet(accountIndex++);
+      const addr = h.wallet_address || getWallet(accountIndex);
+      if (!h.wallet_address) accountIndex++;
       return {
         project_id: projectId,
         full_name: h.full_name,
@@ -316,6 +321,43 @@ const seedData = async () => {
   const { error: actErr } = await supabase.from('activities').insert(activities);
   if (actErr) console.warn('  ⚠ Activities insert failed:', actErr.message);
   else console.log(`  ✓ Seeded ${activities.length} activity entries\n`);
+
+  // ──────────────────────────────────────────────
+  // 5. On-chain distribution (seed real ETH to contract)
+  // ──────────────────────────────────────────────
+  console.log("  Seeding on-chain revenue distribution...");
+  try {
+    const contractAddress = process.env.NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS;
+    if (!contractAddress) {
+      console.warn('  ⚠ NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS not set, skipping on-chain distribution');
+    } else {
+      const mnemonic = process.env.HARDHAT_MNEMONIC || "test test test test test test test test test test test junk";
+      const provider = new JsonRpcProvider("http://127.0.0.1:8545");
+      const deployerWallet = HDNodeWallet.fromMnemonic(Mnemonic.fromPhrase(mnemonic), "m/44'/60'/0'/0/0").connect(provider);
+
+      const abi = [
+        "function distributeRevenue() external payable",
+        "function accruedBalances(address) view returns (uint256)"
+      ];
+      const contract = new Contract(contractAddress, abi, deployerWallet);
+
+      const amountEth = 5; // 5 ETH total
+      const tx = await contract.distributeRevenue({ value: parseEther(amountEth.toString()) });
+      await tx.wait();
+      console.log(`  ✓ Sent ${amountEth} ETH to contract via distributeRevenue() (tx: ${tx.hash})`);
+
+      // Verify balances
+      const holders = projectRecords.flatMap(p => p.holders || []);
+      for (const holder of holders) {
+        const bal = await contract.accruedBalances(holder.wallet_address);
+        if (bal > 0) {
+          console.log(`    ${holder.full_name} (${holder.wallet_address}): ${parseFloat(bal)/1e18} ETH claimable`);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn(`  ⚠ On-chain distribution failed (is Hardhat node running?): ${e.message}`);
+  }
 
   // ──────────────────────────────────────────────
   // Summary

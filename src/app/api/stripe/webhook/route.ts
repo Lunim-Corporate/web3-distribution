@@ -8,7 +8,7 @@ const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 function getStripe(): Stripe {
   if (!stripeSecretKey) throw new Error('STRIPE_SECRET_KEY not configured');
-  return new Stripe(stripeSecretKey, { apiVersion: '2025-04-30.basil' as any });
+  return new Stripe(stripeSecretKey, { apiVersion: '2025-04-30' as any });
 }
 
 export async function POST(req: Request) {
@@ -45,11 +45,24 @@ export async function POST(req: Request) {
           break;
         }
 
+        // Idempotency check: skip if this session was already processed
+        const eventId = event.id;
+        const { data: existing } = await supabaseAdmin
+          .from('activities')
+          .select('id')
+          .eq('description', `Stripe payment confirmed: session ${session.id}`)
+          .maybeSingle();
+
+        if (existing) {
+          console.log('[STRIPE WEBHOOK] Duplicate event skipped:', eventId);
+          return NextResponse.json({ received: true, duplicate: true });
+        }
+
         // Record the confirmed payment in Supabase
         await supabaseAdmin.from('activities').insert({
           project_id,
           action: 'payment_confirmed',
-          description: `Stripe payment confirmed: $${((Number(amount_eth) * 3200)).toFixed(2)} (session: ${session.id})`,
+          description: `Stripe payment confirmed: session ${session.id}`,
           timestamp: new Date().toISOString(),
         });
 
@@ -72,7 +85,6 @@ export async function POST(req: Request) {
       }
 
       default:
-        // Unhandled event type — acknowledge receipt
         break;
     }
 

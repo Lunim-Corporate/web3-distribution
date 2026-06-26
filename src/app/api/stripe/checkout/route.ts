@@ -23,7 +23,7 @@ function getStripe(): Stripe {
   }
 
   return new Stripe(stripeSecretKey, {
-    apiVersion: '2025-04-30.basil' as any,
+    apiVersion: '2025-04-30' as any,
   });
 }
 

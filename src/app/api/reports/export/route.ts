@@ -37,7 +37,8 @@ export async function GET(request: Request) {
     }
     
     // FETCH DATA ON SERVER
-    const report = await generateRevenueReport(startDate, endDate, searchParams.get('projectId') || undefined);
+    const isDemo = searchParams.get('demo') === 'true';
+    const report = await generateRevenueReport(startDate, endDate, searchParams.get('projectId') || undefined, undefined, undefined, isDemo);
     const ethPrice = await getEthPriceUSD();
     
     // GENERATE PDF ON SERVER (Node-compatible version)
@@ -48,90 +49,207 @@ export async function GET(request: Request) {
       putOnlyUsedFonts: true
     });
 
-    // Branding
-    doc.setFillColor(30, 64, 175);
-    doc.rect(0, 0, 210, 40, 'F');
+    // ── PAGE WIDTH & MARGINS ──
+    const PW = 210;
+    const ML = 20;
+    const MR = 20;
+    const contentW = PW - ML - MR;
+
+    // ── DEEP NAVY HEADER BRANDING BANNER ──
+    doc.setFillColor(18, 28, 58);
+    doc.rect(0, 0, PW, 42, 'F');
+
+    // Accent stripe
+    doc.setFillColor(59, 130, 246);
+    doc.rect(0, 42, PW, 2, 'F');
+
     doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(24);
-    doc.text('LUNIM', 20, 25);
-    doc.setFontSize(10);
-    doc.text('CREATIVE RIGHTS PLATFORM — PLATFORM REPORT', 20, 32);
+    doc.setFontSize(22);
+    doc.text('LUNIM', ML, 20);
 
-    // Summary Section
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(16);
-    doc.text('EXECUTIVE SUMMARY', 20, 55);
-    doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Generated At: ${new Date().toLocaleString()}`, 20, 62);
-    doc.text(`Reporting Period: ${startDate} to ${endDate}`, 20, 68);
-    
+    doc.setFontSize(8);
+    doc.text('CREATIVE RIGHTS PLATFORM — PLATFORM REPORT', ML, 28);
+
+    doc.setFontSize(7);
+    doc.setTextColor(148, 163, 184);
+    doc.text(`Generated: ${new Date().toLocaleString()}  |  Period: ${startDate} — ${endDate}`, ML, 35);
+
+    let y = 58;
+
+    // ── EXECUTIVE SUMMARY BOX ──
+    const boxX = ML;
+    const boxY = y;
+    const boxH = 44;
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(boxX, boxY, contentW, boxH, 3, 3, 'FD');
+
+    // Left accent
+    doc.setFillColor(59, 130, 246);
+    doc.rect(boxX, boxY, 3, boxH, 'F');
+
+    doc.setTextColor(18, 28, 58);
     doc.setFont('helvetica', 'bold');
-    doc.text(`Total Revenue: USD ${(report.totalRevenue * ethPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 20, 78);
-    doc.text(`Total Paid: USD ${(report.totalPaid * ethPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 20, 86);
-    doc.text(`Total Pending: USD ${(report.totalPending * ethPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 20, 94);
-    doc.text(`Payment Count: ${report.paymentCount}`, 20, 102);
+    doc.setFontSize(13);
+    doc.text('EXECUTIVE SUMMARY', boxX + 10, boxY + 10);
 
-    // Top Projects Section
-    doc.setFontSize(14);
-    doc.text('RECENT PROJECTS & REVENUE', 20, 118);
-    doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    let y = 128;
-    
-    if (report.projects && report.projects.length > 0) {
-      report.projects.slice(0, 15).forEach((proj: any) => {
-        if (y > 270) { doc.addPage(); y = 20; }
-        doc.text(`${proj.projectName}: USD ${(proj.totalRevenue * ethPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 25, y);
-        y += 8;
-      });
-    } else {
-      doc.text('No matching project data found for this period.', 25, y);
-    }
+    doc.setFontSize(9);
 
-    // Transaction History Section
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.text('TRANSACTION HISTORY', 20, y + 10);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    y += 20;
+    const metrics = [
+      { label: 'Total Revenue', value: `$${(report.totalRevenue * ethPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, color: [59, 130, 246] },
+      { label: 'Total Paid', value: `$${(report.totalPaid * ethPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, color: [34, 197, 94] },
+      { label: 'Total Pending', value: `$${(report.totalPending * ethPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, color: [234, 179, 8] },
+      { label: 'Payment Count', value: String(report.paymentCount), color: [139, 92, 246] },
+    ];
 
-    if (report.trends && report.trends.length > 0) {
-      // Headers
+    const metricW = contentW / metrics.length;
+    metrics.forEach((m, i) => {
+      const mx = boxX + 10 + i * metricW;
+      doc.setTextColor(100, 116, 139);
       doc.setFont('helvetica', 'bold');
-      doc.text('Date & Time', 25, y);
-      doc.text('Project', 75, y);
-      doc.text('Amount (ETH)', 135, y);
-      doc.text('Value (USD)', 170, y);
-      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.text(m.label.toUpperCase(), mx, boxY + 22);
+      doc.setTextColor(m.color[0], m.color[1], m.color[2]);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.text(m.value, mx, boxY + 35);
+    });
+
+    y = boxY + boxH + 12;
+
+    // ── PROJECTS TABLE ──
+    if (report.projects && report.projects.length > 0) {
+      doc.setTextColor(18, 28, 58);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('PROJECTS & REVENUE', ML, y);
       y += 8;
 
-      report.trends.slice(0, 20).forEach((t: any) => {
-        if (y > 270) { doc.addPage(); y = 20; }
-        const formattedDate = new Date(t.date).toLocaleString();
-        const txPrice = t.ethPriceAtTx || ethPrice; // Fallback to current live price if not stored
-        const usdValue = t.amount * txPrice;
-        
-        doc.text(formattedDate, 25, y);
-        doc.text(t.projectName.slice(0, 20), 75, y);
-        doc.text(`${t.amount.toFixed(4)} ETH`, 135, y);
-        doc.text(`$${usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 170, y);
+      // Table header
+      doc.setFillColor(241, 245, 249);
+      doc.rect(ML, y - 4, contentW, 7, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text('Project', ML + 4, y + 1);
+      doc.text('Contributors', ML + 90, y + 1);
+      doc.text('Share', ML + 120, y + 1, { align: 'right' });
+      doc.text('Revenue (USD)', ML + 145, y + 1, { align: 'right' });
+      y += 9;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(51, 65, 85);
+      report.projects.slice(0, 15).forEach((proj: any, i: number, _arr: any[]) => {
+        if (y > 255) {
+          addFooter(doc);
+          doc.addPage();
+          addHeader(doc);
+          y = 52;
+        }
+        // Alternating row background
+        if (i % 2 === 1) {
+          doc.setFillColor(248, 250, 252);
+          doc.rect(ML, y - 4, contentW, 7, 'F');
+        }
+        doc.text(proj.projectName.length > 24 ? proj.projectName.slice(0, 24) + '…' : proj.projectName, ML + 4, y + 1);
+        doc.text(String(proj.contributorCount || 0), ML + 90, y + 1);
+        doc.text(`${(proj.sharePercentage || 0).toFixed(1)}%`, ML + 120, y + 1, { align: 'right' });
+        doc.text(`$${(proj.totalRevenue * ethPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, ML + 145, y + 1, { align: 'right' });
         y += 8;
       });
-    } else {
-      doc.text('No transactions found for this period.', 25, y);
+      y += 6;
     }
 
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
+    // ── TRANSACTION HISTORY TABLE ──
+    if (report.trends && report.trends.length > 0) {
+      if (y > 245) {
+        addFooter(doc);
+        doc.addPage();
+        addHeader(doc);
+        y = 52;
+      }
+
+      doc.setTextColor(18, 28, 58);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('TRANSACTION HISTORY', ML, y);
+      y += 8;
+
+      // Table header
+      doc.setFillColor(241, 245, 249);
+      doc.rect(ML, y - 4, contentW, 7, 'F');
+      doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
-      doc.setTextColor(150);
-      doc.text(`Page ${i} of ${pageCount}`, 190, 287, { align: 'right' });
-      doc.text('LUNIM Creative Hub - Confidential', 20, 287);
+      doc.setTextColor(71, 85, 105);
+      doc.text('Date & Time', ML + 4, y + 1);
+      doc.text('Project', ML + 60, y + 1);
+      doc.text('Amount (ETH)', ML + 105, y + 1, { align: 'right' });
+      doc.text('Value (USD)', ML + 130, y + 1, { align: 'right' });
+      doc.text('Status', ML + 168, y + 1);
+      y += 9;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(51, 65, 85);
+      report.trends.slice(0, 25).forEach((t: any, i: number) => {
+        if (y > 255) {
+          addFooter(doc);
+          doc.addPage();
+          addHeader(doc);
+          y = 52;
+        }
+        if (i % 2 === 1) {
+          doc.setFillColor(248, 250, 252);
+          doc.rect(ML, y - 4, contentW, 7, 'F');
+        }
+        const formattedDate = new Date(t.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const txPrice = t.ethPriceAtTx || ethPrice;
+        const usdValue = t.amount * txPrice;
+        doc.text(formattedDate, ML + 4, y + 1);
+        doc.text(t.projectName.slice(0, 20), ML + 60, y + 1);
+        doc.text(t.amount.toFixed(4), ML + 105, y + 1, { align: 'right' });
+        doc.text(`$${usdValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, ML + 130, y + 1, { align: 'right' });
+        doc.text('Confirmed', ML + 168, y + 1);
+        y += 8;
+      });
+    }
+
+    // ── FOOTER (all pages) ──
+    addFooter(doc, true);
+
+    // Helper functions for page management
+    function addHeader(doc: any) {
+      doc.setFillColor(18, 28, 58);
+      doc.rect(0, 0, PW, 42, 'F');
+      doc.setFillColor(59, 130, 246);
+      doc.rect(0, 42, PW, 2, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(22);
+      doc.text('LUNIM', ML, 20);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.text('CREATIVE RIGHTS PLATFORM — PLATFORM REPORT (cont.)', ML, 28);
+    }
+
+    function addFooter(doc: any, includeLast = false) {
+      const totalPages = (doc as any).internal.getNumberOfPages();
+      const pagesToProcess = includeLast ? totalPages : totalPages - 1;
+      for (let i = 1; i <= pagesToProcess; i++) {
+        doc.setPage(i);
+        // Footer line
+        doc.setDrawColor(226, 232, 240);
+        doc.line(ML, 280, PW - MR, 280);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(148, 163, 184);
+        doc.text('LUNIM Creative Hub — Confidential', ML, 286);
+        doc.text(`Page ${i} of ${totalPages}`, PW - MR, 286, { align: 'right' });
+      }
     }
 
     // BINARY OUTPUT

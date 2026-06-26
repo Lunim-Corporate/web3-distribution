@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useWallets } from '@privy-io/react-auth';
 import { createPublicClient, createWalletClient, http, custom, encodeFunctionData, parseEther, formatEther } from 'viem';
 import { hardhat } from 'viem/chains';
-import { activeChain } from './web3/config';
+import { activeChain, ADMIN_LIVE_ADDRESS } from './web3/config';
 import { createSmartAccountClient } from 'permissionless';
 import { toSafeSmartAccount } from 'permissionless/accounts';
 
@@ -73,6 +73,16 @@ export function useRevenueSplitter() {
         return;
       }
 
+      const walletChainId = typeof activeWallet.chainId === 'string' 
+        ? parseInt(activeWallet.chainId.replace('eip155:', '')) 
+        : activeWallet.chainId;
+
+      if (walletChainId === 31337) {
+        setSmartAccountAddress(activeWallet.address as Address);
+        setIsInitializing(false);
+        return;
+      }
+
       setIsInitializing(true);
       try {
         const provider = await activeWallet.getEthereumProvider();
@@ -101,12 +111,25 @@ export function useRevenueSplitter() {
     initSmartAccount();
   }, [wallets, isDemoMode]);
 
+  const resolveChain = () => {
+    if (isDemoMode) return { chain: hardhat, rpc: LOCAL_RPC };
+    const activeWallet = wallets.find((w) => w.walletClientType === 'privy') || wallets[0];
+    if (activeWallet) {
+      const walletChainId = typeof activeWallet.chainId === 'string' 
+        ? parseInt(activeWallet.chainId.replace('eip155:', '')) 
+        : activeWallet.chainId;
+      if (walletChainId === 31337) return { chain: hardhat, rpc: LOCAL_RPC };
+    }
+    return { chain: activeChain, rpc: ALCHEMY_RPC };
+  };
+
   const getContractBalanceEth = async (): Promise<string> => {
     if (!REVENUE_SPLITTER_ADDRESS) throw new Error('Missing contract address');
     
+    const { chain, rpc } = resolveChain();
     const publicClient = createPublicClient({
-      chain: isDemoMode ? hardhat : activeChain,
-      transport: http(isDemoMode ? LOCAL_RPC : ALCHEMY_RPC),
+      chain,
+      transport: http(rpc),
     });
     
     const balance = await publicClient.getBalance({ address: REVENUE_SPLITTER_ADDRESS });
@@ -117,9 +140,10 @@ export function useRevenueSplitter() {
     if (!REVENUE_SPLITTER_ADDRESS || !address) return '0.0';
     
     try {
+      const { chain, rpc } = resolveChain();
       const publicClient = createPublicClient({
-        chain: isDemoMode ? hardhat : activeChain,
-        transport: http(isDemoMode ? LOCAL_RPC : ALCHEMY_RPC),
+        chain,
+        transport: http(rpc),
       });
 
       const balance = await publicClient.readContract({
@@ -191,22 +215,49 @@ export function useRevenueSplitter() {
         throw new Error('No connected wallet found. Please connect your wallet.');
       }
 
-      const provider = await activeWallet.getEthereumProvider();
-      
-      const publicClient = createPublicClient({
-        chain: activeChain,
-        transport: http(ALCHEMY_RPC),
-      });
+      const walletChainId = typeof activeWallet.chainId === 'string' 
+        ? parseInt(activeWallet.chainId.replace('eip155:', '')) 
+        : activeWallet.chainId;
+      const useLocalhost = walletChainId === 31337;
+      const txChain = useLocalhost ? hardhat : activeChain;
+      const txRpc = useLocalhost ? LOCAL_RPC : ALCHEMY_RPC;
 
-      const walletClient = createWalletClient({
-        account: activeWallet.address as Address,
-        chain: activeChain,
-        transport: custom(provider as any),
+      const publicClient = createPublicClient({
+        chain: txChain,
+        transport: http(txRpc),
       });
 
       const callData = encodeFunctionData({
         abi: ABI,
         functionName: 'claim',
+      });
+
+      if (useLocalhost && ADMIN_LIVE_ADDRESS && activeWallet.address.toLowerCase() !== ADMIN_LIVE_ADDRESS.toLowerCase()) {
+        const accounts = typeof window !== 'undefined' && window.ethereum
+          ? await window.ethereum.request({ method: 'eth_accounts' }) as string[]
+          : [];
+        const hasAdminLive = accounts.some(a => a.toLowerCase() === ADMIN_LIVE_ADDRESS.toLowerCase());
+        if (hasAdminLive) {
+          const txHash = await window.ethereum!.request({
+            method: 'eth_sendTransaction',
+            params: [{
+              from: ADMIN_LIVE_ADDRESS,
+              to: REVENUE_SPLITTER_ADDRESS,
+              data: callData,
+              gasPrice: '0x0'
+            }]
+          }) as string;
+          await publicClient.waitForTransactionReceipt({ hash: txHash as Address });
+          return txHash;
+        }
+      }
+
+      const provider = await activeWallet.getEthereumProvider();
+
+      const walletClient = createWalletClient({
+        account: activeWallet.address as Address,
+        chain: txChain,
+        transport: custom(provider as any),
       });
 
       const txHash = await walletClient.sendTransaction({
@@ -228,11 +279,18 @@ export function useRevenueSplitter() {
       throw new Error('No connected wallet found. Please connect your wallet.');
     }
 
+    const walletChainId = typeof activeWallet.chainId === 'string' 
+      ? parseInt(activeWallet.chainId.replace('eip155:', '')) 
+      : activeWallet.chainId;
+    const useLocalhost = walletChainId === 31337;
+    const txChain = useLocalhost ? hardhat : activeChain;
+    const txRpc = useLocalhost ? LOCAL_RPC : ALCHEMY_RPC;
+
     const provider = await activeWallet.getEthereumProvider();
     
     const publicClient = createPublicClient({
-      chain: activeChain,
-      transport: http(ALCHEMY_RPC),
+      chain: txChain,
+      transport: http(txRpc),
     });
 
     const valueWei = parseEther(amountEth);
@@ -240,6 +298,24 @@ export function useRevenueSplitter() {
       abi: ABI,
       functionName: 'distributeRevenue',
     });
+
+    if (useLocalhost) {
+      const walletClient = createWalletClient({
+        account: activeWallet.address as Address,
+        chain: hardhat,
+        transport: custom(provider as any),
+      });
+
+      const txHash = await walletClient.sendTransaction({
+        account: activeWallet.address as Address,
+        to: REVENUE_SPLITTER_ADDRESS,
+        value: valueWei,
+        data: callData,
+      });
+
+      await publicClient.waitForTransactionReceipt({ hash: txHash });
+      return txHash;
+    }
 
     try {
       if (!process.env.NEXT_PUBLIC_ALCHEMY_GAS_POLICY_ID) {

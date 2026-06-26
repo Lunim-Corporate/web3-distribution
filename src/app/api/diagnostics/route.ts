@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { requireAdmin } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
-
 interface DiagnosticsResult {
   timestamp: string;
   environment: {
@@ -71,12 +70,8 @@ export async function GET() {
 
     return NextResponse.json(diagnostics);
   } catch (error: any) {
-    const msg = error instanceof Error ? error.message : 'Unknown error';
-    if (msg === 'Unauthorized' || msg === 'Forbidden: Admins only') {
-      return NextResponse.json({ error: msg }, { status: msg === 'Unauthorized' ? 401 : 403 });
-    }
     return NextResponse.json(
-      { status: 'error', message: msg },
+      { status: 'error', message: 'Internal server error' },
       { status: 500 }
     );
   }

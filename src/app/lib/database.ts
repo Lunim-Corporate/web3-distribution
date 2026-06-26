@@ -142,8 +142,12 @@ export async function updateContributor(id: string, updates: any) {
 }
 
 // Payments
-export async function recordPayment(_data: any) {
-  return null; // Handled by server/index.js contract listener now
+export async function recordPayment(_data: {
+  project_id: string;
+  amount_cents: number;
+  source: string;
+}): Promise<null> {
+  return null;
 }
 
 export async function getPayments(projectId: string) {

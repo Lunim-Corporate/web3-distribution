@@ -22,7 +22,7 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ isDemoMode, ac
   const [endDate, setEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [report, setReport] = useState<RevenueReport | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [exportFormat, setExportFormat] = useState<'json' | 'csv'>('csv');
+  const [exportFormat, setExportFormat] = useState<'json' | 'csv' | 'pdf'>('pdf');
   const [expandedProjects, setExpandedProjects] = useState<Record<string, boolean>>({});
   const toggleProject = (id: string) => setExpandedProjects(prev => ({ ...prev, [id]: !prev[id] }));
 
@@ -54,6 +54,21 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ isDemoMode, ac
     }
   };
 
+  const handleQuickDate = (period: 'ytd' | 'quarterly') => {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    if (period === 'ytd') {
+      setStartDate(`${currentYear}-01-01`);
+    } else {
+      const startMonth = Math.floor(currentMonth / 4) * 4;
+      const qStart = new Date(currentYear, startMonth, 1);
+      setStartDate(qStart.toISOString().split('T')[0]);
+    }
+    setEndDate(now.toISOString().split('T')[0]);
+  };
+
   const handleExportReport = async () => {
     if (!report) {
       toast.error('Please generate a report first');
@@ -61,6 +76,34 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ isDemoMode, ac
     }
 
     try {
+      if (exportFormat === 'pdf') {
+        const isDemoMode = localStorage.getItem('demo_mode') === 'true';
+        const params = new URLSearchParams({
+          startDate,
+          endDate,
+          demo: String(isDemoMode),
+        });
+        if (activeProjectId && activeProjectId !== 'all') {
+          params.append('projectId', activeProjectId);
+        }
+
+        const response = await fetch(`/api/reports/export?${params.toString()}`);
+        if (!response.ok) throw new Error('PDF export failed');
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `lunim_report_${new Date().toISOString().slice(0, 10)}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        toast.success('PDF report downloaded successfully');
+        return;
+      }
+
       const response = await fetch('/api/reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -122,6 +165,23 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ isDemoMode, ac
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
               />
             </div>
+          </div>
+
+          <div className="flex gap-2 mt-4">
+            <button
+              type="button"
+              onClick={() => handleQuickDate('ytd')}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-all"
+            >
+              Year-To-Date
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickDate('quarterly')}
+              className="px-3 py-1.5 text-xs font-bold rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-all"
+            >
+              Quarterly
+            </button>
           </div>
 
           <Button
@@ -300,14 +360,15 @@ export const ReportGenerator: React.FC<ReportGeneratorProps> = ({ isDemoMode, ac
             </h4>
             <div className="flex gap-4">
               <div className="flex-1">
-                <select
-                  value={exportFormat}
-                  onChange={(e) => setExportFormat(e.target.value as 'json' | 'csv')}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="csv">CSV (Excel/Spreadsheet)</option>
-                  <option value="json">JSON (Raw Data)</option>
-                </select>
+                  <select
+                    value={exportFormat}
+                    onChange={(e) => setExportFormat(e.target.value as 'json' | 'csv' | 'pdf')}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="pdf">PDF (Professional Report)</option>
+                    <option value="csv">CSV (Excel/Spreadsheet)</option>
+                    <option value="json">JSON (Raw Data)</option>
+                  </select>
               </div>
               <Button variant="primary" onClick={handleExportReport}>
                 📥 Download {exportFormat.toUpperCase()}

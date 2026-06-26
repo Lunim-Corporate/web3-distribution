@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { useAuth } from '@/lib/auth';
 import { useRevenueSplitter } from '@/lib/web3';
+import { ADMIN_LIVE_ADDRESS } from '@/lib/web3/config';
 import { DEMO_ACCOUNTS } from '@/app/components/Navbar';
 import { useWallets } from '@privy-io/react-auth';
 import { toast } from 'react-hot-toast';
@@ -30,9 +31,23 @@ export default function ProfilePage() {
   const [isClaiming, setIsClaiming] = useState(false);
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
 
+  // Live mode: use user's connected wallet (Privy embedded or linked external)
+  // Admin sees ADMIN_LIVE_ADDRESS, regular users see their own wallet
+  const getLiveWalletAddress = () => {
+    const externalWallet = wallets.find(w => w.walletClientType !== 'privy');
+    const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
+    const isAdmin = user?.role === 'admin';
+    
+    if (isAdmin && ADMIN_LIVE_ADDRESS) {
+      return ADMIN_LIVE_ADDRESS;
+    }
+    return externalWallet?.address || embeddedWallet?.address || wallets[0]?.address;
+  };
+  
+  const liveWalletAddress = getLiveWalletAddress();
   const activeWalletAddress = isDemoMode 
     ? (demoAccount || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266')
-    : (wallets.find((w) => w.walletClientType === 'privy') || wallets[0])?.address;
+    : liveWalletAddress;
 
   const fetchAccruedBalance = useCallback(async () => {
     if (!activeWalletAddress) return;

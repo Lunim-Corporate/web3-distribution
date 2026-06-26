@@ -1,10 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-// Card components unused in ChartsPanel
 import { Line, Doughnut } from 'react-chartjs-2';
 import { formatCurrency } from '@/lib/utils';
-// formatCurrencyFromCentsGB unused in ChartsPanel
 import { useEthPrice } from '@/app/lib/useEthPrice';
 import {
   Chart as ChartJS,
@@ -77,8 +75,6 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ projectId, isDemoMode }) => {
   // Build month buckets by year-month key
   const { labels, trendData, projectedData, projectSegments } = useMemo(() => {
     // Filter revenue by project if needed
-    // filteredRevenue unused — logic handled in loop below
-
     const monthly: Record<string, number> = {};
     const projectMap: Record<string, number> = {};
     const transactionsList: { label: string, value: number, id: string }[] = [];
@@ -265,7 +261,6 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ projectId, isDemoMode }) => {
                             : parsed && typeof parsed === 'object'
                               ? (parsed as { y?: number }).y ?? 0
                               : 0;
-                        // BUG FIX #4: Use USD formatting for consistency
                         return formatCurrency(Number(value) || 0, 'USD');
                       },
                     },

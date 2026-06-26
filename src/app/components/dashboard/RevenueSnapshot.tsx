@@ -192,21 +192,7 @@ export const RevenueSnapshot: React.FC<RevenueSnapshotProps> = ({ activeProjectI
           </h2>
           <p className="text-xs text-gray-500 mt-0.5 font-medium">Real-time payment tracking across all projects</p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => handleGenerateReport('ytd')}
-            className="px-3 py-1.5 text-[11px] font-bold rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-all"
-          >
-            📊 YTD Report
-          </button>
-          <button
-            onClick={() => handleGenerateReport('4months')}
-            className="px-3 py-1.5 text-[11px] font-bold rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-all"
-          >
-            📋 Quarterly
-          </button>
         </div>
-      </div>
 
       <div className="p-6 relative z-10 space-y-6">
         {/* Filters */}

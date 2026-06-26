@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useRevenueSplitter } from '@/lib/web3';
+import { ADMIN_LIVE_ADDRESS } from '@/lib/web3/config';
 import { truncateAddress } from '@/lib/utils';
 import { useWallets } from '@privy-io/react-auth';
 
@@ -89,22 +90,55 @@ export const Navbar: React.FC = () => {
       }
       return null;
     } else {
-      const liveWallet = wallets.find(w => w.walletClientType !== 'privy');
-      if (liveWallet) {
+      // LIVE MODE: Show user's actual connected wallet
+      // Admin sees ADMIN_LIVE_ADDRESS, regular users see their own wallet
+      const externalWallet = wallets.find(w => w.walletClientType !== 'privy');
+      const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
+      const isAdmin = user?.role === 'admin';
+      
+      if (isAdmin && ADMIN_LIVE_ADDRESS) {
         let iconType: 'metamask' | 'coinbase' | 'generic' = 'generic';
-        if (liveWallet.walletClientType?.toLowerCase().includes('metamask')) {
+        if (externalWallet?.walletClientType?.toLowerCase().includes('metamask')) {
           iconType = 'metamask';
-        } else if (liveWallet.walletClientType?.toLowerCase().includes('coinbase')) {
+        } else if (externalWallet?.walletClientType?.toLowerCase().includes('coinbase')) {
           iconType = 'coinbase';
         }
         return {
-          address: liveWallet.address,
-          name: liveWallet.walletClientType ? (liveWallet.walletClientType.charAt(0).toUpperCase() + liveWallet.walletClientType.slice(1)) : 'Live Wallet',
-          role: 'External',
+          address: ADMIN_LIVE_ADDRESS,
+          name: 'Live Admin',
+          role: 'Admin',
           iconType,
-          walletObj: liveWallet
+          walletObj: externalWallet || null
         };
       }
+      
+      // Regular user: show their connected wallet
+      if (externalWallet) {
+        let iconType: 'metamask' | 'coinbase' | 'generic' = 'generic';
+        if (externalWallet.walletClientType?.toLowerCase().includes('metamask')) {
+          iconType = 'metamask';
+        } else if (externalWallet.walletClientType?.toLowerCase().includes('coinbase')) {
+          iconType = 'coinbase';
+        }
+        return {
+          address: externalWallet.address,
+          name: externalWallet.walletClientType ? (externalWallet.walletClientType.charAt(0).toUpperCase() + externalWallet.walletClientType.slice(1)) : 'Live Wallet',
+          role: user?.role || 'Creator',
+          iconType,
+          walletObj: externalWallet
+        };
+      }
+      
+      if (embeddedWallet) {
+        return {
+          address: embeddedWallet.address,
+          name: 'Privy Wallet',
+          role: user?.role || 'Creator',
+          iconType: 'generic' as const,
+          walletObj: embeddedWallet
+        };
+      }
+      
       return null;
     }
   };

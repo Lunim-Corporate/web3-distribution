@@ -11,6 +11,7 @@ import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { ReportGenerator } from '@/components/dashboard/ReportGenerator';
 import { DistributePanel } from '@/components/dashboard/DistributePanel';
 import { AddRightsHolderModal } from '@/components/dashboard/AddRightsHolderModal';
+import { MyEarnings } from '@/components/dashboard/MyEarnings';
 
 import { useEthPrice } from '@/app/lib/useEthPrice';
 import { formatUSD as fmtUSD, formatETH as fmtETH } from '@/app/lib/constants';
@@ -53,6 +54,7 @@ const ErrorView = ({ msg, onRetry }: { msg: string; onRetry: () => void }) => (
 const TABS_BASE = [
   { id: 'overview',  label: 'Overview',       icon: '📊' },
   { id: 'revenue',   label: 'Revenue',         icon: '💰' },
+  { id: 'earnings',  label: 'My Earnings',     icon: '💸' },
   { id: 'holders',   label: 'Rights Holders',  icon: '👥' },
   { id: 'reports',   label: 'Reports',          icon: '📄' },
 ] as const;
@@ -372,6 +374,18 @@ function DashboardContent() {
             {activeTab === 'revenue' && (
               <div className="space-y-8">
                 <RevenueSnapshot activeProjectId={projectId} projectsList={projectsList.map(p => ({ id: p.id, name: p.name }))} transactions={transactions} isDemoMode={isDemoMode} />
+              </div>
+            )}
+
+            {/* ── MY EARNINGS ───────────────────────────────────── */}
+            {activeTab === 'earnings' && (
+              <div className="space-y-8">
+                <MyEarnings 
+                  user={user}
+                  projectId={projectId}
+                  holders={holders}
+                  isDemoMode={isDemoMode}
+                />
               </div>
             )}
 

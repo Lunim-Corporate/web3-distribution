@@ -2,17 +2,12 @@
 
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-// Badge available from '@/components/ui/Badge' if needed
 import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/lib/auth';
 import { useRevenueSplitter } from '@/lib/web3';
 import { truncateAddress } from '@/lib/utils';
 import { toast } from 'react-hot-toast';
 
-// requiredChainIdDec unused in SmartContractPanel
-
-// requiredChainIdHex available for wallet network switching:
-// const requiredChainIdHex = requiredChainIdDec != null ? `0x${requiredChainIdDec.toString(16)}` : null;
 
 export const SmartContractPanel: React.FC = () => {
   const { user, logout } = useAuth();
@@ -44,7 +39,6 @@ export const SmartContractPanel: React.FC = () => {
     }
   };
 
-  // BUG FIX #5: Fetch projects for transaction linking
   useEffect(() => {
     const fetchProjects = async () => {
       try {
@@ -87,7 +81,6 @@ export const SmartContractPanel: React.FC = () => {
       toast.dismiss();
       setTxHash(hash);
       
-      // BUG FIX #5: Record transaction to database if project is selected
       if (selectedProjectForTx) {
         try {
           const amountWei = parseFloat(sendAmountEth) * 100; // For USD cents equivalence

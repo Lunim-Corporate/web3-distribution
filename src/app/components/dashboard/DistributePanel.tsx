@@ -59,9 +59,8 @@ export function DistributePanel({ project, holders }: { project: Project | null;
   const handleDistribute = async () => {
     if (!project || holders.length === 0) return toast.error('No project or holders found');
     
-    // In Live Mode, require user and smart account address to be initialized.
-    if (!isDemoMode && (!user || !smartAccountAddress)) {
-      return toast.error('Please login and wait for smart account initialization');
+    if (!isDemoMode && !user) {
+      return toast.error('Please login to distribute revenue');
     }
 
     const ethAmount = parseFloat(amount);
