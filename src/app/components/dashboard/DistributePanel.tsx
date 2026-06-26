@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import { useEthPrice } from '@/app/lib/useEthPrice';
 import { useAuth } from '@/app/lib/auth';
 import { useRevenueSplitter } from '@/lib/web3';
+import { isDemoAccessEnabled, readDemoMode } from '@/app/lib/demoAccess';
 import { TxModal, TxStep } from '../ui/TxModal';
 
 interface Project { id: string; name: string; total_distributed: number; }
@@ -20,8 +21,8 @@ export function DistributePanel({ project, holders }: { project: Project | null;
   const { formatEthAsUsd } = useEthPrice();
   
   useEffect(() => {
-    setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
-    const onDemoChanged = (e: any) => setIsDemoMode(e.detail);
+    setIsDemoMode(readDemoMode());
+    const onDemoChanged = (e: any) => setIsDemoMode(isDemoAccessEnabled && e.detail);
     window.addEventListener('demo-mode-changed', onDemoChanged);
     return () => window.removeEventListener('demo-mode-changed', onDemoChanged);
   }, []);

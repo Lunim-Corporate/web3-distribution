@@ -7,6 +7,7 @@ import { createWalletClient, http, parseEther, publicActions, createPublicClient
 import { privateKeyToAccount } from 'viem/accounts';
 import { hardhat, baseSepolia } from 'viem/chains';
 import { getEthPriceUSD } from '@/app/lib/ethPrice';
+import { isDemoAccessEnabled } from '@/app/lib/demoAccess';
 
 const LOCAL_RPC = 'http://127.0.0.1:8545';
 const ALCHEMY_RPC = process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC || 'https://sepolia.base.org';
@@ -66,6 +67,10 @@ export async function POST(req: Request) {
     if (result.error) return result.response;
 
     const { project_id, amount_eth, holders, manual_tx_hash, is_demo, sender_address } = result.data;
+
+    if (is_demo && !isDemoAccessEnabled) {
+      return NextResponse.json({ error: 'Demo mode is disabled on this deployment' }, { status: 403 });
+    }
 
     // Auth: admin required for live, auth required for demo
     let user;

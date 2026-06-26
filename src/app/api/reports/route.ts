@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { getEthPriceUSD } from '@/app/lib/ethPrice';
 import { requireAuth } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
+import { isDemoAccessEnabled } from '@/app/lib/demoAccess';
 import type { RevenueReport, RevenueBySource, RevenueByProject } from '@/lib/types';
 
 export async function GET(request: Request) {
@@ -16,7 +17,7 @@ export async function GET(request: Request) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
     const projectId = searchParams.get('projectId');
-    const isDemo = searchParams.get('demo') === 'true';
+    const isDemo = isDemoAccessEnabled && searchParams.get('demo') === 'true';
 
     if (!startDate || !endDate) {
       return NextResponse.json(
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const { startDate, endDate, projectId, format, demo } = body;
-    const isDemo = demo === true;
+    const isDemo = isDemoAccessEnabled && demo === true;
 
     if (!startDate || !endDate) {
       return NextResponse.json(

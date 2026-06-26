@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { requireAuth } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { getEthPriceUSD } from '@/app/lib/ethPrice';
+import { isDemoAccessEnabled } from '@/app/lib/demoAccess';
 
 /**
  * GET /api/etl/aggregate — Pre-computed financial aggregations.
@@ -26,7 +27,7 @@ export async function GET(req: Request) {
     const periodType = searchParams.get('period') || 'monthly';
     const projectId = searchParams.get('project_id');
     const refresh = searchParams.get('refresh') === 'true';
-    const isDemoMode = searchParams.get('demo') === 'true';
+    const isDemoMode = isDemoAccessEnabled && searchParams.get('demo') === 'true';
 
     // If refresh requested or no cached data, compute from transactions
     if (refresh) {

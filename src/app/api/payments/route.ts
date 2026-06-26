@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { requireAdmin, requireAuth, auditLog } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { getEthPriceUSD } from '@/app/lib/ethPrice';
+import { isDemoAccessEnabled } from '@/app/lib/demoAccess';
 
 /**
  * POST /api/payments — Record a payment and distribute to rights holders.
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
       sender_address: body.sender_address || '0x0000000000000000000000000000000000000000',
       total_amount_eth: amountEth,
       method: body.source || 'manual',
-      is_demo: body.is_demo || false,
+      is_demo: isDemoAccessEnabled && (body.is_demo || false),
       status: 'confirmed',
       eth_price_at_tx: ethPrice,
     };
@@ -158,7 +159,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const projectId = searchParams.get('project_id');
-    const isDemoMode = searchParams.get('demo') === 'true';
+    const isDemoMode = isDemoAccessEnabled && searchParams.get('demo') === 'true';
 
     let query = supabaseAdmin
       .from('transactions')

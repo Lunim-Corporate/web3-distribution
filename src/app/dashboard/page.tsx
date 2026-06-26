@@ -12,6 +12,7 @@ import { ReportGenerator } from '@/components/dashboard/ReportGenerator';
 import { DistributePanel } from '@/components/dashboard/DistributePanel';
 import { AddRightsHolderModal } from '@/components/dashboard/AddRightsHolderModal';
 import { MyEarnings } from '@/components/dashboard/MyEarnings';
+import { isDemoAccessEnabled, readDemoMode } from '@/app/lib/demoAccess';
 
 import { useEthPrice } from '@/app/lib/useEthPrice';
 import { formatUSD as fmtUSD, formatETH as fmtETH } from '@/app/lib/constants';
@@ -116,10 +117,11 @@ function DashboardContent() {
   }, [searchParams, projectsList]);
 
   useEffect(() => {
-    setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
+    setIsDemoMode(readDemoMode());
     const onDemoChanged = (e: any) => {
-      setIsDemoMode(e.detail);
-      if (!e.detail && activeTab === 'distribute') {
+      const enabled = isDemoAccessEnabled && e.detail;
+      setIsDemoMode(enabled);
+      if (!enabled && activeTab === 'distribute') {
         setActiveTab('overview');
       }
     };
@@ -136,7 +138,7 @@ function DashboardContent() {
     const load = async () => {
       setStage('Loading projects…');
       try {
-        const demoParam = localStorage.getItem('demo_mode') === 'true';
+        const demoParam = readDemoMode();
         const res = await fetch(`/api/dashboard?pid=all&demo=${demoParam}`, { cache: 'no-store' });
         if (!res.ok) throw new Error('Failed to load');
         const data = await res.json();

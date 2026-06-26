@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { requireAuth } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
+import { isDemoAccessEnabled } from '@/app/lib/demoAccess';
 
 export async function GET(req: Request) {
   try {
@@ -13,7 +14,7 @@ export async function GET(req: Request) {
     await requireAuth();
 
     const { searchParams } = new URL(req.url);
-    const isDemoMode = searchParams.get('demo') === 'true';
+    const isDemoMode = isDemoAccessEnabled && searchParams.get('demo') === 'true';
 
     let query = supabaseAdmin
       .from('transactions')

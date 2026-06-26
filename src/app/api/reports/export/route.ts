@@ -5,6 +5,7 @@ import { generateRevenueReport } from '@/app/lib/database';
 import { requireAuth } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { getEthPriceUSD } from '@/app/lib/ethPrice';
+import { isDemoAccessEnabled } from '@/app/lib/demoAccess';
 
 export async function GET(request: Request) {
   try {
@@ -37,7 +38,7 @@ export async function GET(request: Request) {
     }
     
     // FETCH DATA ON SERVER
-    const isDemo = searchParams.get('demo') === 'true';
+    const isDemo = isDemoAccessEnabled && searchParams.get('demo') === 'true';
     const report = await generateRevenueReport(startDate, endDate, searchParams.get('projectId') || undefined, undefined, undefined, isDemo);
     const ethPrice = await getEthPriceUSD();
     
@@ -278,4 +279,3 @@ export async function GET(request: Request) {
 }
 
 export const dynamic = 'force-dynamic';
-

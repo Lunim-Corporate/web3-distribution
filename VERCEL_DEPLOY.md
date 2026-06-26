@@ -49,7 +49,7 @@ Go to **Settings → Environment Variables** and add:
 | Variable | Value | Scope |
 |----------|-------|-------|
 | `NEXT_PUBLIC_PRIVY_APP_ID` | `cmp217w43000p0cie4kvln0y3` | Production |
-| `NEXT_PUBLIC_PRIVY_APP_SECRET` | *(from .env.local)* | Production |
+| `PRIVY_APP_SECRET` | *(from .env.local)* | Production |
 | `NEXT_PUBLIC_ALCHEMY_API_KEY` | *(from .env.local)* | Production |
 | `NEXT_PUBLIC_ALCHEMY_POLICY_ID` | *(from .env.local)* | Production |
 | `NEXT_PUBLIC_SUPABASE_URL` | *(from .env.local)* | Production |
@@ -63,6 +63,8 @@ Go to **Settings → Environment Variables** and add:
 | `STRIPE_PUBLISHABLE_KEY` | *(from .env.local)* | Production |
 | `STRIPE_WEBHOOK_SECRET` | *(from .env.local)* | Production |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | *(from .env.local)* | Production |
+
+Do **not** set `NEXT_PUBLIC_ENABLE_DEMO_ACCESS` in Production unless you intentionally want to publish the local sandbox/demo bypass.
 
 > Copy values from your local `.env.local` file.
 

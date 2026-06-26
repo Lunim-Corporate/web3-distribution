@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
+import { isDemoAccessEnabled, setDemoMode } from '@/lib/demoAccess';
 import { motion } from 'framer-motion';
 
 export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login' | 'signup' }) {
@@ -14,9 +15,8 @@ export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const searchParams = new URLSearchParams(window.location.search);
-      const isDev = process.env.NODE_ENV === 'development';
       const hasSandboxParam = searchParams.get('sandbox') === 'true' || searchParams.get('demo') === 'true';
-      setShowSandbox(isDev || hasSandboxParam);
+      setShowSandbox(isDemoAccessEnabled && (process.env.NODE_ENV === 'development' || hasSandboxParam));
     }
   }, []);
 
@@ -40,6 +40,10 @@ export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login
   };
 
   const handleDemo = () => {
+    if (!isDemoAccessEnabled) {
+      setError('Sandbox access is disabled on this deployment.');
+      return;
+    }
     const demoUser = {
       id: 'demo-admin-id',
       email: 'demo@lunim.io',
@@ -48,7 +52,7 @@ export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login
       role: 'admin',
       isDemo: true,
     };
-    localStorage.setItem('demo_mode', 'true');
+    setDemoMode(true);
     document.cookie = `crt_user=${encodeURIComponent(JSON.stringify(demoUser))}; path=/; SameSite=Lax; max-age=86400`;
     window.location.href = '/dashboard';
   };

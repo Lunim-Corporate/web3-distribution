@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { useRevenueSplitter } from '@/lib/web3';
+import { isDemoAccessEnabled, readDemoMode, setDemoMode } from '@/lib/demoAccess';
 import { ADMIN_LIVE_ADDRESS } from '@/lib/web3/config';
 import { truncateAddress } from '@/lib/utils';
 import { useWallets } from '@privy-io/react-auth';
@@ -266,10 +267,11 @@ export const Navbar: React.FC = () => {
   }, [isDemoMode, connectUserWallet, disconnectUserWallet]);
 
   useEffect(() => {
-    setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
+    setIsDemoMode(readDemoMode());
     const onDemoChanged = (e: any) => {
-      setIsDemoMode(e.detail);
-      if (!e.detail) {
+      const enabled = isDemoAccessEnabled && e.detail;
+      setIsDemoMode(enabled);
+      if (!enabled) {
         setDemoAccount(null);
       }
     };
@@ -279,9 +281,9 @@ export const Navbar: React.FC = () => {
 
   const toggleDemoMode = (e: React.MouseEvent) => {
     e.preventDefault();
+    if (!isDemoAccessEnabled) return;
     const nextState = !isDemoMode;
-    localStorage.setItem('demo_mode', String(nextState));
-    window.dispatchEvent(new CustomEvent('demo-mode-changed', { detail: nextState }));
+    setDemoMode(nextState);
   };
 
 
@@ -310,7 +312,7 @@ export const Navbar: React.FC = () => {
   const fetchNotifications = React.useCallback(async () => {
     if (!user) return;
     try {
-      const isDemoModeStr = localStorage.getItem('demo_mode') === 'true';
+      const isDemoModeStr = readDemoMode();
       const res = await fetch(`/api/revenue?demo=${isDemoModeStr}&ts=${Date.now()}`);
       let data = [];
       if (res.ok) {
@@ -423,6 +425,7 @@ export const Navbar: React.FC = () => {
               {user ? (
                 <>
                   {/* Live / Demo Toggle */}
+                  {isDemoAccessEnabled && (
                   <div className="flex items-center gap-2 px-1.5 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                     <button
                       onClick={!isDemoMode ? undefined : toggleDemoMode}
@@ -445,6 +448,7 @@ export const Navbar: React.FC = () => {
                       Demo
                     </button>
                   </div>
+                  )}
 
 
                   {/* Quick action */}

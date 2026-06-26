@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { requireAuth } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
+import { isDemoAccessEnabled } from '@/app/lib/demoAccess';
 
 export async function GET(req: Request) {
   try {
@@ -11,7 +12,7 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const pid = searchParams.get('pid');
-    const isDemoMode = searchParams.get('demo') === 'true';
+    const isDemoMode = isDemoAccessEnabled && searchParams.get('demo') === 'true';
 
     // 1. Get user session to know who is requesting
     const user = await requireAuth();
