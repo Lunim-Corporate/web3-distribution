@@ -69,9 +69,8 @@ const seedData = async () => {
         { full_name: "Marcus Delgado", role: "Lead Actor", percentage: 20 },
         { full_name: "Priya Nair", role: "Producer", percentage: 15 },
         { full_name: "Theo Harrington", role: "Music Composer", percentage: 15 },
-        { full_name: "Simone Okafor", role: "Screenplay Writer", percentage: 10 },
+        { full_name: "Simone Okafor", role: "Screenplay Writer", percentage: 15 },
         { full_name: "Pete (Admin)", role: "Administrator", percentage: 5 },
-        { full_name: "Jeevesh (Admin)", role: "Administrator", percentage: 5 },
         { full_name: "freewhynane62 (Admin)", role: "Administrator", percentage: 5 },
         { full_name: "jeevesh039 (Admin)", role: "Administrator", percentage: 5 },
       ]

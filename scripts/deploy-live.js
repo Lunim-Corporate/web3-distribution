@@ -11,15 +11,14 @@ async function main() {
   const adminLiveAddress = process.env.ADMIN_LIVE_ADDRESS || signers[9].address;
 
   const wallets = [
+    signers[0].address,
     signers[1].address,
     signers[2].address,
     signers[3].address,
     signers[4].address,
     signers[5].address,
-    signers[0].address,
     signers[6].address,
     signers[7].address,
-    signers[8].address,
   ];
   const names = [
     "Aria Voss",
@@ -27,7 +26,6 @@ async function main() {
     "Priya Nair",
     "Theo Harrington",
     "Simone Okafor",
-    "Jeevesh (Admin)",
     "Pete (Admin)",
     "freewhynane62 (Admin)",
     "jeevesh039 (Admin)",
@@ -41,9 +39,8 @@ async function main() {
     "Administrator",
     "Administrator",
     "Administrator",
-    "Administrator",
   ];
-  const basisPoints = [2000, 1800, 1400, 1400, 1400, 500, 500, 500, 500];
+  const basisPoints = [2500, 2000, 1500, 1500, 1500, 500, 500, 500];
 
   console.log("\n--- Deploying LIVE RevenueRights ---");
   console.log("Network:", hre.network.name);
