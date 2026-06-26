@@ -17,22 +17,30 @@ interface RightsHolder {
   total_received: number;
 }
 
+interface TransactionSplit {
+  id: string;
+  rights_holder_id: string;
+  full_name: string;
+  role: string;
+  percentage: number;
+  amount_eth: number;
+  wallet_address: string;
+}
+
 interface Transaction {
   id: string;
-  tx_hash: string;
-  total_amount_eth: number;
+  tx_hash?: string;
+  txHash?: string;
+  total_amount_eth?: number;
+  amount?: number;
   status: string;
-  created_at: string;
+  created_at?: string;
+  date?: string;
   project_id?: string;
-  transaction_splits?: Array<{
-    id: string;
-    rights_holder_id: string;
-    full_name: string;
-    role: string;
-    percentage: number;
-    amount_eth: number;
-    wallet_address: string;
-  }>;
+  projectId?: string;
+  projectName?: string;
+  transaction_splits?: TransactionSplit[];
+  splits?: TransactionSplit[];
 }
 
 interface MyEarningsProps {
@@ -45,6 +53,12 @@ interface MyEarningsProps {
 const formatUSD = (amount: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 
+const getSplits = (tx: Transaction) => tx.transaction_splits || tx.splits || [];
+
+const getTransactionDate = (tx: Transaction) => tx.created_at || tx.date || new Date().toISOString();
+
+const demoClaimStorageKey = (wallet: string) => `demo_claimed_earnings:${wallet.toLowerCase()}`;
+
 export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projectId, holders, isDemoMode }) => {
   const { wallets } = useWallets();
   const { getAccruedBalanceEth, claimRevenue } = useRevenueSplitter();
@@ -56,6 +70,7 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
   const [isClaiming, setIsClaiming] = useState(false);
   const [copied, setCopied] = useState(false);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [claimedDemoTotal, setClaimedDemoTotal] = useState(0);
 
   const determineWallet = useCallback(() => {
     if (isDemoMode) {
@@ -82,8 +97,20 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
     };
   }, [determineWallet]);
 
+  useEffect(() => {
+    if (!isDemoMode || !activeWallet) {
+      setClaimedDemoTotal(0);
+      return;
+    }
+
+    const rawClaimed = localStorage.getItem(demoClaimStorageKey(activeWallet));
+    setClaimedDemoTotal(Number(rawClaimed || 0));
+  }, [activeWallet, isDemoMode]);
+
   const fetchClaimableBalance = useCallback(async () => {
     if (!activeWallet) return;
+    if (isDemoMode) return;
+
     setIsLoadingBalance(true);
     try {
       const bal = await getAccruedBalanceEth(activeWallet);
@@ -93,7 +120,7 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
     } finally {
       setIsLoadingBalance(false);
     }
-  }, [activeWallet, getAccruedBalanceEth]);
+  }, [activeWallet, getAccruedBalanceEth, isDemoMode]);
 
   useEffect(() => {
     fetchClaimableBalance();
@@ -131,18 +158,25 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
   // Find all splits matching this wallet
   const myTxs = transactions
     .filter(tx =>
-      tx.transaction_splits?.some(
+      getSplits(tx).some(
         s => s.wallet_address.toLowerCase() === activeWallet?.toLowerCase()
       )
     )
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    .sort((a, b) => new Date(getTransactionDate(b)).getTime() - new Date(getTransactionDate(a)).getTime());
 
   const totalDistributedEth = myTxs.reduce((acc, tx) => {
-    const split = tx.transaction_splits?.find(
+    const split = getSplits(tx).find(
       s => s.wallet_address.toLowerCase() === activeWallet?.toLowerCase()
     );
     return acc + (split?.amount_eth || 0);
   }, 0);
+
+  const demoClaimableEth = Math.max(totalDistributedEth - claimedDemoTotal, 0);
+
+  useEffect(() => {
+    if (!isDemoMode) return;
+    setClaimableBalance(demoClaimableEth.toFixed(8));
+  }, [demoClaimableEth, isDemoMode]);
 
   const handleClaim = async () => {
     if (parseFloat(claimableBalance) <= 0) {
@@ -151,7 +185,13 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
     setIsClaiming(true);
     const tid = toast.loading('Claiming your earnings...');
     try {
-      await claimRevenue();
+      if (isDemoMode && activeWallet) {
+        await claimRevenue();
+        localStorage.setItem(demoClaimStorageKey(activeWallet), totalDistributedEth.toFixed(8));
+        setClaimedDemoTotal(totalDistributedEth);
+      } else {
+        await claimRevenue();
+      }
       toast.success('Claimed successfully!', { id: tid });
       fetchClaimableBalance();
     } catch (e: any) {
@@ -349,10 +389,11 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
             </div>
             <AnimatePresence>
               {myTxs.map((tx, idx) => {
-                const split = tx.transaction_splits?.find(
+                const split = getSplits(tx).find(
                   s => s.wallet_address.toLowerCase() === activeWallet?.toLowerCase()
                 );
                 if (!split) return null;
+                const txDate = getTransactionDate(tx);
                 return (
                   <motion.div
                     key={tx.id}
@@ -363,10 +404,10 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
                   >
                     <div className="col-span-3">
                       <p className="text-xs text-gray-300 font-medium">
-                        {new Date(tx.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        {new Date(txDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </p>
                       <p className="text-[10px] text-gray-600">
-                        {new Date(tx.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(txDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
                     <div className="col-span-3">
