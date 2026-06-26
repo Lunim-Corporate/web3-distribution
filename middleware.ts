@@ -67,5 +67,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/admin/:path*', '/web3-demo/:path*'],
+  matcher: ['/dashboard/:path*', '/admin/:path*', '/web3-demo', '/web3-demo/:path*'],
 };
