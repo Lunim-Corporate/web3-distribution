@@ -16,102 +16,121 @@ const DEMO_WALLETS = [
   '0xa0Ee7A142d267C1f36714E4a8F75612F20a79720',
 ];
 
-async function seedDemoDataForAdmin(adminUserId: string) {
-  const { count, error: countError } = await supabaseAdmin
+const ADMIN_PROJECT_TEMPLATES: Record<string, {
+  name: string;
+  genre: string;
+  description: string;
+  adminLabel: string;
+  activities: string[];
+}> = {
+  'pete@tabb.cc': {
+    name: 'Neon Requiem',
+    genre: 'Sci-Fi Thriller',
+    description: 'A rogue AI infiltrates a megacity\'s neural grid, forcing a burned intelligence officer to confront her own manufactured memories.',
+    adminLabel: 'Pete (Admin)',
+    activities: [
+      'Neon Requiem project created and rights holders assigned.',
+      'Aria Voss assigned as Director (25%)',
+      'Marcus Delgado assigned as Lead Actor (20%)',
+      'Priya Nair assigned as Producer (15%)',
+      'Demo distribution of 2.50 ETH ($8,000.00) for Neon Requiem',
+      'Milestone: Principal Photography — Q3 2025',
+    ],
+  },
+  'freewhynane62@gmail.com': {
+    name: 'Aether Drift',
+    genre: 'Cyberpunk Noir',
+    description: 'In a neon-drenched megacity, a disgraced hacker uncovers a corporate conspiracy that blurs the line between reality and simulation.',
+    adminLabel: 'freewhynane62 (Admin)',
+    activities: [
+      'Aether Drift project created and rights holders assigned.',
+      'Kai Nakamura assigned as Director (25%)',
+      'Lena Oshiro assigned as Lead Actress (20%)',
+      'Rico Martinez assigned as Producer (15%)',
+      'Demo distribution of 1.75 ETH ($5,600.00) for Aether Drift',
+      'Milestone: Final Cut — Q1 2026',
+    ],
+  },
+  'jeevesh039@gmail.com': {
+    name: 'LUNIM Genesis',
+    genre: 'Experimental',
+    description: 'A pioneering Web3-native creative project exploring decentralized revenue distribution and smart contract rights management.',
+    adminLabel: 'jeevesh039 (Admin)',
+    activities: [
+      'LUNIM Genesis project created and rights holders assigned.',
+      'Alex Chen assigned as Director (25%)',
+      'Maya Rivera assigned as Lead Producer (20%)',
+      'Demo distribution of 2.00 ETH ($6,400.00) for LUNIM Genesis',
+      'Milestone: Platform Launch — Q2 2026',
+    ],
+  },
+};
+
+const HOLDER_TEMPLATES = [
+  { full_name: 'Aria Voss', role: 'Director', percentage: 25, wallet_address: DEMO_WALLETS[0] },
+  { full_name: 'Marcus Delgado', role: 'Lead Actor', percentage: 20, wallet_address: DEMO_WALLETS[1] },
+  { full_name: 'Priya Nair', role: 'Producer', percentage: 15, wallet_address: DEMO_WALLETS[2] },
+  { full_name: 'Theo Harrington', role: 'Music Composer', percentage: 15, wallet_address: DEMO_WALLETS[3] },
+  { full_name: 'Simone Okafor', role: 'Screenplay Writer', percentage: 15, wallet_address: DEMO_WALLETS[4] },
+  { full_name: '__ADMIN_LABEL__', role: 'Administrator', percentage: 5, wallet_address: null },
+  { full_name: 'Zara Vance', role: 'Marketing', percentage: 5, wallet_address: DEMO_WALLETS[5] },
+  { full_name: 'Omar Hassan', role: 'Legal', percentage: 5, wallet_address: DEMO_WALLETS[6] },
+];
+
+async function seedDemoDataForAdmin(adminEmail: string) {
+  const adminKey = adminEmail.toLowerCase();
+
+  // Check if this admin already has a project (by email match in rights_holders)
+  const { data: existing } = await supabaseAdmin
+    .from('rights_holders')
+    .select('project_id')
+    .eq('email', adminKey)
+    .limit(1);
+
+  if (existing && existing.length > 0) return;
+
+  const template = ADMIN_PROJECT_TEMPLATES[adminKey];
+  if (!template) return;
+
+  const { data: project, error: projectErr } = await supabaseAdmin
     .from('projects')
-    .select('*', { count: 'exact', head: true });
-
-  if (countError || (count ?? 0) > 0) return;
-
-  const projects = [
-    {
-      name: 'Neon Requiem',
-      genre: 'Sci-Fi Thriller',
-      description: 'A rogue AI infiltrates a megacity\'s neural grid, forcing a burned intelligence officer to confront her own manufactured memories.',
+    .insert({
+      name: template.name,
+      genre: template.genre,
+      description: template.description,
       status: 'active',
-      holders: [
-        { full_name: 'Aria Voss', role: 'Director', percentage: 25, wallet_address: DEMO_WALLETS[0] },
-        { full_name: 'Marcus Delgado', role: 'Lead Actor', percentage: 20, wallet_address: DEMO_WALLETS[1] },
-        { full_name: 'Priya Nair', role: 'Producer', percentage: 15, wallet_address: DEMO_WALLETS[2] },
-        { full_name: 'Theo Harrington', role: 'Music Composer', percentage: 15, wallet_address: DEMO_WALLETS[3] },
-        { full_name: 'Simone Okafor', role: 'Screenplay Writer', percentage: 15, wallet_address: DEMO_WALLETS[4] },
-        { full_name: 'Pete (Admin)', role: 'Administrator', percentage: 5, wallet_address: null },
-        { full_name: 'freewhynane62 (Admin)', role: 'Administrator', percentage: 5, wallet_address: null },
-        { full_name: 'jeevesh039 (Admin)', role: 'Administrator', percentage: 5, wallet_address: null },
-      ],
-      activities: [
-        'Neon Requiem project created and rights holders assigned.',
-        'Aria Voss assigned as Director (25%)',
-        'Marcus Delgado assigned as Lead Actor (20%)',
-        'Priya Nair assigned as Producer (15%)',
-        'Demo distribution of 2.50 ETH ($8,000.00) for Neon Requiem',
-        'Milestone: Principal Photography — Q3 2025',
-      ],
-    },
-    {
-      name: 'Aether Drift',
-      genre: 'Cyberpunk Noir',
-      description: 'In a neon-drenched megacity, a disgraced hacker uncovers a corporate conspiracy that blurs the line between reality and simulation.',
-      status: 'active',
-      holders: [
-        { full_name: 'Kai Nakamura', role: 'Director', percentage: 25, wallet_address: DEMO_WALLETS[5] },
-        { full_name: 'Lena Oshiro', role: 'Lead Actress', percentage: 20, wallet_address: DEMO_WALLETS[6] },
-        { full_name: 'Rico Martinez', role: 'Producer', percentage: 15, wallet_address: DEMO_WALLETS[7] },
-        { full_name: 'Zara Khan', role: 'Music Composer', percentage: 15, wallet_address: DEMO_WALLETS[8] },
-        { full_name: 'Dmitri Volkov', role: 'Screenplay Writer', percentage: 15, wallet_address: DEMO_WALLETS[9] },
-        { full_name: 'freewhynane62 (Admin)', role: 'Administrator', percentage: 5, wallet_address: null },
-        { full_name: 'jeevesh039 (Admin)', role: 'Administrator', percentage: 5, wallet_address: null },
-      ],
-      activities: [
-        'Aether Drift project created and rights holders assigned.',
-        'Kai Nakamura assigned as Director (25%)',
-        'Lena Oshiro assigned as Lead Actress (20%)',
-        'Rico Martinez assigned as Producer (15%)',
-        'Demo distribution of 1.75 ETH ($5,600.00) for Aether Drift',
-        'Milestone: Final Cut — Q1 2026',
-      ],
-    },
-  ];
+      total_distributed: 0,
+    })
+    .select('id')
+    .single();
 
-  for (const p of projects) {
-    const { data: project, error: projectErr } = await supabaseAdmin
-      .from('projects')
-      .insert({
-        name: p.name,
-        genre: p.genre,
-        description: p.description,
-        status: p.status,
-        total_distributed: 0,
-      })
-      .select('id')
-      .single();
-
-    if (projectErr || !project) {
-      console.warn(`[SEED] Failed to create project ${p.name}:`, projectErr?.message);
-      continue;
-    }
-
-    for (const h of p.holders) {
-      await supabaseAdmin.from('rights_holders').insert({
-        project_id: project.id,
-        full_name: h.full_name,
-        role: h.role,
-        percentage: h.percentage,
-        wallet_address: h.wallet_address,
-      });
-    }
-
-    for (const desc of p.activities) {
-      await supabaseAdmin.from('activities').insert({
-        project_id: project.id,
-        action: 'auto_seeded',
-        description: desc,
-        timestamp: new Date().toISOString(),
-      });
-    }
+  if (projectErr || !project) {
+    console.warn(`[SEED] Failed to create project ${template.name}:`, projectErr?.message);
+    return;
   }
 
-  console.log(`[SEED] Demo data seeded for admin user ${adminUserId}`);
+  for (const h of HOLDER_TEMPLATES) {
+    const isAdminSlot = h.full_name === '__ADMIN_LABEL__';
+    await supabaseAdmin.from('rights_holders').insert({
+      project_id: project.id,
+      full_name: isAdminSlot ? template.adminLabel : h.full_name,
+      role: h.role,
+      percentage: h.percentage,
+      wallet_address: h.wallet_address,
+      email: isAdminSlot ? adminKey : null,
+    });
+  }
+
+  for (const desc of template.activities) {
+    await supabaseAdmin.from('activities').insert({
+      project_id: project.id,
+      action: 'auto_seeded',
+      description: desc,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  console.log(`[SEED] Demo project "${template.name}" seeded for admin ${adminEmail}`);
 }
 
 const privy = new PrivyClient(
@@ -133,11 +152,21 @@ export async function POST(req: Request) {
     const token = authHeader.split(' ')[1];
     const { privyUser } = await req.json();
 
-    if (!privyUser || !privyUser.email || !privyUser.email.address) {
+    if (!privyUser) {
       return NextResponse.json({ error: 'Invalid privyUser payload' }, { status: 400 });
     }
 
-    const email = privyUser.email.address;
+    let email: string;
+    let isWalletOnly = false;
+
+    if (privyUser.email?.address) {
+      email = privyUser.email.address;
+    } else if (privyUser.wallet?.address) {
+      email = `wallet_${privyUser.wallet.address.toLowerCase()}@lunim.internal`;
+      isWalletOnly = true;
+    } else {
+      return NextResponse.json({ error: 'Email or wallet address required' }, { status: 400 });
+    }
 
     // Verify Privy Access Token
     try {
@@ -209,12 +238,14 @@ export async function POST(req: Request) {
       throw profileError;
     }
 
+    const originalEmail = privyUser.email?.address?.toLowerCase() || null;
+
     const adminEmails = (process.env.ADMIN_EMAILS || '')
       .split(',')
       .map(e => e.trim().toLowerCase())
       .filter(Boolean);
 
-    const isDesignatedAdmin = adminEmails.includes(email.toLowerCase());
+    const isDesignatedAdmin = !isWalletOnly && originalEmail !== null && adminEmails.includes(originalEmail);
 
     if (profile) {
       const updates: Record<string, any> = {};
@@ -256,8 +287,8 @@ export async function POST(req: Request) {
 
       if (!insertError && newProfile) {
         profile = newProfile;
-        if (isDesignatedAdmin) {
-          seedDemoDataForAdmin(supabaseUser.id).catch(err =>
+        if (isDesignatedAdmin && originalEmail) {
+          seedDemoDataForAdmin(originalEmail).catch(err =>
             console.warn('[SEED] Auto-seed failed (non-blocking):', err?.message)
           );
         }

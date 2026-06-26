@@ -25,8 +25,6 @@ export async function GET(req: Request) {
       .eq('id', userId)
       .maybeSingle();
 
-    const isAdmin = profile?.role === 'ADMIN' || profile?.role === 'admin' || user.role === 'admin' || user.isAdmin;
-
     // 3. Fetch all active projects, rights holders, and transactions
     const { data: allProjs } = await supabaseAdmin.from('projects').select('*').ilike('status', 'active');
     const { data: allHolders } = await supabaseAdmin.from('rights_holders').select('*');
@@ -68,12 +66,13 @@ export async function GET(req: Request) {
     }));
 
     // 4. Manual Filtering (replicating RLS)
+    // Always filter by email/wallet/user_id for all users in non-demo mode.
+    // This ensures each admin sees only their own project, not all projects.
     let allowedProjs = enrichedProjs;
     let allowedHolders = enrichedHolders;
     let allowedTx = allTx || [];
 
-    if (!isAdmin && !isDemoMode) {
-      // Live mode filtering for regular user
+    if (!isDemoMode) {
       const userEmail = user.email;
       const userWallet = profile?.wallet_address?.toLowerCase() || null;
 

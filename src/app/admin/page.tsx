@@ -42,7 +42,15 @@ export default function AdminPage() {
       const res = await fetch(`/api/dashboard?pid=${selectedProjectId || 'all'}`);
       if (!res.ok) throw new Error('Failed to fetch admin data');
       const data = await res.json();
-      setProjects(data.projectsList);
+      // Filter projects to only those where this admin has a stake
+      const adminEmail = user?.email?.toLowerCase();
+      const adminProjects = (data.projectsList || []).filter((p: any) => {
+        if (data.holders?.some((h: any) => h.project_id === p.id && h.email?.toLowerCase() === adminEmail)) {
+          return true;
+        }
+        return false;
+      });
+      setProjects(adminProjects.length > 0 ? adminProjects : (data.projectsList || []));
       if (selectedProjectId && selectedProjectId !== 'all') {
         setHolders(data.holders);
       } else {
@@ -53,7 +61,7 @@ export default function AdminPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [selectedProjectId]);
+  }, [selectedProjectId, user?.email]);
 
   useEffect(() => {
     if (!user) {
