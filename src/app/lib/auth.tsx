@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { usePrivy } from '@privy-io/react-auth';
-import { isDemoAccessEnabled, readDemoMode } from '@/lib/demoAccess';
+import { isSandboxLoginEnabled, readDemoMode } from '@/lib/demoAccess';
 
 export type Role = 'admin' | 'creator' | 'contributor' | 'viewer';
 
@@ -77,11 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setIsDemoMode(readDemoMode());
-    if (!isDemoAccessEnabled) {
-      localStorage.removeItem('demo_mode');
-      localStorage.removeItem('active_demo_wallet');
-    }
-    const handler = (e: CustomEvent) => setIsDemoMode(isDemoAccessEnabled && e.detail);
+    const handler = (e: CustomEvent) => setIsDemoMode(e.detail);
     const storageHandler = () => setIsDemoMode(readDemoMode());
     window.addEventListener('demo-mode-changed', handler as EventListener);
     window.addEventListener('storage', storageHandler);
@@ -95,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function syncPrivyUser() {
       if (!privyReady) return;
 
-      if (!privyUser && isDemoAccessEnabled && isDemoMode) {
+      if (!privyUser && isSandboxLoginEnabled && isDemoMode) {
         const demoUser: User = {
           id: 'demo-admin-id',
           email: 'demo@lunim.io',

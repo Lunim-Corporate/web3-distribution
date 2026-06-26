@@ -1,9 +1,13 @@
 export const isDemoAccessEnabled =
-  process.env.NEXT_PUBLIC_ENABLE_DEMO_ACCESS === 'true';
+  process.env.NEXT_PUBLIC_DISABLE_DEMO_ACCESS !== 'true';
+
+export const isSandboxLoginEnabled =
+  process.env.NEXT_PUBLIC_ENABLE_SANDBOX_LOGIN === 'true';
 
 export function readDemoMode(): boolean {
   if (!isDemoAccessEnabled || typeof window === 'undefined') return false;
-  return localStorage.getItem('demo_mode') === 'true';
+  const savedMode = localStorage.getItem('demo_mode');
+  return savedMode === null ? true : savedMode === 'true';
 }
 
 export function setDemoMode(enabled: boolean) {

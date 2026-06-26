@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
-import { isDemoAccessEnabled, setDemoMode } from '@/lib/demoAccess';
+import { isSandboxLoginEnabled, setDemoMode } from '@/lib/demoAccess';
 import { motion } from 'framer-motion';
 
 export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login' | 'signup' }) {
@@ -16,7 +16,7 @@ export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login
     if (typeof window !== 'undefined') {
       const searchParams = new URLSearchParams(window.location.search);
       const hasSandboxParam = searchParams.get('sandbox') === 'true' || searchParams.get('demo') === 'true';
-      setShowSandbox(isDemoAccessEnabled && hasSandboxParam);
+      setShowSandbox(isSandboxLoginEnabled && hasSandboxParam);
     }
   }, []);
 
@@ -40,7 +40,7 @@ export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login
   };
 
   const handleDemo = () => {
-    if (!isDemoAccessEnabled) {
+    if (!isSandboxLoginEnabled) {
       setError('Sandbox access is disabled on this deployment.');
       return;
     }

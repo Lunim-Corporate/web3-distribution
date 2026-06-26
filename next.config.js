@@ -15,19 +15,7 @@ const nextConfig = {
 
   // ─── Security Headers ───────────────────────────────────
   async redirects() {
-    if (process.env.NEXT_PUBLIC_ENABLE_DEMO_ACCESS === 'true') return [];
-
     return [
-      {
-        source: '/web3-demo',
-        destination: '/dashboard',
-        permanent: false,
-      },
-      {
-        source: '/web3-demo/:path*',
-        destination: '/dashboard',
-        permanent: false,
-      },
       {
         source: '/supabase-test',
         destination: '/',

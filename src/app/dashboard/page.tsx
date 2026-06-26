@@ -269,8 +269,8 @@ function DashboardContent() {
                   ))}
                 </select>
                 <div className="flex items-center gap-1.5 text-[10px] font-semibold text-gray-500 mt-0.5">
-                  <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
-                  <span className="uppercase tracking-widest">Live Sync</span>
+                  <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${isDemoMode ? 'bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.8)]' : 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]'}`} />
+                  <span className="uppercase tracking-widest">{isDemoMode ? 'Demo Sync' : 'Live Sync'}</span>
                   {user && <span>• {user.name || user.email?.split('@')[0]} ({user.role})</span>}
                 </div>
               </div>

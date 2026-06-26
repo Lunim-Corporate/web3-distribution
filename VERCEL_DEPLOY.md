@@ -64,8 +64,8 @@ Go to **Settings → Environment Variables** and add:
 | `STRIPE_WEBHOOK_SECRET` | *(from .env.local)* | Production |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | *(from .env.local)* | Production |
 
-Do **not** set `NEXT_PUBLIC_ENABLE_DEMO_ACCESS` in Production unless you intentionally want to publish the local sandbox/demo bypass.
-For local sandbox work only, set `NEXT_PUBLIC_ENABLE_DEMO_ACCESS=true` in `.env.local`.
+Demo mode is available to authenticated users by default. Do **not** set `NEXT_PUBLIC_ENABLE_SANDBOX_LOGIN=true` in Production unless you intentionally want to publish the unauthenticated local sandbox login bypass.
+To disable authenticated demo mode entirely, set `NEXT_PUBLIC_DISABLE_DEMO_ACCESS=true`.
 
 > Copy values from your local `.env.local` file.
 

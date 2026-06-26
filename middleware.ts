@@ -14,15 +14,6 @@ import type { NextRequest } from 'next/server';
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const demoAccessEnabled = process.env.NEXT_PUBLIC_ENABLE_DEMO_ACCESS === 'true';
-
-  if (pathname.startsWith('/web3-demo') && !demoAccessEnabled) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/dashboard';
-    url.search = '';
-    return NextResponse.redirect(url);
-  }
-
   // Check for Privy auth cookies — these are the secure, httpOnly cookies set by Privy
   const allCookies = request.cookies.getAll();
   const hasPrivyAuth = allCookies.some(
@@ -65,5 +56,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/admin/:path*', '/web3-demo', '/web3-demo/:path*'],
+  matcher: ['/dashboard/:path*', '/admin/:path*'],
 };
