@@ -3,6 +3,79 @@ import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { PrivyClient } from '@privy-io/server-auth';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 
+const DEMO_WALLETS = [
+  '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+  '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+  '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
+  '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
+  '0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65',
+];
+
+async function seedDemoDataForAdmin(adminUserId: string) {
+  const { count, error: countError } = await supabaseAdmin
+    .from('projects')
+    .select('*', { count: 'exact', head: true });
+
+  if (countError || (count ?? 0) > 0) return;
+
+  const projectPayload = {
+    name: 'Neon Requiem',
+    genre: 'Sci-Fi Thriller',
+    description: 'A rogue AI infiltrates a megacity\'s neural grid, forcing a burned intelligence officer to confront her own manufactured memories.',
+    status: 'active',
+    total_distributed: 0,
+  };
+
+  const { data: project, error: projectErr } = await supabaseAdmin
+    .from('projects')
+    .insert(projectPayload)
+    .select('id')
+    .single();
+
+  if (projectErr || !project) {
+    console.warn('[SEED] Failed to create project:', projectErr?.message);
+    return;
+  }
+
+  const holders = [
+    { full_name: 'Aria Voss', role: 'Director', percentage: 25, wallet_address: DEMO_WALLETS[0] },
+    { full_name: 'Marcus Delgado', role: 'Lead Actor', percentage: 20, wallet_address: DEMO_WALLETS[1] },
+    { full_name: 'Priya Nair', role: 'Producer', percentage: 15, wallet_address: DEMO_WALLETS[2] },
+    { full_name: 'Theo Harrington', role: 'Music Composer', percentage: 15, wallet_address: DEMO_WALLETS[3] },
+    { full_name: 'Simone Okafor', role: 'Screenplay Writer', percentage: 15, wallet_address: DEMO_WALLETS[4] },
+    { full_name: 'Pete (Admin)', role: 'Platform Admin', percentage: 5, wallet_address: null },
+    { full_name: 'Jeevesh (Admin)', role: 'Platform Admin', percentage: 5, wallet_address: null },
+  ];
+
+  for (const h of holders) {
+    await supabaseAdmin.from('rights_holders').insert({
+      project_id: project.id,
+      full_name: h.full_name,
+      role: h.role,
+      percentage: h.percentage,
+      wallet_address: h.wallet_address,
+    });
+  }
+
+  const activities = [
+    { project_id: project.id, action: 'project_created', description: 'Neon Requiem project was created and rights holders assigned.' },
+    { project_id: project.id, action: 'rights_holder_added', description: 'Aria Voss assigned as Director (25%)' },
+    { project_id: project.id, action: 'rights_holder_added', description: 'Marcus Delgado assigned as Lead Actor (20%)' },
+    { project_id: project.id, action: 'rights_holder_added', description: 'Priya Nair assigned as Producer (15%)' },
+    { project_id: project.id, action: 'payment_recorded', description: 'Demo distribution of 5.00 ETH ($16,000.00) for Neon Requiem' },
+    { project_id: project.id, action: 'milestone_created', description: 'Milestone: Principal Photography — Q3 2025' },
+  ];
+
+  for (const a of activities) {
+    await supabaseAdmin.from('activities').insert({
+      ...a,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  console.log(`[SEED] Demo data seeded for admin user ${adminUserId}`);
+}
+
 const privy = new PrivyClient(
   process.env.NEXT_PUBLIC_PRIVY_APP_ID || '',
   process.env.PRIVY_APP_SECRET || ''
@@ -145,6 +218,11 @@ export async function POST(req: Request) {
 
       if (!insertError && newProfile) {
         profile = newProfile;
+        if (isDesignatedAdmin) {
+          seedDemoDataForAdmin(supabaseUser.id).catch(err =>
+            console.warn('[SEED] Auto-seed failed (non-blocking):', err?.message)
+          );
+        }
       } else if (insertError) {
         console.error('Failed to insert fallback profile on sync:', insertError);
       }
