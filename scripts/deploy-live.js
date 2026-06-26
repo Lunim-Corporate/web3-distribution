@@ -28,8 +28,8 @@ async function main() {
     "Priya Nair",
     "Theo Harrington",
     "Simone Okafor",
-    "Jeevesh (Admin - Local)",
-    "Jeevesh (Admin - Live)",
+    "Jeevesh (Dev)",
+    "Jeevesh (Admin)",
     "Pete (Admin)",
     "freewhynane62 (Admin)",
     "jeevesh039 (Admin)",
@@ -40,7 +40,7 @@ async function main() {
     "Producer",
     "Music Composer",
     "Screenplay Writer",
-    "Administrator",
+    "Developer",
     "Administrator",
     "Administrator",
     "Administrator",
@@ -48,19 +48,23 @@ async function main() {
   ];
   const basisPoints = [2000, 1700, 1300, 1300, 1200, 500, 500, 500, 500, 500];
 
-  console.log("Deploying RevenueRights with initial holders:");
+  console.log("\n--- Deploying LIVE RevenueRights ---");
+  console.log("Network:", hre.network.name);
+  console.log("Initial holders:");
   names.forEach((n, i) => console.log(`  ${n} - ${basisPoints[i]/100}%`));
 
   const RevenueRights = await hre.ethers.getContractFactory("RevenueRights");
   const contract = await RevenueRights.deploy(wallets, names, roles, basisPoints);
-
   await contract.waitForDeployment();
   const address = await contract.getAddress();
 
   const artifact = await hre.artifacts.readArtifact("RevenueRights");
   const contractData = {
     address: address,
-    abi: artifact.abi
+    abi: artifact.abi,
+    network: hre.network.name,
+    type: "live",
+    chainId: hre.network.config.chainId || 84532,
   };
 
   const contractsDir = path.join(__dirname, "..", "src", "contracts");
@@ -68,25 +72,23 @@ async function main() {
     fs.mkdirSync(contractsDir, { recursive: true });
   }
   fs.writeFileSync(
-    path.join(contractsDir, "RevenueRights.json"),
+    path.join(contractsDir, "LiveContract.json"),
     JSON.stringify(contractData, null, 2)
   );
 
   if (fs.existsSync(envPath)) {
     let env = fs.readFileSync(envPath, "utf8");
-    if (env.includes("NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS=")) {
-      env = env.replace(/NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS=.*/, `NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS=${address}`);
+
+    if (env.includes("NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS=")) {
+      env = env.replace(/NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS=.*/, `NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS=${address}`);
     } else {
-      env += `\nNEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS=${address}\n`;
+      env += `\nNEXT_PUBLIC_LIVE_CONTRACT_ADDRESS=${address}\n`;
     }
 
-    if (env.includes("CONTRACT_ADDRESS=")) {
-      env = env.replace(/CONTRACT_ADDRESS=.*/, `CONTRACT_ADDRESS=${address}`);
-    } else {
-      env += `\nCONTRACT_ADDRESS=${address}\n`;
-    }
     fs.writeFileSync(envPath, env);
   }
+
+  console.log(`\n  ✓ Live contract deployed at: ${address}\n`);
 
   const { createClient } = require("@supabase/supabase-js");
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -102,29 +104,26 @@ async function main() {
           .update({ contract_address: address })
           .eq('id', data.id);
         if (error) throw error;
-        console.log("Successfully synced contract address to Neon Requiem project in DB.");
+        console.log("  ✓ Synced contract address to Neon Requiem project in DB.\n");
       } catch (e) {
-        console.warn("Could not sync with DB: " + e.message);
+        console.warn("  ⚠ Could not sync with DB: " + e.message);
+      }
+    }
+
+    const { data: aether } = await supabase.from('projects').select('id').eq('name', 'Aether Drift').single();
+    if (aether && aether.id) {
+      try {
+        const { error } = await supabase
+          .from('projects')
+          .update({ contract_address: address })
+          .eq('id', aether.id);
+        if (error) throw error;
+        console.log("  ✓ Synced contract address to Aether Drift project in DB.\n");
+      } catch (e) {
+        console.warn("  ⚠ Could not sync Aether Drift with DB: " + e.message);
       }
     }
   }
-
-  console.log('\n┌────────────────────────────────────────────────────────┐');
-  console.log('│  LUNIM — Contract Deployed                             │');
-  console.log('├─────────────────────┬──────────────────────────────────┤');
-  console.log(`│  Contract           │  ${address.padEnd(32)} │`);
-  console.log('│  Network            │  localhost:8545                  │');
-  console.log('│  Chain ID           │  31337                           │');
-  console.log('├─────────────────────┴──────────────────────────────────┤');
-  console.log('│  HOLDER ACCOUNTS                                       │');
-  console.log('├──────────┬──────────┬─────────────────────────────────┤');
-  for(let i = 0; i < 10; i++) {
-    const namePad = names[i].padEnd(18).substring(0,18);
-    const bpLabel = `${(basisPoints[i]/100)}%`.padStart(4);
-    const addrPad = wallets[i].substring(0,14) + "..";
-    console.log(`│ ${bpLabel}  │ ${namePad}  │ ${addrPad}`);
-  }
-  console.log('└──────────┴──────────────────┴─────────────────────────┘\n');
 }
 
 main().catch((error) => {

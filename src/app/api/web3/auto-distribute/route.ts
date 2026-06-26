@@ -130,10 +130,13 @@ export async function POST(req: Request) {
         transport: http(LOCAL_RPC)
       }).extend(publicActions);
       
-      const contractAddress = process.env.NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS;
+      const contractAddress = is_demo
+        ? process.env.NEXT_PUBLIC_DEMO_CONTRACT_ADDRESS
+        : process.env.NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS;
       if (!contractAddress) {
+        const varName = is_demo ? 'NEXT_PUBLIC_DEMO_CONTRACT_ADDRESS' : 'NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS';
         return NextResponse.json(
-          { error: 'NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS is not configured on the server' },
+          { error: `${varName} is not configured on the server` },
           { status: 500 }
         );
       }

@@ -345,9 +345,9 @@ const seedData = async () => {
   // ──────────────────────────────────────────────
   console.log("  Seeding on-chain revenue distribution...");
   try {
-    const contractAddress = process.env.NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS;
+    const contractAddress = process.env.NEXT_PUBLIC_DEMO_CONTRACT_ADDRESS;
     if (!contractAddress) {
-      console.warn('  ⚠ NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS not set, skipping on-chain distribution');
+      console.warn('  ⚠ NEXT_PUBLIC_DEMO_CONTRACT_ADDRESS not set, skipping on-chain distribution');
     } else {
       const mnemonic = process.env.HARDHAT_MNEMONIC || "test test test test test test test test test test test junk";
       const provider = new JsonRpcProvider("http://127.0.0.1:8545");

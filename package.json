@@ -10,9 +10,10 @@
     "lint": "next lint",
     "chain": "node --stack-size=10000 node_modules/.bin/hardhat node",
     "compile": "node --stack-size=10000 node_modules/.bin/hardhat compile",
-    "deploy:local": "node --stack-size=10000 node_modules/.bin/hardhat run scripts/deploy.js --network localhost",
+    "deploy:demo": "node --stack-size=10000 node_modules/.bin/hardhat run scripts/deploy-demo.js --network localhost",
+    "deploy:live": "node --stack-size=10000 node_modules/.bin/hardhat run scripts/deploy-live.js --network localhost",
     "seed": "node scripts/seed.js",
-    "demo:full": "npm run compile && npm run deploy:local && npm run seed",
+    "demo:full": "npm run compile && npm run deploy:demo && npm run seed",
     "test:api": "node scripts/api-smoke-test.js"
   },
   "dependencies": {

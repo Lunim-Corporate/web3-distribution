@@ -57,13 +57,13 @@ async function main() {
   if (fs.existsSync(envPath)) {
     let envContent = fs.readFileSync(envPath, 'utf8');
     
-    if (envContent.includes('NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS=')) {
+    if (envContent.includes('NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS=')) {
       envContent = envContent.replace(
-        /NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS=.*/,
-        `NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS=${contractAddress}`
+        /NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS=.*/,
+        `NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS=${contractAddress}`
       );
     } else {
-      envContent += `\nNEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS=${contractAddress}\n`;
+      envContent += `\nNEXT_PUBLIC_LIVE_CONTRACT_ADDRESS=${contractAddress}\n`;
     }
     
     fs.writeFileSync(envPath, envContent);

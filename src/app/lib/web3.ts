@@ -10,7 +10,8 @@ import { toSafeSmartAccount } from 'permissionless/accounts';
 
 type Address = `0x${string}`;
 
-const REVENUE_SPLITTER_ADDRESS = process.env.NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS as Address;
+const DEMO_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_DEMO_CONTRACT_ADDRESS as Address | undefined;
+const LIVE_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS as Address | undefined;
 const ALCHEMY_RPC = process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC || 'https://sepolia.base.org';
 const LOCAL_RPC = 'http://127.0.0.1:8545';
 const PAYMASTER_URL = process.env.NEXT_PUBLIC_PAYMASTER_URL || ALCHEMY_RPC;
@@ -68,7 +69,11 @@ export function useRevenueSplitter() {
   useEffect(() => {
     async function initSmartAccount() {
       const activeWallet = wallets.find((w) => w.walletClientType === 'privy') || wallets[0];
-      if (!activeWallet || !REVENUE_SPLITTER_ADDRESS || isDemoMode) {
+      if (!activeWallet || isDemoMode) {
+        setSmartAccountAddress(null);
+        return;
+      }
+      if (!LIVE_CONTRACT_ADDRESS) {
         setSmartAccountAddress(null);
         return;
       }
@@ -111,6 +116,12 @@ export function useRevenueSplitter() {
     initSmartAccount();
   }, [wallets, isDemoMode]);
 
+  const resolveContractAddress = (): Address => {
+    const addr = isDemoMode ? DEMO_CONTRACT_ADDRESS : LIVE_CONTRACT_ADDRESS;
+    if (!addr) throw new Error('Contract address not configured');
+    return addr;
+  };
+
   const resolveChain = () => {
     if (isDemoMode) return { chain: hardhat, rpc: LOCAL_RPC };
     const activeWallet = wallets.find((w) => w.walletClientType === 'privy') || wallets[0];
@@ -124,7 +135,7 @@ export function useRevenueSplitter() {
   };
 
   const getContractBalanceEth = async (): Promise<string> => {
-    if (!REVENUE_SPLITTER_ADDRESS) throw new Error('Missing contract address');
+    const contractAddress = resolveContractAddress();
     
     const { chain, rpc } = resolveChain();
     const publicClient = createPublicClient({
@@ -132,13 +143,19 @@ export function useRevenueSplitter() {
       transport: http(rpc),
     });
     
-    const balance = await publicClient.getBalance({ address: REVENUE_SPLITTER_ADDRESS });
+    const balance = await publicClient.getBalance({ address: contractAddress });
     return formatEther(balance);
   };
 
   const getAccruedBalanceEth = async (address: string): Promise<string> => {
-    if (!REVENUE_SPLITTER_ADDRESS || !address) return '0.0';
-    
+    if (!address) return '0.0';
+    let contractAddress: Address;
+    try {
+      contractAddress = resolveContractAddress();
+    } catch {
+      return '0.0';
+    }
+
     try {
       const { chain, rpc } = resolveChain();
       const publicClient = createPublicClient({
@@ -147,7 +164,7 @@ export function useRevenueSplitter() {
       });
 
       const balance = await publicClient.readContract({
-        address: REVENUE_SPLITTER_ADDRESS,
+        address: contractAddress,
         abi: ABI,
         functionName: 'accruedBalances',
         args: [address as Address],
@@ -161,7 +178,7 @@ export function useRevenueSplitter() {
   };
 
   const claimRevenue = async (): Promise<string> => {
-    if (!REVENUE_SPLITTER_ADDRESS) throw new Error('Missing contract address');
+    const contractAddress = resolveContractAddress();
 
     const activeWallet = wallets.find((w) => w.walletClientType === 'privy') || wallets[0];
     
@@ -193,7 +210,7 @@ export function useRevenueSplitter() {
           method: 'eth_sendTransaction',
           params: [{
             from: activeDemoWallet,
-            to: REVENUE_SPLITTER_ADDRESS,
+            to: contractAddress,
             data: callData,
             gasPrice: '0x0'
           }]
@@ -242,7 +259,7 @@ export function useRevenueSplitter() {
             method: 'eth_sendTransaction',
             params: [{
               from: ADMIN_LIVE_ADDRESS,
-              to: REVENUE_SPLITTER_ADDRESS,
+              to: contractAddress,
               data: callData,
               gasPrice: '0x0'
             }]
@@ -262,7 +279,7 @@ export function useRevenueSplitter() {
 
       const txHash = await walletClient.sendTransaction({
         account: activeWallet.address as Address,
-        to: REVENUE_SPLITTER_ADDRESS,
+        to: contractAddress,
         data: callData,
       });
 
@@ -272,7 +289,7 @@ export function useRevenueSplitter() {
   };
 
   const distributeRevenue = async (amountEth: string): Promise<string> => {
-    if (!REVENUE_SPLITTER_ADDRESS) throw new Error('Missing contract address');
+    const contractAddress = resolveContractAddress();
     
     const activeWallet = wallets.find((w) => w.walletClientType === 'privy') || wallets[0];
     if (!activeWallet) {
@@ -308,7 +325,7 @@ export function useRevenueSplitter() {
 
       const txHash = await walletClient.sendTransaction({
         account: activeWallet.address as Address,
-        to: REVENUE_SPLITTER_ADDRESS,
+        to: contractAddress,
         value: valueWei,
         data: callData,
       });
@@ -380,7 +397,7 @@ export function useRevenueSplitter() {
 
       const txHash = await smartAccountClient.sendTransaction({
         account: smartAccount,
-        to: REVENUE_SPLITTER_ADDRESS,
+        to: contractAddress,
         value: valueWei,
         data: callData,
       });
@@ -403,7 +420,7 @@ export function useRevenueSplitter() {
 
       const txHash = await walletClient.sendTransaction({
         account: activeWallet.address as Address,
-        to: REVENUE_SPLITTER_ADDRESS,
+        to: contractAddress,
         value: valueWei,
         data: callData,
       });

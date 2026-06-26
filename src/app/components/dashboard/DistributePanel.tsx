@@ -55,7 +55,9 @@ export function DistributePanel({ project, holders }: { project: Project | null;
     setModalTxHash('');
   };
   
-  const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS || '';
+  const DEMO_CA = process.env.NEXT_PUBLIC_DEMO_CONTRACT_ADDRESS;
+  const LIVE_CA = process.env.NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS;
+  const CONTRACT_ADDRESS = isDemoMode ? (DEMO_CA || '') : (LIVE_CA || '');
 
   const handleDistribute = async () => {
     if (!project || holders.length === 0) return toast.error('No project or holders found');

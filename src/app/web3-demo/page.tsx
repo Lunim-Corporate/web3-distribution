@@ -349,8 +349,13 @@ export default function Web3DemoPage() {
     setTxStatus('pending'); setTxError(''); setTxHash('');
 
     try {
-      const contractAddress = process.env.NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS;
-      if (!contractAddress) throw new Error('NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS is not configured. Set it in .env.local');
+      const contractAddress = isDemoMode
+        ? process.env.NEXT_PUBLIC_DEMO_CONTRACT_ADDRESS
+        : process.env.NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS;
+      if (!contractAddress) {
+        const varName = isDemoMode ? 'NEXT_PUBLIC_DEMO_CONTRACT_ADDRESS' : 'NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS';
+        throw new Error(`${varName} is not configured. Set it in .env.local`);
+      }
 
       // The function selector for distributeRevenue() is 0x2d07953a
       const data = '0x2d07953a';
