@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import dynamic from 'next/dynamic';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import './globals.css';
 
 const AuthProvider = dynamic(() => import('@/lib/auth').then(m => m.AuthProvider), { ssr: false });
@@ -59,6 +60,7 @@ export default function RootLayout({
             }} />
           </AuthProvider>
         </Web3Providers>
+        <SpeedInsights />
       </body>
     </html>
   );
