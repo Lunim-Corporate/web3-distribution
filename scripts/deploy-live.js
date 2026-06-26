@@ -17,7 +17,6 @@ async function main() {
     signers[4].address,
     signers[5].address,
     signers[0].address,
-    adminLiveAddress,
     signers[6].address,
     signers[7].address,
     signers[8].address,
@@ -28,7 +27,6 @@ async function main() {
     "Priya Nair",
     "Theo Harrington",
     "Simone Okafor",
-    "Jeevesh (Dev)",
     "Jeevesh (Admin)",
     "Pete (Admin)",
     "freewhynane62 (Admin)",
@@ -40,13 +38,12 @@ async function main() {
     "Producer",
     "Music Composer",
     "Screenplay Writer",
-    "Developer",
     "Administrator",
     "Administrator",
     "Administrator",
     "Administrator",
   ];
-  const basisPoints = [2000, 1700, 1300, 1300, 1200, 500, 500, 500, 500, 500];
+  const basisPoints = [2000, 1800, 1400, 1400, 1400, 500, 500, 500, 500];
 
   console.log("\n--- Deploying LIVE RevenueRights ---");
   console.log("Network:", hre.network.name);

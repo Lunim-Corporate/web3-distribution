@@ -16,6 +16,8 @@ async function main() {
     signers[4].address,
     signers[5].address,
     signers[6].address,
+    signers[7].address,
+    signers[8].address,
   ];
   const names = [
     "Aria Voss",
@@ -25,6 +27,8 @@ async function main() {
     "Simone Okafor",
     "Pete (Admin)",
     "Jeevesh (Admin)",
+    "freewhynane62 (Admin)",
+    "jeevesh039 (Admin)",
   ];
   const roles = [
     "Director",
@@ -34,8 +38,10 @@ async function main() {
     "Screenplay Writer",
     "Administrator",
     "Administrator",
+    "Administrator",
+    "Administrator",
   ];
-  const basisPoints = [2500, 2000, 1500, 1500, 1500, 500, 500];
+  const basisPoints = [2500, 2000, 1500, 1500, 1000, 500, 500, 500, 500];
 
   console.log("\n--- Deploying DEMO RevenueRights ---");
   console.log("Initial holders:");
