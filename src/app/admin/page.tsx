@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 
 interface Project { id: string; name: string; }
 interface RightsHolder { id: string; full_name: string; role: string; wallet_address: string; percentage: number; }
+interface ProfileUser { id: string; display_name: string; role: string; wallet_address: string | null; created_at: string; }
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -16,6 +17,9 @@ export default function AdminPage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
   const [holders, setHolders] = useState<RightsHolder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileUsers, setProfileUsers] = useState<ProfileUser[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [activeTab, setActiveTab] = useState<'roster' | 'users'>('roster');
 
   // New Holder State
   const [newName, setNewName] = useState('');
@@ -151,6 +155,35 @@ export default function AdminPage() {
     }
   };
 
+  const fetchUsers = useCallback(async () => {
+    setIsLoadingUsers(true);
+    try {
+      const res = await fetch('/api/admin/users');
+      if (!res.ok) throw new Error('Failed to fetch users');
+      const data = await res.json();
+      setProfileUsers(Array.isArray(data) ? data : []);
+    } catch {
+      toast.error('Failed to load users');
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  }, []);
+
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, role: newRole }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast.success(`User role updated to ${newRole}`);
+      await fetchUsers();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to update role');
+    }
+  };
+
   if (isLoading || !user) return <div className="p-8 text-center text-white">Loading Admin Panel...</div>;
 
   return (
@@ -168,6 +201,22 @@ export default function AdminPage() {
         </div>
       </div>
 
+      <div className="flex gap-1 bg-white/5 border border-white/10 rounded-2xl p-1 w-fit backdrop-blur-xl">
+        <button
+          onClick={() => setActiveTab('roster')}
+          className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'roster' ? 'bg-white text-black shadow-lg' : 'text-gray-400 hover:text-white'}`}
+        >
+          Project Roster
+        </button>
+        <button
+          onClick={() => { setActiveTab('users'); void fetchUsers(); }}
+          className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'users' ? 'bg-white text-black shadow-lg' : 'text-gray-400 hover:text-white'}`}
+        >
+          User Management
+        </button>
+      </div>
+
+      {activeTab === 'roster' ? (
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         
         {/* Left Sidebar: Project Creation & Selection */}
@@ -326,6 +375,80 @@ export default function AdminPage() {
         </div>
 
       </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-black text-white">User Management</h2>
+            <div className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-[10px] font-black text-gray-400 uppercase tracking-widest">
+              {profileUsers.length} Users
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden backdrop-blur-xl">
+            {isLoadingUsers ? (
+              <div className="text-center py-20 text-gray-500 font-bold">Loading users...</div>
+            ) : profileUsers.length === 0 ? (
+              <div className="text-center py-20 text-gray-500 font-bold">No users found</div>
+            ) : (
+              <table className="w-full text-left text-sm">
+                <thead className="bg-white/5 border-b border-white/10 text-[10px] uppercase tracking-widest text-gray-500">
+                  <tr>
+                    <th className="p-5 font-black">Name</th>
+                    <th className="p-5 font-black">Current Role</th>
+                    <th className="p-5 font-black">Wallet</th>
+                    <th className="p-5 font-black text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5 text-gray-200">
+                  {profileUsers.map(pu => (
+                    <tr key={pu.id} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="p-5">
+                        <div className="font-black text-white">{pu.display_name || 'Unnamed'}</div>
+                        <div className="text-[10px] text-gray-500 font-mono mt-0.5">{pu.id.slice(0, 16)}...</div>
+                      </td>
+                      <td className="p-5">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                          pu.role === 'ADMIN'
+                            ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                            : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        }`}>
+                          {pu.role}
+                        </span>
+                      </td>
+                      <td className="p-5">
+                        {pu.wallet_address ? (
+                          <span className="font-mono text-xs text-gray-400">
+                            {pu.wallet_address.slice(0, 10)}...{pu.wallet_address.slice(-6)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-600 text-xs">No wallet</span>
+                        )}
+                      </td>
+                      <td className="p-5 text-right">
+                        {pu.role === 'ADMIN' ? (
+                          <button
+                            onClick={() => handleRoleChange(pu.id, 'RIGHTS_HOLDER')}
+                            className="px-4 py-2 bg-rose-500/10 text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-rose-500/20 hover:bg-rose-500/20 transition-all"
+                          >
+                            Demote to Rights Holder
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleRoleChange(pu.id, 'ADMIN')}
+                            className="px-4 py-2 bg-indigo-500/10 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-indigo-500/20 hover:bg-indigo-500/20 transition-all"
+                          >
+                            Promote to Admin
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }

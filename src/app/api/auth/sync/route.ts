@@ -98,37 +98,51 @@ export async function POST(req: Request) {
       throw profileError;
     }
 
+    const adminEmails = (process.env.ADMIN_EMAILS || '')
+      .split(',')
+      .map(e => e.trim().toLowerCase())
+      .filter(Boolean);
+
+    const isDesignatedAdmin = adminEmails.includes(email.toLowerCase());
+
     if (profile) {
-      // Update existing profile with latest wallet if changed
+      const updates: Record<string, any> = {};
+
       if (walletAddress && profile.wallet_address !== walletAddress.toLowerCase()) {
+        updates.wallet_address = walletAddress.toLowerCase();
+        updates.wallet_type = walletType;
+      }
+
+      if (isDesignatedAdmin && profile.role !== 'ADMIN') {
+        updates.role = 'ADMIN';
+      }
+
+      if (Object.keys(updates).length > 0) {
         const { data: updatedProfile, error: updateError } = await supabaseAdmin
           .from('users_profile')
-          .update({ 
-            wallet_address: walletAddress.toLowerCase(),
-            wallet_type: walletType
-          })
+          .update(updates)
           .eq('id', supabaseUser.id)
           .select()
           .single();
-          
+
         if (!updateError && updatedProfile) {
           profile = updatedProfile;
         }
       }
     } else {
-      // Insert fallback profile record
+      const role = isDesignatedAdmin ? 'ADMIN' : 'RIGHTS_HOLDER';
       const { data: newProfile, error: insertError } = await supabaseAdmin
         .from('users_profile')
         .insert({
           id: supabaseUser.id,
           display_name: email.split('@')[0],
-          role: 'RIGHTS_HOLDER',
+          role,
           wallet_address: walletAddress ? walletAddress.toLowerCase() : null,
           wallet_type: walletAddress ? walletType : null
         })
         .select()
         .single();
-        
+
       if (!insertError && newProfile) {
         profile = newProfile;
       } else if (insertError) {
