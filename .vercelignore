@@ -1,3 +1,20 @@
 .env
 .env.*
 !.env.example
+
+# Local dependencies and generated build output
+node_modules/
+.next/
+.vercel/output/
+out/
+build/
+
+# Local blockchain/build artifacts
+artifacts/
+cache/
+typechain-types/
+
+# Local caches and metadata
+.DS_Store
+*.tsbuildinfo
+*.log
