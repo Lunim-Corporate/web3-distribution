@@ -65,13 +65,31 @@ const seedData = async () => {
       description: "A rogue AI infiltrates a megacity's neural grid, forcing a burned intelligence officer to confront her own manufactured memories.",
       status: "active",
       holders: [
-        { full_name: "Aria Voss", role: "Director", percentage: 25 },
-        { full_name: "Marcus Delgado", role: "Lead Actor", percentage: 20 },
-        { full_name: "Priya Nair", role: "Producer", percentage: 15 },
-        { full_name: "Theo Harrington", role: "Music Composer", percentage: 15 },
-        { full_name: "Simone Okafor", role: "Screenplay Writer", percentage: 15 },
-        { full_name: "Jeevesh (Admin - Local)", role: "Platform Admin", percentage: 5, wallet_address: getWallet(0) },
-        { full_name: "Jeevesh (Admin - Live)", role: "Platform Admin", percentage: 5, wallet_address: ADMIN_LIVE_ADDRESS },
+        { full_name: "Aria Voss", role: "Director", percentage: 20 },
+        { full_name: "Marcus Delgado", role: "Lead Actor", percentage: 17 },
+        { full_name: "Priya Nair", role: "Producer", percentage: 13 },
+        { full_name: "Theo Harrington", role: "Music Composer", percentage: 13 },
+        { full_name: "Simone Okafor", role: "Screenplay Writer", percentage: 12 },
+        { full_name: "Jeevesh (Admin - Local)", role: "Developer", percentage: 5, wallet_address: getWallet(0) },
+        { full_name: "Jeevesh (Admin - Live)", role: "Administrator", percentage: 5, wallet_address: ADMIN_LIVE_ADDRESS },
+        { full_name: "Pete (Admin)", role: "Administrator", percentage: 5 },
+        { full_name: "freewhynane62 (Admin)", role: "Administrator", percentage: 5 },
+        { full_name: "jeevesh039 (Admin)", role: "Administrator", percentage: 5 },
+      ]
+    },
+    {
+      name: "Aether Drift",
+      genre: "Cyberpunk Noir",
+      description: "In a neon-drenched megacity, a disgraced hacker uncovers a corporate conspiracy that blurs the line between reality and simulation.",
+      status: "active",
+      holders: [
+        { full_name: "Kai Nakamura", role: "Director", percentage: 25 },
+        { full_name: "Lena Oshiro", role: "Lead Actress", percentage: 20 },
+        { full_name: "Rico Martinez", role: "Producer", percentage: 15 },
+        { full_name: "Zara Khan", role: "Music Composer", percentage: 15 },
+        { full_name: "Dmitri Volkov", role: "Screenplay Writer", percentage: 15 },
+        { full_name: "freewhynane62 (Admin)", role: "Administrator", percentage: 5 },
+        { full_name: "jeevesh039 (Admin)", role: "Administrator", percentage: 5 },
       ]
     },
     {
