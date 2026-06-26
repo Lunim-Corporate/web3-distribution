@@ -65,6 +65,7 @@ Go to **Settings → Environment Variables** and add:
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | *(from .env.local)* | Production |
 
 Do **not** set `NEXT_PUBLIC_ENABLE_DEMO_ACCESS` in Production unless you intentionally want to publish the local sandbox/demo bypass.
+For local sandbox work only, set `NEXT_PUBLIC_ENABLE_DEMO_ACCESS=true` in `.env.local`.
 
 > Copy values from your local `.env.local` file.
 

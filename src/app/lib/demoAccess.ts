@@ -1,5 +1,4 @@
 export const isDemoAccessEnabled =
-  process.env.NODE_ENV === 'development' ||
   process.env.NEXT_PUBLIC_ENABLE_DEMO_ACCESS === 'true';
 
 export function readDemoMode(): boolean {

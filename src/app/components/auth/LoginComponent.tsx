@@ -16,7 +16,7 @@ export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login
     if (typeof window !== 'undefined') {
       const searchParams = new URLSearchParams(window.location.search);
       const hasSandboxParam = searchParams.get('sandbox') === 'true' || searchParams.get('demo') === 'true';
-      setShowSandbox(isDemoAccessEnabled && (process.env.NODE_ENV === 'development' || hasSandboxParam));
+      setShowSandbox(isDemoAccessEnabled && hasSandboxParam);
     }
   }, []);
 

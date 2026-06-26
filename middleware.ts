@@ -14,9 +14,7 @@ import type { NextRequest } from 'next/server';
  */
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const demoAccessEnabled =
-    process.env.NODE_ENV === 'development' ||
-    process.env.NEXT_PUBLIC_ENABLE_DEMO_ACCESS === 'true';
+  const demoAccessEnabled = process.env.NEXT_PUBLIC_ENABLE_DEMO_ACCESS === 'true';
 
   if (pathname.startsWith('/web3-demo') && !demoAccessEnabled) {
     const url = request.nextUrl.clone();
