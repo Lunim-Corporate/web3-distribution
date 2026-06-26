@@ -186,7 +186,7 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
     const tid = toast.loading('Claiming your earnings...');
     try {
       if (isDemoMode && activeWallet) {
-        await claimRevenue();
+        await new Promise((resolve) => setTimeout(resolve, 900));
         localStorage.setItem(demoClaimStorageKey(activeWallet), totalDistributedEth.toFixed(8));
         setClaimedDemoTotal(totalDistributedEth);
       } else {
