@@ -149,7 +149,9 @@ function DashboardContent() {
           return;
         }
         setProjectsList(data.projectsList);
-        setProjectId(data.projectsList[0].id);
+        // Use defaultProjectId if provided (admin's own project), otherwise first project
+        const initialId = data.defaultProjectId || data.projectsList[0].id;
+        setProjectId(initialId);
       } catch (err) {
         setIsError(true);
         setErrorMsg('Error loading projects.');

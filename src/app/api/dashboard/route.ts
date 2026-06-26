@@ -65,14 +65,16 @@ export async function GET(req: Request) {
       total_received: holderTotals.get(h.id) || 0
     }));
 
-    // 4. Manual Filtering (replicating RLS)
-    // Always filter by email/wallet/user_id for all users in non-demo mode.
-    // This ensures each admin sees only their own project, not all projects.
+    // 4. Determine admin status for filtering decisions
+    const isAdmin = profile?.role === 'ADMIN' || profile?.role === 'admin' || user.role === 'admin' || user.isAdmin;
+
+    // 5. Manual Filtering (replicating RLS)
+    // Admins see ALL projects. Non-admins are filtered by email/wallet/user_id.
     let allowedProjs = enrichedProjs;
     let allowedHolders = enrichedHolders;
     let allowedTx = allTx || [];
 
-    if (!isDemoMode) {
+    if (!isAdmin && !isDemoMode) {
       const userEmail = user.email;
       const userWallet = profile?.wallet_address?.toLowerCase() || null;
 
@@ -90,6 +92,17 @@ export async function GET(req: Request) {
       allowedTx = (allTx || []).filter(t => allowedProjectIds.has(t.project_id));
     }
 
+    // Find the admin's own project (by email match in holders) for default landing
+    let defaultProjectId: string | null = null;
+    if (isAdmin && user.email && !isDemoMode) {
+      const adminHolder = (allHolders || []).find(
+        h => h.email && user.email && h.email.toLowerCase() === user.email.toLowerCase()
+      );
+      if (adminHolder) {
+        defaultProjectId = adminHolder.project_id;
+      }
+    }
+
 
 
     // 5. Structure the response
@@ -103,7 +116,8 @@ export async function GET(req: Request) {
           total_distributed: allowedProjs.reduce((s, p) => s + Number(p.total_distributed || 0), 0)
         },
         holders: allowedHolders,
-        transactions: allowedTx
+        transactions: allowedTx,
+        defaultProjectId,
       });
     }
 
