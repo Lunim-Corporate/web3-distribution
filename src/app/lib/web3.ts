@@ -431,6 +431,72 @@ export function useRevenueSplitter() {
     }
   };
 
+  /**
+   * Estimate gas cost for a distribution transaction.
+   * Returns gas in both wei and ETH for UI display.
+   */
+  const estimateDistributionGas = async (amountEth: string): Promise<{
+    gasEstimate: bigint;
+    gasEth: string;
+    gasCostWei: bigint;
+  }> => {
+    const contractAddress = resolveContractAddress();
+    const { chain, rpc } = resolveChain();
+    const publicClient = createPublicClient({ chain, transport: http(rpc) });
+    const valueWei = parseEther(amountEth);
+    const callData = encodeFunctionData({ abi: ABI, functionName: 'distributeRevenue' });
+
+    const activeWallet = wallets.find((w) => w.walletClientType === 'privy') || wallets[0];
+    const from = activeWallet?.address as Address || '0x0000000000000000000000000000000000000001';
+
+    try {
+      const gasEstimate = await publicClient.estimateGas({
+        account: from,
+        to: contractAddress,
+        value: valueWei,
+        data: callData,
+      });
+
+      // Get gas price for cost calculation
+      const gasPrice = await publicClient.getGasPrice();
+      const gasCostWei = gasEstimate * gasPrice;
+      const gasEth = formatEther(gasCostWei);
+
+      return { gasEstimate, gasEth, gasCostWei };
+    } catch (err) {
+      console.warn('Gas estimation failed, using fallback:', err);
+      // Fallback estimate — typical distributeRevenue gas for 7 holders
+      const fallbackGas = BigInt(150000);
+      const fallbackPrice = BigInt(1000000000); // 1 gwei
+      const fallbackCost = fallbackGas * fallbackPrice;
+      return {
+        gasEstimate: fallbackGas,
+        gasEth: formatEther(fallbackCost),
+        gasCostWei: fallbackCost,
+      };
+    }
+  };
+
+  /**
+   * Get claim status for multiple holder addresses.
+   * Returns an array of { address, accruedEth, hasPending }.
+   */
+  const getHolderClaimStatuses = async (
+    addresses: string[]
+  ): Promise<{ address: string; accruedEth: string; hasPending: boolean }[]> => {
+    const results = await Promise.all(
+      addresses.map(async (addr) => {
+        const accruedEth = await getAccruedBalanceEth(addr);
+        return {
+          address: addr,
+          accruedEth,
+          hasPending: parseFloat(accruedEth) > 0,
+        };
+      })
+    );
+    return results;
+  };
+
   return {
     smartAccountAddress,
     isInitializing,
@@ -438,5 +504,7 @@ export function useRevenueSplitter() {
     getAccruedBalanceEth,
     claimRevenue,
     distributeRevenue,
+    estimateDistributionGas,
+    getHolderClaimStatuses,
   };
 }

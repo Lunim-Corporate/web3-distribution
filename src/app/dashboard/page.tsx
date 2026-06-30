@@ -12,6 +12,8 @@ import { ReportGenerator } from '@/components/dashboard/ReportGenerator';
 import { DistributePanel } from '@/components/dashboard/DistributePanel';
 import { AddRightsHolderModal } from '@/components/dashboard/AddRightsHolderModal';
 import { MyEarnings } from '@/components/dashboard/MyEarnings';
+import { LiveDistributionWizard } from '@/components/dashboard/LiveDistributionWizard';
+import { LiveDashboard } from '@/components/dashboard/LiveDashboard';
 import { isDemoAccessEnabled, readDemoMode } from '@/app/lib/demoAccess';
 
 import { useEthPrice } from '@/app/lib/useEthPrice';
@@ -59,7 +61,7 @@ const TABS_BASE = [
   { id: 'holders',   label: 'Rights Holders',  icon: '👥' },
   { id: 'reports',   label: 'Reports',          icon: '📄' },
 ] as const;
-type TabId = typeof TABS_BASE[number]['id'] | 'distribute';
+type TabId = typeof TABS_BASE[number]['id'] | 'distribute' | 'wizard' | 'live';
 
 /* ═══════════════════════════════════════════════════════════
    Main Dashboard
@@ -94,7 +96,7 @@ function DashboardContent() {
 
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     const tabParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tab') : null;
-    return (tabParam && ['overview', 'revenue', 'holders', 'reports', 'distribute'].includes(tabParam)) ? tabParam as TabId : 'overview';
+    return (tabParam && ['overview', 'revenue', 'holders', 'reports', 'distribute', 'wizard', 'live'].includes(tabParam)) ? tabParam as TabId : 'overview';
   });
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [isAddHolderModalOpen, setIsAddHolderModalOpen] = useState(false);
@@ -104,7 +106,7 @@ function DashboardContent() {
   /* ── Read ?tab= query param on navigation ────────────────── */
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['overview', 'revenue', 'holders', 'reports', 'distribute'].includes(tabParam)) {
+    if (tabParam && ['overview', 'revenue', 'holders', 'reports', 'distribute', 'wizard', 'live'].includes(tabParam)) {
       setActiveTab(tabParam as TabId);
     }
 
@@ -236,6 +238,8 @@ function DashboardContent() {
   const tabs = [...TABS_BASE] as { id: TabId; label: string; icon: string }[];
   if (canDistribute) {
     tabs.push({ id: 'distribute', label: 'Distribute', icon: '🔀' });
+    tabs.push({ id: 'wizard', label: 'Wizard', icon: '🧙' });
+    tabs.push({ id: 'live', label: 'Live', icon: '📡' });
   }
 
   const totalDistributed = Number(project?.total_distributed || 0);
@@ -493,6 +497,22 @@ function DashboardContent() {
                   <DistributePanel project={project} holders={holders} />
                 )}
               </div>
+            )}
+
+            {/* ── WIZARD (Live Distribution Wizard) ──────────────────────── */}
+            {activeTab === 'wizard' && (isAdmin || isDemoMode) && (
+              <LiveDistributionWizard
+                projects={projectsList}
+                onDistributionComplete={() => void loadProjectData(projectId)}
+              />
+            )}
+
+            {/* ── LIVE DASHBOARD ──────────────────────────────────────── */}
+            {activeTab === 'live' && (isAdmin || isDemoMode) && (
+              <LiveDashboard
+                projectId={projectId || projectsList[0]?.id || ''}
+                holders={holders}
+              />
             )}
 
           </motion.div>
