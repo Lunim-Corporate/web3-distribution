@@ -14,15 +14,22 @@ export async function POST(req: Request) {
     const result = await validateBody(req, manageRightsHolderSchema);
     if (result.error) return result.response;
 
-    const { action, id, percentage } = result.data;
+    const { action, id } = result.data;
 
     if (action === 'update') {
-      if (percentage === undefined) {
-        return NextResponse.json({ error: 'Percentage is required for update action' }, { status: 400 });
+      const updateData: any = {};
+      if (result.data.full_name !== undefined) updateData.full_name = result.data.full_name;
+      if (result.data.role !== undefined) updateData.role = result.data.role;
+      if (result.data.wallet_address !== undefined) updateData.wallet_address = result.data.wallet_address;
+      if (result.data.percentage !== undefined) updateData.percentage = Number(result.data.percentage);
+
+      if (Object.keys(updateData).length === 0) {
+        return NextResponse.json({ error: 'At least one field to update is required' }, { status: 400 });
       }
+
       const { error } = await supabaseAdmin
         .from('rights_holders')
-        .update({ percentage: Number(percentage) })
+        .update(updateData)
         .eq('id', id);
       if (error) throw error;
       return NextResponse.json({ success: true });

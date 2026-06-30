@@ -30,6 +30,9 @@ export default function AdminPage() {
 
   // Editing State
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState<string>('');
+  const [editRole, setEditRole] = useState<string>('');
+  const [editWallet, setEditWallet] = useState<string>('');
   const [editPct, setEditPct] = useState<string>('');
 
   // Project Creation State
@@ -123,19 +126,35 @@ export default function AdminPage() {
     }
   };
 
-  const handleUpdatePercentage = async (id: string, newPercentage: string) => {
+  const handleUpdateHolder = async (
+    id: string,
+    fullName: string,
+    role: string,
+    walletAddress: string,
+    percentage: string
+  ) => {
+    if (!fullName || !role || !walletAddress || !percentage) {
+      return toast.error('All fields must be filled out');
+    }
     try {
       const res = await fetch('/api/rights/manage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'update', id, percentage: Number(newPercentage) })
+        body: JSON.stringify({
+          action: 'update',
+          id,
+          full_name: fullName,
+          role,
+          wallet_address: walletAddress,
+          percentage: Number(percentage)
+        })
       });
       if (!res.ok) throw new Error((await res.json()).error);
-      toast.success('Percentage updated');
+      toast.success('Rights holder updated successfully');
       setEditingId(null);
       await loadData();
     } catch (e: any) {
-      toast.error(e.message || 'Failed to update percentage');
+      toast.error(e.message || 'Failed to update rights holder');
     }
   };
 
@@ -293,23 +312,53 @@ export default function AdminPage() {
                         {holders.map(h => (
                           <tr key={h.id} className="hover:bg-white/[0.02] transition-colors">
                             <td className="p-5">
-                              <div className="font-black text-white">{h.full_name}</div>
-                              <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">{h.role}</div>
+                              {editingId === h.id ? (
+                                <div className="space-y-2 max-w-[180px]">
+                                  <input
+                                    type="text"
+                                    value={editName}
+                                    onChange={e => setEditName(e.target.value)}
+                                    className="w-full bg-gray-900 border border-indigo-500/50 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none font-bold"
+                                    placeholder="Name"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={editRole}
+                                    onChange={e => setEditRole(e.target.value)}
+                                    className="w-full bg-gray-900 border border-indigo-500/50 rounded-lg px-2.5 py-1.5 text-xs text-white outline-none font-bold"
+                                    placeholder="Role"
+                                  />
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="font-black text-white">{h.full_name}</div>
+                                  <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">{h.role}</div>
+                                </>
+                              )}
                             </td>
                             <td className="p-5">
-                              <span className="font-mono text-xs text-indigo-400 bg-indigo-500/5 px-2 py-1 rounded border border-indigo-500/10">
-                                {h.wallet_address.slice(0,10)}...{h.wallet_address.slice(-8)}
-                              </span>
+                              {editingId === h.id ? (
+                                <input
+                                  type="text"
+                                  value={editWallet}
+                                  onChange={e => setEditWallet(e.target.value)}
+                                  className="w-full bg-gray-900 border border-indigo-500/50 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono outline-none"
+                                  placeholder="0x..."
+                                />
+                              ) : (
+                                <span className="font-mono text-xs text-indigo-400 bg-indigo-500/5 px-2 py-1 rounded border border-indigo-500/10">
+                                  {h.wallet_address.slice(0,10)}...{h.wallet_address.slice(-8)}
+                                </span>
+                              )}
                             </td>
                             <td className="p-5 text-right">
                               {editingId === h.id ? (
-                                <div className="flex items-center justify-end gap-2">
+                                <div className="flex items-center justify-end">
                                   <input 
                                     type="number" step="0.01" value={editPct} onChange={e => setEditPct(e.target.value)}
-                                    className="w-20 bg-gray-900 border border-indigo-500 rounded-lg px-3 py-1.5 text-right text-white font-mono font-bold outline-none"
+                                    className="w-20 bg-gray-900 border border-indigo-500/50 rounded-lg px-2.5 py-1.5 text-right text-white font-mono font-bold outline-none"
                                   />
-                                  <button onClick={() => handleUpdatePercentage(h.id, editPct)} className="w-8 h-8 flex items-center justify-center bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition-all">✓</button>
-                                  <button onClick={() => setEditingId(null)} className="w-8 h-8 flex items-center justify-center bg-white/5 text-gray-400 rounded-lg hover:bg-white/10 transition-all">×</button>
+                                  <span className="text-xs text-gray-500 ml-1">%</span>
                                 </div>
                               ) : (
                                 <div className="font-mono font-black text-white text-base">
@@ -318,9 +367,35 @@ export default function AdminPage() {
                               )}
                             </td>
                             <td className="p-5 text-center">
-                              {editingId !== h.id && (
+                              {editingId === h.id ? (
+                                <div className="flex items-center justify-center gap-2">
+                                  <button 
+                                    onClick={() => handleUpdateHolder(h.id, editName, editRole, editWallet, editPct)} 
+                                    className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 text-xs font-black uppercase tracking-widest transition-all"
+                                  >
+                                    Save
+                                  </button>
+                                  <button 
+                                    onClick={() => setEditingId(null)} 
+                                    className="px-3 py-1.5 bg-white/5 text-gray-400 rounded-lg hover:bg-white/10 text-xs font-black uppercase tracking-widest transition-all"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
                                 <div className="flex items-center justify-center gap-4">
-                                  <button onClick={() => { setEditingId(h.id); setEditPct(h.percentage.toString()); }} className="text-indigo-400 hover:text-indigo-300 text-[10px] font-black uppercase tracking-widest underline decoration-2 underline-offset-4">Edit</button>
+                                  <button 
+                                    onClick={() => { 
+                                      setEditingId(h.id); 
+                                      setEditName(h.full_name);
+                                      setEditRole(h.role);
+                                      setEditWallet(h.wallet_address);
+                                      setEditPct(h.percentage.toString()); 
+                                    }} 
+                                    className="text-indigo-400 hover:text-indigo-300 text-[10px] font-black uppercase tracking-widest underline decoration-2 underline-offset-4"
+                                  >
+                                    Edit
+                                  </button>
                                   <button onClick={() => handleDelete(h.id)} className="text-rose-400 hover:text-rose-300 text-[10px] font-black uppercase tracking-widest underline decoration-2 underline-offset-4">Remove</button>
                                 </div>
                               )}
