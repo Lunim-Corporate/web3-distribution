@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { requireAdmin, requireAuth, auditLog } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { validateBody, distributePayloadSchema } from '@/app/lib/validation';
-import { createWalletClient, http, parseEther, publicActions, createPublicClient, decodeEventLog, formatEther } from 'viem';
+import { createWalletClient, http, parseEther, publicActions, createPublicClient, decodeEventLog, formatEther, encodeFunctionData } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { hardhat, baseSepolia } from 'viem/chains';
 import { getEthPriceUSD } from '@/app/lib/ethPrice';
@@ -13,6 +13,13 @@ const LOCAL_RPC = 'http://127.0.0.1:8545';
 const ALCHEMY_RPC = process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC || 'https://sepolia.base.org';
 
 const CONTRACT_ABI = [
+  {
+    type: 'function',
+    name: 'distributeRevenue',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'payable'
+  },
   {
     type: 'event',
     name: 'HolderPaid',
@@ -24,7 +31,7 @@ const CONTRACT_ABI = [
       { type: 'uint256', name: 'basisPoints', indexed: false }
     ]
   }
-];
+] as const;
 
 async function getReceiptFromNetwork(hash: `0x${string}`) {
   // 1. Try local Hardhat
@@ -109,7 +116,7 @@ export async function POST(req: Request) {
     }
 
     let txHash = manual_tx_hash || null;
-    let isDemoMode = true;
+    let isDemoMode = is_demo ?? true;
     let verifiedHolders: any[] = [];
 
     if (!txHash) {
@@ -143,10 +150,14 @@ export async function POST(req: Request) {
       
       try {
         const weiAmount = parseEther(amount_eth.toString());
+        const callData = encodeFunctionData({
+          abi: CONTRACT_ABI,
+          functionName: 'distributeRevenue',
+        });
         const hash = await walletClient.sendTransaction({
           to: contractAddress as `0x${string}`,
           value: weiAmount,
-          data: '0x2d07953a'
+          data: callData,
         });
         await walletClient.waitForTransactionReceipt({ hash });
         txHash = hash;

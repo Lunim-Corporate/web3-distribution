@@ -90,7 +90,10 @@ export default function HomePage() {
         <div className="flex gap-12">
           <div>
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Network</p>
-            <p className="text-sm text-slate-200 font-mono">Ethereum Mainnet (Simulated)</p>
+            <p className="text-sm text-slate-200 font-mono">
+              {process.env.NEXT_PUBLIC_CHAIN_ID === '8453' ? 'Base Mainnet' : 
+               process.env.NEXT_PUBLIC_CHAIN_ID === '31337' ? 'Hardhat Localhost' : 'Base Sepolia (Testnet)'}
+            </p>
           </div>
           <div>
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Status</p>

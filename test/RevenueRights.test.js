@@ -400,4 +400,53 @@ describe("RevenueRights", function () {
       );
     });
   });
+
+  describe("pause() / unpause() emergency controls", function () {
+    it("should allow owner to pause and reject distributions and claims", async function () {
+      const { contract, owner, alice, outsider } = await loadFixture(deployFixture);
+
+      await expect(contract.connect(owner).pause())
+        .to.emit(contract, "EmergencyPaused");
+
+      // Attempt distribute when paused should revert
+      await expect(
+        contract.connect(outsider).distributeRevenue({ value: ethers.parseEther("1.0") })
+      ).to.be.revertedWithCustomError(contract, "EnforcedPause");
+
+      // Attempt claim when paused should revert
+      await expect(
+        contract.connect(alice).claim()
+      ).to.be.revertedWithCustomError(contract, "EnforcedPause");
+    });
+
+    it("should allow owner to unpause and resume distributions and claims", async function () {
+      const { contract, owner, alice, outsider } = await loadFixture(deployFixture);
+
+      await contract.connect(owner).pause();
+      
+      await expect(contract.connect(owner).unpause())
+        .to.emit(contract, "EmergencyUnpaused");
+
+      // Distribute works again
+      await contract.connect(outsider).distributeRevenue({ value: ethers.parseEther("1.0") });
+      
+      // Claim works again
+      await expect(contract.connect(alice).claim())
+        .to.emit(contract, "HolderClaimed");
+    });
+
+    it("should reject non-owners from pausing or unpausing", async function () {
+      const { contract, outsider } = await loadFixture(deployFixture);
+
+      await expect(
+        contract.connect(outsider).pause()
+      ).to.be.revertedWithCustomError(contract, "OwnableUnauthorizedAccount")
+       .withArgs(outsider.address);
+
+      await expect(
+        contract.connect(outsider).unpause()
+      ).to.be.revertedWithCustomError(contract, "OwnableUnauthorizedAccount")
+       .withArgs(outsider.address);
+    });
+  });
 });

@@ -224,7 +224,8 @@ export function useRevenueSplitter() {
         return txHash;
       } else {
         await new Promise((resolve) => setTimeout(resolve, 1500));
-        const mockHash = '0x' + Array.from({length: 64}, () => Math.floor(Math.random()*16).toString(16)).join('');
+        const ts = Date.now().toString(16).padStart(12, '0');
+        const mockHash = '0xdemo' + ts + '0'.repeat(64 - 4 - ts.length - 4) + 'cafe';
         return mockHash;
       }
     } else {

@@ -142,12 +142,29 @@ export async function updateContributor(id: string, updates: any) {
 }
 
 // Payments
-export async function recordPayment(_data: {
+export async function recordPayment(data: {
   project_id: string;
   amount_cents: number;
   source: string;
-}): Promise<null> {
-  return null;
+}): Promise<any> {
+  // Convert cents to ETH equivalent (rough manual entry — no on-chain tx)
+  const amountEth = data.amount_cents / 100;
+
+  const { data: inserted, error } = await supabase
+    .from('transactions')
+    .insert([{
+      project_id: data.project_id,
+      tx_hash: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      sender_address: '0x0000000000000000000000000000000000000000',
+      total_amount_eth: amountEth,
+      method: 'manual',
+      is_demo: false,
+      status: 'confirmed',
+    }])
+    .select()
+    .single();
+  if (error) throw error;
+  return inserted;
 }
 
 export async function getPayments(projectId: string) {

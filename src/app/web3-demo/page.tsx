@@ -6,6 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useEthPrice } from '@/app/lib/useEthPrice';
 import { DEMO_ACCOUNTS } from '@/app/components/Navbar';
+import { TransactionFlowVisualizer } from '@/app/components/dashboard/TransactionFlowVisualizer';
+import { HolderEarningsCard } from '@/app/components/dashboard/HolderEarningsCard';
+import { TransactionHistory } from '@/app/components/dashboard/TransactionHistory';
 
 /* ─────────────────────────────────────────────────────────────
    Types
@@ -762,6 +765,29 @@ export default function Web3DemoPage() {
             )}
           </div>
 
+          {/* Transaction Flow Visualizer */}
+          {holders.length > 0 && (
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl space-y-4">
+              <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest">Transaction Flow</h2>
+              <TransactionFlowVisualizer
+                amount={parseFloat(amount) || 0}
+                holders={holders.map(h => ({
+                  full_name: h.full_name,
+                  role: h.role,
+                  percentage: h.percentage,
+                  wallet_address: h.wallet_address,
+                }))}
+                isAnimating={txStatus === 'pending'}
+                senderAddress={account || undefined}
+                contractAddress={
+                  isDemoMode
+                    ? (process.env.NEXT_PUBLIC_DEMO_CONTRACT_ADDRESS || undefined)
+                    : (process.env.NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS || undefined)
+                }
+              />
+            </div>
+          )}
+
           {/* Execute Button */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
             <AnimatePresence mode="wait">
@@ -892,6 +918,26 @@ export default function Web3DemoPage() {
             </div>
           </div>
         </div>
+
+        {/* Full-width Ledger History & Claim Center */}
+        {selectedProject && (
+          <div className="col-span-full grid grid-cols-1 xl:grid-cols-2 gap-8 mt-4">
+            <HolderEarningsCard
+              holders={holders.map(h => ({
+                id: h.id,
+                full_name: h.full_name,
+                role: h.role,
+                wallet_address: h.wallet_address,
+                percentage: h.percentage,
+                total_received: h.total_received || 0,
+              }))}
+            />
+            <TransactionHistory
+              projectId={selectedProject}
+              isDemoMode={isDemoMode}
+            />
+          </div>
+        )}
       </main>
     </div>
   );
