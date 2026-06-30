@@ -41,19 +41,17 @@ const timeAgo = (dateStr: string) => {
 /* ═══════════════════════════════════════════════════════════
    LiveDashboard Component
    ═══════════════════════════════════════════════════════════ */
+interface Project { id: string; name: string; contract_address?: string; demo_contract_address?: string; }
+
 export function LiveDashboard({
   projectId,
   holders,
+  project,
 }: {
   projectId: string;
   holders: RightsHolder[];
+  project?: Project | null;
 }) {
-  const {
-    getContractBalanceEth,
-    getHolderClaimStatuses,
-  } = useRevenueSplitter();
-  const { formatEthAsUsd } = useEthPrice();
-
   // Mode
   const [isDemoMode, setIsDemoMode] = useState(false);
   useEffect(() => {
@@ -62,6 +60,16 @@ export function LiveDashboard({
     window.addEventListener('demo-mode-changed', handler as EventListener);
     return () => window.removeEventListener('demo-mode-changed', handler as EventListener);
   }, []);
+
+  const demoCA = project?.demo_contract_address || process.env.NEXT_PUBLIC_DEMO_CONTRACT_ADDRESS;
+  const liveCA = project?.contract_address || process.env.NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS;
+  const targetCA = isDemoMode ? demoCA : liveCA;
+
+  const {
+    getContractBalanceEth,
+    getHolderClaimStatuses,
+  } = useRevenueSplitter(targetCA);
+  const { formatEthAsUsd } = useEthPrice();
 
   // State
   const [contractBalance, setContractBalance] = useState('0.0');

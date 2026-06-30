@@ -50,7 +50,7 @@ const ABI = [
   }
 ];
 
-export function useRevenueSplitter() {
+export function useRevenueSplitter(overrideContractAddress?: string) {
   const { wallets } = useWallets();
   
   const [smartAccountAddress, setSmartAccountAddress] = useState<Address | null>(null);
@@ -117,6 +117,7 @@ export function useRevenueSplitter() {
   }, [wallets, isDemoMode]);
 
   const resolveContractAddress = (): Address => {
+    if (overrideContractAddress) return overrideContractAddress as Address;
     const addr = isDemoMode ? DEMO_CONTRACT_ADDRESS : LIVE_CONTRACT_ADDRESS;
     if (!addr) throw new Error('Contract address not configured');
     return addr;

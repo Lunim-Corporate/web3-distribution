@@ -58,6 +58,13 @@ const seedData = async () => {
   // ──────────────────────────────────────────────
   const ADMIN_LIVE_ADDRESS = process.env.ADMIN_LIVE_ADDRESS || null;
 
+  // Map admin holder names to their login emails so dashboard can link them
+  const ADMIN_EMAIL_MAP = {
+    'Pete (Admin)': 'pete@tabb.cc',
+    'freewhynane62 (Admin)': 'freewhynane62@gmail.com',
+    'jeevesh039 (Admin)': 'jeevesh039@gmail.com',
+  };
+
   const projects = [
     {
       name: "Neon Requiem",
@@ -170,7 +177,7 @@ const seedData = async () => {
     const holdersToInsert = proj.holders.map(h => {
       const addr = h.wallet_address || getWallet(accountIndex);
       if (!h.wallet_address) accountIndex++;
-      return {
+      const holderRow = {
         project_id: projectId,
         full_name: h.full_name,
         role: h.role,
@@ -178,6 +185,11 @@ const seedData = async () => {
         wallet_address: addr,
         total_received: 0,
       };
+      // Set email on admin holders so dashboard can link them
+      if (ADMIN_EMAIL_MAP[h.full_name]) {
+        holderRow.email = ADMIN_EMAIL_MAP[h.full_name];
+      }
+      return holderRow;
     });
 
     const { data: insertedHolders, error: holderErr } = await supabase

@@ -15,6 +15,8 @@ interface Project {
   genre?: string;
   status: string;
   total_distributed: number;
+  contract_address?: string;
+  demo_contract_address?: string;
 }
 
 interface RightsHolder {
@@ -45,14 +47,6 @@ export function LiveDistributionWizard({
   projects: Project[];
   onDistributionComplete?: () => void;
 }) {
-  const {
-    distributeRevenue,
-    smartAccountAddress,
-    estimateDistributionGas,
-    getContractBalanceEth,
-  } = useRevenueSplitter();
-  const { formatEthAsUsd, ethToUsd } = useEthPrice();
-
   // Mode
   const [isDemoMode, setIsDemoMode] = useState(false);
   useEffect(() => {
@@ -62,9 +56,23 @@ export function LiveDistributionWizard({
     return () => window.removeEventListener('demo-mode-changed', handler as EventListener);
   }, []);
 
+  const [selectedProjectId, setSelectedProjectId] = useState('');
+  const selectedProject = projects.find(p => p.id === selectedProjectId) || null;
+
+  const demoCA = selectedProject?.demo_contract_address || process.env.NEXT_PUBLIC_DEMO_CONTRACT_ADDRESS;
+  const liveCA = selectedProject?.contract_address || process.env.NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS;
+  const targetCA = isDemoMode ? demoCA : liveCA;
+
+  const {
+    distributeRevenue,
+    smartAccountAddress,
+    estimateDistributionGas,
+    getContractBalanceEth,
+  } = useRevenueSplitter(targetCA);
+  const { formatEthAsUsd, ethToUsd } = useEthPrice();
+
   // Wizard state
   const [step, setStep] = useState<WizardStep>('select');
-  const [selectedProjectId, setSelectedProjectId] = useState('');
   const [holders, setHolders] = useState<RightsHolder[]>([]);
   const [amount, setAmount] = useState('0.1');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -106,8 +114,6 @@ export function LiveDistributionWizard({
     setModalError('');
     setModalTxHash('');
   };
-
-  const selectedProject = projects.find(p => p.id === selectedProjectId) || null;
 
   /* ── Fetch holders when project changes ─────────────────── */
   useEffect(() => {

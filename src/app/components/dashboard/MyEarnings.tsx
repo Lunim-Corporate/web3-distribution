@@ -48,6 +48,7 @@ interface MyEarningsProps {
   projectId: string | null;
   holders: RightsHolder[];
   isDemoMode: boolean;
+  project?: { id: string; name: string; contract_address?: string; demo_contract_address?: string; } | null;
 }
 
 const formatUSD = (amount: number) =>
@@ -59,9 +60,13 @@ const getTransactionDate = (tx: Transaction) => tx.created_at || tx.date || new 
 
 const demoClaimStorageKey = (wallet: string) => `demo_claimed_earnings:${wallet.toLowerCase()}`;
 
-export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projectId, holders, isDemoMode }) => {
+export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projectId, holders, isDemoMode, project }) => {
   const { wallets } = useWallets();
-  const { getAccruedBalanceEth, claimRevenue } = useRevenueSplitter();
+  const demoCA = project?.demo_contract_address || process.env.NEXT_PUBLIC_DEMO_CONTRACT_ADDRESS;
+  const liveCA = project?.contract_address || process.env.NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS;
+  const targetCA = isDemoMode ? demoCA : liveCA;
+
+  const { getAccruedBalanceEth, claimRevenue } = useRevenueSplitter(targetCA);
   const { ethPrice } = useEthPrice();
 
   const [activeWallet, setActiveWallet] = useState<string | null>(null);

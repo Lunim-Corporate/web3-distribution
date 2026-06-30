@@ -92,10 +92,10 @@ async function main() {
       try {
         const { error } = await supabase
           .from('projects')
-          .update({ contract_address: address })
+          .update({ demo_contract_address: address })
           .eq('id', data.id);
         if (error) throw error;
-        console.log("  ✓ Synced contract address to Neon Requiem project in DB.\n");
+        console.log("  ✓ Synced DEMO contract address to Neon Requiem project in DB.\n");
       } catch (e) {
         console.warn("  ⚠ Could not sync with DB: " + e.message);
       }

@@ -11,6 +11,7 @@ import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { ReportGenerator } from '@/components/dashboard/ReportGenerator';
 import { DistributePanel } from '@/components/dashboard/DistributePanel';
 import { AddRightsHolderModal } from '@/components/dashboard/AddRightsHolderModal';
+import { EditRightsHolderModal } from '@/components/dashboard/EditRightsHolderModal';
 import { MyEarnings } from '@/components/dashboard/MyEarnings';
 import { LiveDistributionWizard } from '@/components/dashboard/LiveDistributionWizard';
 import { LiveDashboard } from '@/components/dashboard/LiveDashboard';
@@ -20,7 +21,7 @@ import { useEthPrice } from '@/app/lib/useEthPrice';
 import { formatUSD as fmtUSD, formatETH as fmtETH } from '@/app/lib/constants';
 
 /* ─── Types ──────────────────────────────────────────────── */
-interface Project { id: string; name: string; genre?: string; status: string; total_distributed: number; }
+interface Project { id: string; name: string; genre?: string; status: string; total_distributed: number; contract_address?: string; demo_contract_address?: string; }
 interface RightsHolder { id: string; full_name: string; role: string; wallet_address: string; percentage: number; avatar_initials?: string; total_received: number; project_id?: string; }
 interface TxSplit { id: string; rights_holder_id: string; full_name: string; role: string; percentage: number; amount_eth: number; wallet_address: string; }
 interface Transaction { id: string; tx_hash: string; sender_address: string; total_amount_eth: number; status: string; created_at: string; transaction_splits?: TxSplit[]; }
@@ -102,6 +103,8 @@ function DashboardContent() {
   const [isAddHolderModalOpen, setIsAddHolderModalOpen] = useState(false);
 
   const [selectedHolder, setSelectedHolder] = useState<RightsHolder | null>(null);
+  const [editingHolder, setEditingHolder] = useState<RightsHolder | null>(null);
+  const [isEditHolderModalOpen, setIsEditHolderModalOpen] = useState(false);
 
   /* ── Read ?tab= query param on navigation ────────────────── */
   useEffect(() => {
@@ -393,6 +396,7 @@ function DashboardContent() {
                   projectId={projectId}
                   holders={holders}
                   isDemoMode={isDemoMode}
+                  project={projectsList.find(p => p.id === (projectId || projectsList[0]?.id)) || null}
                 />
               </div>
             )}
@@ -413,6 +417,19 @@ function DashboardContent() {
                       <p className={`text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r ${s.grad} mt-1 font-mono tracking-tight`}>{s.value}</p>
                     </div>
                   ))}
+                </div>
+
+                {/* Holders header with Add button */}
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest">All Rights Holders</h2>
+                  {(isAdmin || isDemoMode) && project?.id !== 'all' && (
+                    <button
+                      onClick={() => setIsAddHolderModalOpen(true)}
+                      className="text-xs font-bold text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-lg transition-colors border border-indigo-500/20"
+                    >
+                      + Add Holder
+                    </button>
+                  )}
                 </div>
 
                 {/* Holders grid */}
@@ -437,10 +454,21 @@ function DashboardContent() {
                               <p className="font-bold text-white text-sm truncate">{h.full_name}</p>
                               <p className="text-xs text-gray-400">{h.role}</p>
                             </div>
-                            <div className="shrink-0">
+                            <div className="shrink-0 flex items-center gap-1.5">
                               <span className="px-2.5 py-1 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-black rounded-lg font-mono">
                                 {h.percentage}%
                               </span>
+                              {isAdmin && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setEditingHolder(h); setIsEditHolderModalOpen(true); }}
+                                  className="p-1.5 bg-white/5 border border-white/10 text-gray-400 hover:text-indigo-400 hover:border-indigo-500/30 rounded-lg transition-all"
+                                  title="Edit holder"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </button>
+                              )}
                             </div>
                           </div>
                           <div className="space-y-2">
@@ -512,6 +540,7 @@ function DashboardContent() {
               <LiveDashboard
                 projectId={projectId || projectsList[0]?.id || ''}
                 holders={holders}
+                project={projectsList.find(p => p.id === (projectId || projectsList[0]?.id)) || null}
               />
             )}
 
@@ -527,6 +556,13 @@ function DashboardContent() {
         onSuccess={() => void loadProjectData(projectId)}
       />
 
+      <EditRightsHolderModal
+        isOpen={isEditHolderModalOpen}
+        holder={editingHolder}
+        onClose={() => { setIsEditHolderModalOpen(false); setEditingHolder(null); }}
+        onSuccess={() => void loadProjectData(projectId)}
+      />
+
       {/* Holder Profile Modal */}
       <AnimatePresence>
         {selectedHolder && (
@@ -535,6 +571,8 @@ function DashboardContent() {
             onClose={() => setSelectedHolder(null)}
             projectsList={projectsList}
             transactions={transactions}
+            isAdmin={isAdmin}
+            onEdit={(h) => { setEditingHolder(h); setIsEditHolderModalOpen(true); }}
           />
         )}
       </AnimatePresence>
@@ -546,12 +584,16 @@ function HolderProfileModal({
   holder, 
   onClose, 
   projectsList, 
-  transactions 
+  transactions,
+  isAdmin,
+  onEdit,
 }: { 
   holder: RightsHolder; 
   onClose: () => void;
   projectsList: Project[];
   transactions: Transaction[];
+  isAdmin: boolean;
+  onEdit: (_h: RightsHolder) => void;
 }) {
   const project = projectsList.find(p => p.id === holder.project_id);
   const { ethPrice } = useEthPrice();
@@ -594,7 +636,16 @@ function HolderProfileModal({
         <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-br from-indigo-600/20 via-purple-600/10 to-transparent pointer-events-none" />
 
         {/* ── Close button ── */}
-        <div className="absolute top-4 right-4 z-10">
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+          {isAdmin && (
+            <button
+              onClick={() => onEdit(holder)}
+              className="p-2 text-gray-400 hover:text-indigo-400 bg-white/5 hover:bg-indigo-500/10 rounded-xl transition-all duration-200 backdrop-blur-sm border border-white/5"
+              title="Edit holder"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+            </button>
+          )}
           <button onClick={onClose} className="p-2 text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-all duration-200 backdrop-blur-sm border border-white/5">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>

@@ -9,15 +9,20 @@ import { useRevenueSplitter } from '@/lib/web3';
 import { isDemoAccessEnabled, readDemoMode } from '@/app/lib/demoAccess';
 import { TxModal, TxStep } from '../ui/TxModal';
 
-interface Project { id: string; name: string; total_distributed: number; }
+interface Project { id: string; name: string; total_distributed: number; contract_address?: string; demo_contract_address?: string; }
 interface RightsHolder { id: string; full_name: string; role: string; wallet_address: string; percentage: number; }
 
 export function DistributePanel({ project, holders }: { project: Project | null; holders: RightsHolder[] }) {
   const { user } = useAuth();
-  const { distributeRevenue, smartAccountAddress } = useRevenueSplitter();
+  
+  const [isDemoMode, setIsDemoMode] = useState(false);
+  const demoCA = project?.demo_contract_address || process.env.NEXT_PUBLIC_DEMO_CONTRACT_ADDRESS;
+  const liveCA = project?.contract_address || process.env.NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS;
+  const targetCA = isDemoMode ? demoCA : liveCA;
+  
+  const { distributeRevenue, smartAccountAddress } = useRevenueSplitter(targetCA);
   const [amount, setAmount] = useState<string>('0.1');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isDemoMode, setIsDemoMode] = useState(false);
   const { formatEthAsUsd } = useEthPrice();
   
   useEffect(() => {
@@ -55,8 +60,8 @@ export function DistributePanel({ project, holders }: { project: Project | null;
     setModalTxHash('');
   };
   
-  const DEMO_CA = process.env.NEXT_PUBLIC_DEMO_CONTRACT_ADDRESS;
-  const LIVE_CA = process.env.NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS;
+  const DEMO_CA = project?.demo_contract_address || process.env.NEXT_PUBLIC_DEMO_CONTRACT_ADDRESS;
+  const LIVE_CA = project?.contract_address || process.env.NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS;
   const CONTRACT_ADDRESS = isDemoMode ? (DEMO_CA || '') : (LIVE_CA || '');
 
   const handleDistribute = async () => {

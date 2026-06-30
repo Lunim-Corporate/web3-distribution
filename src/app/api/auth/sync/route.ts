@@ -66,15 +66,24 @@ const ADMIN_PROJECT_TEMPLATES: Record<string, {
   },
 };
 
+// All admin email ↔ label mappings (used to cross-list admins in every project)
+const ALL_ADMINS: { label: string; email: string }[] = [
+  { label: 'Pete (Admin)', email: 'pete@tabb.cc' },
+  { label: 'freewhynane62 (Admin)', email: 'freewhynane62@gmail.com' },
+  { label: 'jeevesh039 (Admin)', email: 'jeevesh039@gmail.com' },
+];
+
+// Holder templates: 5 creative roles (90%) + 3 admins (5% + 3% + 2% = 10%)
 const HOLDER_TEMPLATES = [
-  { full_name: 'Aria Voss', role: 'Director', percentage: 25, wallet_address: DEMO_WALLETS[0] },
-  { full_name: 'Marcus Delgado', role: 'Lead Actor', percentage: 20, wallet_address: DEMO_WALLETS[1] },
-  { full_name: 'Priya Nair', role: 'Producer', percentage: 15, wallet_address: DEMO_WALLETS[2] },
-  { full_name: 'Theo Harrington', role: 'Music Composer', percentage: 15, wallet_address: DEMO_WALLETS[3] },
-  { full_name: 'Simone Okafor', role: 'Screenplay Writer', percentage: 15, wallet_address: DEMO_WALLETS[4] },
-  { full_name: '__ADMIN_LABEL__', role: 'Administrator', percentage: 5, wallet_address: null },
-  { full_name: 'Zara Vance', role: 'Marketing', percentage: 5, wallet_address: DEMO_WALLETS[5] },
-  { full_name: 'Omar Hassan', role: 'Legal', percentage: 5, wallet_address: DEMO_WALLETS[6] },
+  { full_name: 'Aria Voss', role: 'Director', percentage: 25, wallet_address: DEMO_WALLETS[0], email: null as string | null },
+  { full_name: 'Marcus Delgado', role: 'Lead Actor', percentage: 20, wallet_address: DEMO_WALLETS[1], email: null as string | null },
+  { full_name: 'Priya Nair', role: 'Producer', percentage: 15, wallet_address: DEMO_WALLETS[2], email: null as string | null },
+  { full_name: 'Theo Harrington', role: 'Music Composer', percentage: 15, wallet_address: DEMO_WALLETS[3], email: null as string | null },
+  { full_name: 'Simone Okafor', role: 'Screenplay Writer', percentage: 15, wallet_address: DEMO_WALLETS[4], email: null as string | null },
+  // Admin slots — filled dynamically with the triggering admin getting 5%, others 3% and 2%
+  { full_name: '__ADMIN_PRIMARY__', role: 'Administrator', percentage: 5, wallet_address: null as string | null, email: null as string | null },
+  { full_name: '__ADMIN_SECONDARY__', role: 'Administrator', percentage: 3, wallet_address: null as string | null, email: null as string | null },
+  { full_name: '__ADMIN_TERTIARY__', role: 'Administrator', percentage: 2, wallet_address: null as string | null, email: null as string | null },
 ];
 
 async function seedDemoDataForAdmin(adminEmail: string) {
@@ -109,15 +118,23 @@ async function seedDemoDataForAdmin(adminEmail: string) {
     return;
   }
 
+  // Build admin ordering: primary = triggering admin, secondary + tertiary = the other two
+  const otherAdmins = ALL_ADMINS.filter(a => a.email.toLowerCase() !== adminKey);
+  const adminSlots: Record<string, { label: string; email: string }> = {
+    '__ADMIN_PRIMARY__': { label: template.adminLabel, email: adminKey },
+    '__ADMIN_SECONDARY__': otherAdmins[0] || { label: 'Admin 2', email: '' },
+    '__ADMIN_TERTIARY__': otherAdmins[1] || { label: 'Admin 3', email: '' },
+  };
+
   for (const h of HOLDER_TEMPLATES) {
-    const isAdminSlot = h.full_name === '__ADMIN_LABEL__';
+    const adminSlot = adminSlots[h.full_name];
     await supabaseAdmin.from('rights_holders').insert({
       project_id: project.id,
-      full_name: isAdminSlot ? template.adminLabel : h.full_name,
+      full_name: adminSlot ? adminSlot.label : h.full_name,
       role: h.role,
       percentage: h.percentage,
       wallet_address: h.wallet_address,
-      email: isAdminSlot ? adminKey : null,
+      email: adminSlot ? adminSlot.email : null,
     });
   }
 
@@ -130,8 +147,9 @@ async function seedDemoDataForAdmin(adminEmail: string) {
     });
   }
 
-  console.log(`[SEED] Demo project "${template.name}" seeded for admin ${adminEmail}`);
+  console.log(`[SEED] Demo project "${template.name}" seeded for admin ${adminEmail} (all 3 admins cross-listed)`);
 }
+
 
 const privy = new PrivyClient(
   process.env.NEXT_PUBLIC_PRIVY_APP_ID || '',
