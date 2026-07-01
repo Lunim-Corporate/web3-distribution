@@ -2,7 +2,9 @@ export const isDemoAccessEnabled =
   process.env.NEXT_PUBLIC_DISABLE_DEMO_ACCESS !== 'true';
 
 export const isSandboxLoginEnabled =
-  process.env.NEXT_PUBLIC_ENABLE_SANDBOX_LOGIN === 'true';
+  process.env.NEXT_PUBLIC_ENABLE_SANDBOX_LOGIN === 'true' ||
+  (typeof window !== 'undefined' && window.location.hostname.endsWith('.vercel.app')) ||
+  process.env.NODE_ENV === 'development';
 
 export function readDemoMode(): boolean {
   if (!isDemoAccessEnabled || typeof window === 'undefined') return false;
