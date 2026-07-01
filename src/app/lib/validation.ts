@@ -27,7 +27,7 @@ const ethAmount = z
 const uuid = z.string().uuid('Invalid UUID format');
 
 /** Safe string — trimmed, no HTML tags, max length */
-const safeString = (maxLen = 500) =>
+export const safeString = (maxLen = 500) =>
   z
     .string()
     .trim()
@@ -85,7 +85,7 @@ export const addRightsHolderSchema = z.object({
   full_name: safeString(200),
   role: safeString(100),
   percentage: percentage,
-  wallet_address: ethereumAddress.optional(),
+  wallet_address: ethereumAddress,
   email: z.string().email().optional(),
 });
 

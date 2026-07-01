@@ -3,16 +3,26 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+interface RightsHolder {
+  id: string;
+  full_name: string;
+  role: string;
+  wallet_address: string;
+  percentage: number;
+}
+
 export const AddRightsHolderModal = ({ 
   isOpen, 
   onClose, 
   projectId,
-  onSuccess
+  onSuccess,
+  allHolders = [],
 }: { 
   isOpen: boolean; 
   onClose: () => void;
   projectId: string;
   onSuccess: () => void;
+  allHolders?: RightsHolder[];
 }) => {
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState('');
@@ -20,6 +30,15 @@ export const AddRightsHolderModal = ({
   const [percentage, setPercentage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Calculate total allocation warning
+  const currentTotal = allHolders.reduce((sum, h) => sum + Number(h.percentage), 0);
+  const pctNum = Number(percentage) || 0;
+  const projectedTotal = currentTotal + pctNum;
+  const pctDiff = projectedTotal - 100;
+  const isOver100 = pctDiff > 0.01;
+  const isUnder100 = pctDiff < -0.01;
+  const showWarning = percentage !== '' && (isOver100 || isUnder100);
 
   if (!isOpen) return null;
 
@@ -84,6 +103,19 @@ export const AddRightsHolderModal = ({
             {error && (
               <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm rounded-xl">
                 {error}
+              </div>
+            )}
+
+            {showWarning && (
+              <div className={`p-3 border rounded-xl text-sm ${isOver100 ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-400'}`}>
+                <div className="font-bold mb-1">
+                  {isOver100
+                    ? `⚠️ Total would be ${projectedTotal.toFixed(2)}% (exceeds 100% by ${Math.abs(pctDiff).toFixed(2)}%)`
+                    : `⚠️ Total would be ${projectedTotal.toFixed(2)}% (${Math.abs(pctDiff).toFixed(2)}% short of 100%)`}
+                </div>
+                <p className="text-xs opacity-80">
+                  Adjust other holders or add more to keep the project allocation at exactly 100%.
+                </p>
               </div>
             )}
             

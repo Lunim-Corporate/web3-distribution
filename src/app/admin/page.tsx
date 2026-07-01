@@ -40,6 +40,12 @@ export default function AdminPage() {
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectGenre, setNewProjectGenre] = useState('');
 
+  // Project Editing State
+  const [editingProjectId, setEditingProjectId] = useState<string | null>(null);
+  const [editProjectName, setEditProjectName] = useState('');
+  const [editProjectGenre, setEditProjectGenre] = useState('');
+  const [isSavingProject, setIsSavingProject] = useState(false);
+
   const loadData = useCallback(async () => {
     try {
       const res = await fetch(`/api/dashboard?pid=${selectedProjectId || 'all'}`);
@@ -69,6 +75,41 @@ export default function AdminPage() {
     }
     void loadData();
   }, [user, router, loadData]);
+
+  // Find selected project details
+  const selectedProject = projects.find(p => p.id === selectedProjectId);
+
+  const handleEditProject = () => {
+    if (!selectedProject) return;
+    setEditingProjectId(selectedProject.id);
+    setEditProjectName(selectedProject.name);
+    setEditProjectGenre((selectedProject as any).genre || '');
+  };
+
+  const handleSaveProject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProjectId || !editProjectName) return toast.error('Project name is required');
+    setIsSavingProject(true);
+    try {
+      const res = await fetch(`/api/projects/${editingProjectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editProjectName, genre: editProjectGenre }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error);
+      toast.success('Project updated successfully');
+      setEditingProjectId(null);
+      await loadData();
+    } catch (e: any) {
+      toast.error(e.message || 'Error updating project');
+    } finally {
+      setIsSavingProject(false);
+    }
+  };
+
+  const handleCancelEditProject = () => {
+    setEditingProjectId(null);
+  };
 
   const totalPct = holders.reduce((sum, h) => sum + Number(h.percentage || 0), 0);
   const is100Percent = Math.abs(totalPct - 100) < 0.01;
@@ -115,8 +156,12 @@ export default function AdminPage() {
           percentage: Number(newPct)
         })
       });
-      if (!res.ok) throw new Error((await res.json()).error);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error adding holder');
       toast.success('Rights holder added successfully');
+      if (data.warning) {
+        setTimeout(() => toast(data.warning, { icon: '⚠️', duration: 6000 }), 500);
+      }
       setNewName(''); setNewWallet(''); setNewRole(''); setNewPct('');
       await loadData();
     } catch (e: any) {
@@ -149,8 +194,12 @@ export default function AdminPage() {
           percentage: Number(percentage)
         })
       });
-      if (!res.ok) throw new Error((await res.json()).error);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update');
       toast.success('Rights holder updated successfully');
+      if (data.warning) {
+        setTimeout(() => toast(data.warning, { icon: '⚠️', duration: 6000 }), 500);
+      }
       setEditingId(null);
       await loadData();
     } catch (e: any) {
@@ -166,8 +215,12 @@ export default function AdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'delete', id })
       });
-      if (!res.ok) throw new Error((await res.json()).error);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to remove');
       toast.success('Rights holder removed');
+      if (data.warning) {
+        setTimeout(() => toast(data.warning, { icon: '⚠️', duration: 6000 }), 500);
+      }
       await loadData();
     } catch (e: any) {
       toast.error(e.message || 'Failed to remove holder');
@@ -259,16 +312,58 @@ export default function AdminPage() {
 
           <div className="bg-white/5 border border-white/10 rounded-3xl p-6 backdrop-blur-xl">
             <h2 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-4">Select Project</h2>
-            <select
-              value={selectedProjectId}
-              onChange={e => setSelectedProjectId(e.target.value)}
-              className="w-full bg-gray-900 border border-white/10 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="">-- Choose Project --</option>
-              {projects.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
+            {editingProjectId ? (
+              <form onSubmit={handleSaveProject} className="space-y-3">
+                <input
+                  type="text"
+                  value={editProjectName}
+                  onChange={e => setEditProjectName(e.target.value)}
+                  className="w-full bg-gray-900 border border-indigo-500/50 rounded-xl px-4 py-3 text-white font-bold outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  placeholder="Project name"
+                />
+                <input
+                  type="text"
+                  value={editProjectGenre}
+                  onChange={e => setEditProjectGenre(e.target.value)}
+                  className="w-full bg-gray-900 border border-indigo-500/50 rounded-xl px-4 py-3 text-white outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                  placeholder="Genre"
+                />
+                <div className="flex gap-2">
+                  <button type="submit" disabled={isSavingProject}
+                    className="flex-1 py-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl hover:bg-emerald-500/20 text-xs font-black uppercase tracking-widest transition-all disabled:opacity-50"
+                  >
+                    {isSavingProject ? 'Saving...' : 'Save'}
+                  </button>
+                  <button type="button" onClick={handleCancelEditProject}
+                    className="flex-1 py-2.5 bg-white/5 text-gray-400 rounded-xl hover:bg-white/10 text-xs font-black uppercase tracking-widest transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="flex gap-2">
+                <select
+                  value={selectedProjectId}
+                  onChange={e => setSelectedProjectId(e.target.value)}
+                  className="flex-1 bg-gray-900 border border-white/10 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">-- Choose Project --</option>
+                  {projects.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                {selectedProjectId && (
+                  <button
+                    onClick={handleEditProject}
+                    className="px-3 py-3 bg-indigo-500/10 text-indigo-400 rounded-xl hover:bg-indigo-500/20 text-xs font-black uppercase tracking-widest transition-all border border-indigo-500/20"
+                    title="Edit project"
+                  >
+                    Edit
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

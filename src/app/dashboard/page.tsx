@@ -554,6 +554,7 @@ function DashboardContent() {
         onClose={() => setIsAddHolderModalOpen(false)}
         projectId={project?.id || ''}
         onSuccess={() => void loadProjectData(projectId)}
+        allHolders={holders}
       />
 
       <EditRightsHolderModal
@@ -561,6 +562,7 @@ function DashboardContent() {
         holder={editingHolder}
         onClose={() => { setIsEditHolderModalOpen(false); setEditingHolder(null); }}
         onSuccess={() => void loadProjectData(projectId)}
+        allHolders={holders}
       />
 
       {/* Holder Profile Modal */}

@@ -16,6 +16,29 @@ export async function POST(req: Request) {
 
     const { action, id } = result.data;
 
+    // Fetch the holder being modified (for total calculation)
+    const { data: thisHolder } = await supabaseAdmin
+      .from('rights_holders')
+      .select('project_id, percentage')
+      .eq('id', id)
+      .single();
+
+    if (!thisHolder) {
+      return NextResponse.json({ error: 'Rights holder not found' }, { status: 404 });
+    }
+
+    // Calculate total allocation impact
+    const { data: projectHolders } = await supabaseAdmin
+      .from('rights_holders')
+      .select('id, percentage')
+      .eq('project_id', thisHolder.project_id);
+
+    const totalWithoutThis = (projectHolders || [])
+      .filter(h => h.id !== id)
+      .reduce((sum, h) => sum + Number(h.percentage), 0);
+
+    let warning: string | null = null;
+
     if (action === 'update') {
       const updateData: any = {};
       if (result.data.full_name !== undefined) updateData.full_name = result.data.full_name;
@@ -27,21 +50,40 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'At least one field to update is required' }, { status: 400 });
       }
 
+      const newPct = result.data.percentage !== undefined ? Number(result.data.percentage) : Number(thisHolder.percentage);
+      const newTotal = totalWithoutThis + newPct;
+      if (newTotal > 100.01) {
+        warning = `This change brings the total allocation to ${newTotal.toFixed(2)}%, exceeding 100%. Reduce other holders first.`;
+      } else if (Math.abs(newTotal - 100) > 0.01) {
+        warning = `Total allocation will be ${newTotal.toFixed(2)}%. Adjust other holders or add more to reach exactly 100%.`;
+      }
+
       const { error } = await supabaseAdmin
         .from('rights_holders')
         .update(updateData)
         .eq('id', id);
       if (error) throw error;
-      return NextResponse.json({ success: true });
+      const response: any = { success: true };
+      if (warning) response.warning = warning;
+      return NextResponse.json(response);
     }
 
     if (action === 'delete') {
+      const newTotal = totalWithoutThis;
+      if (newTotal > 100.01) {
+        warning = `After deletion, total allocation is ${newTotal.toFixed(2)}%, still exceeding 100%. Adjust remaining holders.`;
+      } else if (Math.abs(newTotal - 100) > 0.01) {
+        warning = `After deletion, total allocation will be ${newTotal.toFixed(2)}%. Add more holders or adjust percentages to reach exactly 100%.`;
+      }
+
       const { error } = await supabaseAdmin
         .from('rights_holders')
         .delete()
         .eq('id', id);
       if (error) throw error;
-      return NextResponse.json({ success: true });
+      const response: any = { success: true };
+      if (warning) response.warning = warning;
+      return NextResponse.json(response);
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
