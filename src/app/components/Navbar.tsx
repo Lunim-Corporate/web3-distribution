@@ -93,12 +93,14 @@ export const Navbar: React.FC = () => {
       return null;
     } else {
       // LIVE MODE: Show user's actual connected wallet
-      // Admin sees ADMIN_LIVE_ADDRESS, regular users see their own wallet
       const externalWallet = wallets.find(w => w.walletClientType !== 'privy');
       const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
       const isAdmin = user?.role === 'admin';
       
-      if (isAdmin && ADMIN_LIVE_ADDRESS) {
+      // Use profile wallet for admins (each admin has their own), fallback to ADMIN_LIVE_ADDRESS
+      const adminWallet = user?.wallet_address || (isAdmin ? ADMIN_LIVE_ADDRESS : null);
+      
+      if (isAdmin && adminWallet) {
         let iconType: 'metamask' | 'coinbase' | 'generic' = 'generic';
         if (externalWallet?.walletClientType?.toLowerCase().includes('metamask')) {
           iconType = 'metamask';
@@ -106,8 +108,8 @@ export const Navbar: React.FC = () => {
           iconType = 'coinbase';
         }
         return {
-          address: ADMIN_LIVE_ADDRESS,
-          name: 'Live Admin',
+          address: adminWallet,
+          name: user?.name || 'Admin',
           role: 'Admin',
           iconType,
           walletObj: externalWallet || null

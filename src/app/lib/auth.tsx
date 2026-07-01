@@ -132,6 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           name: supabaseProfile.display_name || privyUser.email?.address?.split('@')[0] || '',
           isAdmin: supabaseProfile.role === 'ADMIN',
           role: supabaseProfile.role?.toLowerCase() as Role || 'creator',
+          wallet_address: supabaseProfile.wallet_address || null,
         };
 
         setUser(profile);
@@ -158,11 +159,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function logout() {
+    // Clear demo/sandbox state FIRST so syncPrivyUser doesn't re-create the demo user
+    localStorage.removeItem('demo_mode');
+    localStorage.removeItem('active_demo_wallet');
+    setIsDemoMode(false);
+    window.dispatchEvent(new CustomEvent('demo-mode-changed', { detail: false }));
+    window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: null }));
+
     await privyLogout();
-    await supabase.auth.signOut(); // Clean up any lingering supabase session
+    await supabase.auth.signOut();
     clearCookie();
     setUser(null);
     setIsAuthHydrated(true);
+
+    // Force redirect to login page
+    window.location.href = '/login';
   }
 
 

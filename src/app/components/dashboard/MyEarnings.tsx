@@ -82,12 +82,16 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
     if (isDemoMode) {
       return localStorage.getItem('active_demo_wallet') || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
     } else {
-      const isAdmin = user?.role === 'admin';
-      if (isAdmin && ADMIN_LIVE_ADDRESS) return ADMIN_LIVE_ADDRESS;
+      // Prefer the user's own wallet from their profile first
+      if (user?.wallet_address) return user.wallet_address;
       const externalWallet = wallets.find(w => w.walletClientType !== 'privy');
       if (externalWallet) return externalWallet.address;
       const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
-      return embeddedWallet?.address || wallets[0]?.address || null;
+      if (embeddedWallet) return embeddedWallet.address;
+      // Fallback to ADMIN_LIVE_ADDRESS only if no personal wallet found
+      const isAdmin = user?.role === 'admin';
+      if (isAdmin && ADMIN_LIVE_ADDRESS) return ADMIN_LIVE_ADDRESS;
+      return wallets[0]?.address || null;
     }
   }, [isDemoMode, user, wallets]);
 
