@@ -9,6 +9,7 @@ import { isDemoAccessEnabled, readDemoMode, setDemoMode } from '@/lib/demoAccess
 import { ADMIN_LIVE_ADDRESS } from '@/lib/web3/config';
 import { truncateAddress } from '@/lib/utils';
 import { useWallets } from '@privy-io/react-auth';
+import { dedupeJsonFetch } from '@/app/lib/requestCache';
 
 // Seeded local Hardhat accounts for Demo Mode
 export const DEMO_ACCOUNTS = [
@@ -313,11 +314,7 @@ export const Navbar: React.FC = () => {
     if (!user) return;
     try {
       const isDemoModeStr = readDemoMode();
-      const res = await fetch(`/api/revenue?demo=${isDemoModeStr}&ts=${Date.now()}`);
-      let data = [];
-      if (res.ok) {
-        data = await res.json();
-      }
+      const data = await dedupeJsonFetch(`revenue:navbar:${isDemoModeStr}`, `/api/revenue?demo=${isDemoModeStr}`);
 
       // Filter out dismissed
       const savedDismissed = JSON.parse(localStorage.getItem('dismissed_notifications') || '[]');

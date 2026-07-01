@@ -231,7 +231,7 @@ export function DistributePanel({ project, holders }: { project: Project | null;
                 </div>
                 <div className="flex justify-between items-center pt-6 border-t border-white/5">
                   <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Est. USD Value</span>
-                  <span className="text-xl font-black text-emerald-400">{formatEthAsUsd(parseFloat(amount || '0'))}</span>
+                  <span className="text-xl font-black text-emerald-400">{formatEthAsUsd(parseFloat(amount) || 0)}</span>
                 </div>
               </div>
 

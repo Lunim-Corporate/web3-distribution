@@ -43,10 +43,9 @@ export function EditRightsHolderModal({
     }
   }, [holder]);
 
-  if (!isOpen || !holder) return null;
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!holder) return;
     if (!fullName || !walletAddress || !percentage) {
       setError('Full name, wallet address, and percentage are required');
       return;
@@ -91,6 +90,7 @@ export function EditRightsHolderModal({
   };
 
   const handleDelete = async () => {
+    if (!holder) return;
     if (!confirmDelete) {
       setConfirmDelete(true);
       return;
@@ -127,6 +127,7 @@ export function EditRightsHolderModal({
 
   return (
     <AnimatePresence>
+      {isOpen && holder && (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -252,6 +253,7 @@ export function EditRightsHolderModal({
           </form>
         </motion.div>
       </div>
+      )}
     </AnimatePresence>
   );
 }

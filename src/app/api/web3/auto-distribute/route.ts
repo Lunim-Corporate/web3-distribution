@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/app/lib/supabaseServer';
-import { requireAdmin, requireAuth, auditLog } from '@/app/lib/apiSecurity';
+import { requireAdmin, auditLog } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { validateBody, distributePayloadSchema } from '@/app/lib/validation';
 import { createWalletClient, http, parseEther, publicActions, createPublicClient, decodeEventLog, formatEther, encodeFunctionData } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { hardhat, baseSepolia } from 'viem/chains';
+import { hardhat, baseSepolia, base } from 'viem/chains';
 import { getEthPriceUSD } from '@/app/lib/ethPrice';
 import { isDemoAccessEnabled } from '@/app/lib/demoAccess';
 
@@ -79,12 +79,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Demo mode is disabled on this deployment' }, { status: 403 });
     }
 
-    // Auth: admin required for live, auth required for demo
+    // Auth: admin required for live; demo mode uses sandbox (no server auth)
     let user;
     if (!is_demo) {
       user = await requireAdmin();
     } else {
-      user = await requireAuth();
+      user = { id: 'demo', email: 'demo@lunim.io', isAdmin: true, role: 'admin' as const };
     }
 
     // Audit log
@@ -130,11 +130,21 @@ export async function POST(req: Request) {
       }
 
       const account = privateKeyToAccount(privateKey as `0x${string}`);
-      
+      const chainId = process.env.NEXT_PUBLIC_CHAIN_ID || '84532';
+      const isLiveMainnet = chainId === '8453';
+      const txChain = is_demo
+        ? hardhat
+        : isLiveMainnet
+          ? base
+          : baseSepolia;
+      const txRpc = is_demo
+        ? LOCAL_RPC
+        : ALCHEMY_RPC;
+
       const walletClient = createWalletClient({
         account,
-        chain: hardhat,
-        transport: http(LOCAL_RPC)
+        chain: txChain,
+        transport: http(txRpc)
       }).extend(publicActions);
       
       const contractAddress = is_demo

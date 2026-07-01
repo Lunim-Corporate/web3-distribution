@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Line, Doughnut } from 'react-chartjs-2';
 import { formatCurrency } from '@/lib/utils';
 import { useEthPrice } from '@/app/lib/useEthPrice';
+import { dedupeJsonFetch } from '@/app/lib/requestCache';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -60,8 +61,7 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ projectId, isDemoMode }) => {
   const { ethPrice } = useEthPrice();
 
   const fetchRevenue = React.useCallback(() => {
-    fetch(`/api/revenue?demo=${isDemoMode}&ts=${Date.now()}`, { cache: 'no-store' })
-      .then(r => r.json())
+    dedupeJsonFetch(`revenue:charts:${isDemoMode}`, `/api/revenue?demo=${isDemoMode}`)
       .then(data => { setRevenue(Array.isArray(data) ? data : []); })
       .catch(() => { setRevenue([]); });
   }, [isDemoMode]);

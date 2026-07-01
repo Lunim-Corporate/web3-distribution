@@ -10,15 +10,29 @@ export const AddProjectModal: React.FC<{ isOpen: boolean; onClose: () => void }>
   const [name, setName] = useState('');
   const [type, setType] = useState('Design');
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!name.trim()) {
       toast.error('Project name is required');
       return;
     }
-    toast.success(`Project "${name}" created`);
-    onClose();
-    setName('');
-    setType('Design');
+    try {
+      const res = await fetch('/api/projects/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, genre: type }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to create project');
+      }
+      toast.success(`Project "${name}" created`);
+      window.dispatchEvent(new CustomEvent('project-created'));
+      onClose();
+      setName('');
+      setType('Design');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create project');
+    }
   };
 
   return (

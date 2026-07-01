@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { dedupeJsonFetch } from '@/app/lib/requestCache';
 
 const NavItem: React.FC<{ href: string; label: string; icon: string }> = ({ href, label, icon }) => {
   const pathname = usePathname();
@@ -28,7 +29,7 @@ export const SidebarNav: React.FC = () => {
     Promise.all([
       fetch('/api/projects').then(r=>r.json()),
       fetch('/api/rights').then(r=>r.json()),
-      fetch('/api/revenue').then(r=>r.json()),
+      dedupeJsonFetch('revenue:sidebar', '/api/revenue'),
       fetch('/api/milestones').then(r=>r.json()),
     ]).then(([projects, rights, revenue, milestones]) => {
       setCounts({

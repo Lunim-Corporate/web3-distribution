@@ -6,6 +6,7 @@ import { useEthPrice } from '@/app/lib/useEthPrice';
 import { useRevenueSplitter } from '@/lib/web3';
 import { NetworkBadge } from '@/components/ui/NetworkBadge';
 import { readDemoMode, isDemoAccessEnabled } from '@/app/lib/demoAccess';
+import { dedupeJsonFetch } from '@/app/lib/requestCache';
 
 /* ─── Types ───────────────────────────────────────────────── */
 interface RightsHolder {
@@ -107,14 +108,14 @@ export function LiveDashboard({
   const fetchHistory = useCallback(async () => {
     setIsLoadingHistory(true);
     try {
-      const res = await fetch(`/api/revenue?project_id=${projectId}&demo=${isDemoMode}&limit=20`);
-      if (res.ok) {
-        const data = await res.json();
-        const txList: DistributionRecord[] = data.transactions || [];
-        setDistributions(txList);
-        const lifetime = txList.reduce((sum: number, tx: DistributionRecord) => sum + (tx.total_amount_eth || 0), 0);
-        setTotalLifetimeEth(lifetime);
-      }
+      const data = await dedupeJsonFetch(
+        `live-dash:${projectId}:${isDemoMode}`,
+        `/api/dashboard?pid=${projectId}&demo=${isDemoMode}`
+      );
+      const txList: DistributionRecord[] = data.transactions || [];
+      setDistributions(txList);
+      const lifetime = txList.reduce((sum: number, tx: DistributionRecord) => sum + (tx.total_amount_eth || 0), 0);
+      setTotalLifetimeEth(lifetime);
     } catch (err) {
       console.error('Failed to fetch distribution history:', err);
     } finally {

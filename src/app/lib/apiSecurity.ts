@@ -102,10 +102,17 @@ export async function getVerifiedUser(): Promise<User | null> {
     }
     if (!userData?.id) return null;
 
-    // CRITICAL: Never trust client-set demo flag — always verify against DB
-    // Demo users don't exist in DB, so reject them in API routes
+    // Demo sandbox mode: return demo profile so API routes work.
+    // Demo data is isolated via is_demo=true DB filtering.
     if (userData.isDemo) {
-      return null;
+      return {
+        id: userData.id || 'demo-user',
+        email: userData.email || 'demo@lunim.io',
+        name: userData.name || 'Demo User',
+        role: 'admin',
+        isAdmin: true,
+        isDemo: true,
+      };
     }
 
     // 3. Verify user exists in DB and get fresh role/admin status

@@ -2,9 +2,9 @@
 
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-// formatCurrency available via @/lib/utils if needed
 import { toast } from 'react-hot-toast';
 import { useEthPrice } from '@/app/lib/useEthPrice';
+import { dedupeJsonFetch } from '@/app/lib/requestCache';
 
 const formatUSD = (amount: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -47,9 +47,8 @@ export const RevenueSnapshot: React.FC<RevenueSnapshotProps> = ({ activeProjectI
 
   const fetchRevenue = React.useCallback(async () => {
     try {
-      const isDemoMode = localStorage.getItem('demo_mode') === 'true';
-      const res = await fetch(`/api/revenue?demo=${isDemoMode}&ts=${Date.now()}`, { cache: 'no-store' });
-      const data = await res.json();
+      const isDemoModeStr = localStorage.getItem('demo_mode') === 'true';
+      const data = await dedupeJsonFetch('revenue:snapshot', `/api/revenue?demo=${isDemoModeStr}`);
       setRevenue(data);
     } catch {
       setRevenue([]);
@@ -311,41 +310,65 @@ export const RevenueSnapshot: React.FC<RevenueSnapshotProps> = ({ activeProjectI
                                   <div className="w-1 h-4 bg-indigo-500/40 rounded-full" />
                                   <span className="text-[10px] font-black text-indigo-400/80 uppercase tracking-[0.2em]">Distribution Breakdown</span>
                                 </div>
-                                <div className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] font-mono text-gray-500">
-                                  Hash: {r.txHash?.slice(0, 12)}...
-                                </div>
+                                {r.txHash?.startsWith('0x') ? (
+                                  <a
+                                    href={`https://sepolia.basescan.org/tx/${r.txHash}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-[9px] font-mono text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/20 transition-colors"
+                                  >
+                                    {r.txHash?.slice(0, 12)}... ↗
+                                  </a>
+                                ) : (
+                                  <div className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] font-mono text-gray-500">
+                                    {r.txHash?.slice(0, 12)}...
+                                  </div>
+                                )}
                               </div>
 
                               <div className="space-y-1 relative pl-4">
                                 {/* Vertical connection line */}
                                 <div className="absolute left-1.5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-white/10 via-white/5 to-transparent rounded-full" />
                                 
-                                {r.splits.map((s: any) => (
-                                  <div key={s.id} className="flex justify-between items-center py-2 group/split">
-                                    <div className="flex items-center gap-3">
-                                      <div className="relative">
+                                {r.splits.map((s: any) => {
+                                  const pct = s.percentage || 0;
+                                  const circumference = 2 * Math.PI * 14;
+                                  const offset = circumference - (pct / 100) * circumference;
+                                  return (
+                                  <div key={s.id} className="flex items-center justify-between p-3 bg-slate-950/40 rounded-xl border border-white/5 hover:border-indigo-500/20 transition-all group/split">
+                                    <div className="flex items-center gap-3 min-w-0 pr-2">
+                                      <div className="relative shrink-0">
                                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-white/10 to-white/5 flex items-center justify-center text-[11px] font-black text-indigo-300 border border-white/10 shadow-sm group-hover/split:border-indigo-500/30 transition-colors">
                                           {s.full_name?.charAt(0) || '?'}
                                         </div>
                                         <div className="absolute -left-[14px] top-1/2 -translate-y-1/2 w-2 h-0.5 bg-white/10" />
                                       </div>
-                                      <div className="flex flex-col">
-                                        <span className="text-sm font-bold text-gray-200 group-hover/split:text-white transition-colors">{s.full_name}</span>
+                                      <div className="min-w-0">
+                                        <span className="text-sm font-bold text-gray-200 group-hover/split:text-white transition-colors truncate block">{s.full_name}</span>
                                         <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">{s.role}</span>
                                       </div>
                                     </div>
-                                    <div className="flex items-center gap-8">
-                                      <div className="flex flex-col items-end">
-                                        <span className="text-xs font-black text-indigo-400 font-mono">{s.percentage}%</span>
-                                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tighter">Share</span>
+                                    <div className="flex items-center gap-5 shrink-0">
+                                      {/* Circular progress ring */}
+                                      <div className="relative w-9 h-9 flex items-center justify-center">
+                                        <svg className="w-9 h-9 -rotate-90" viewBox="0 0 32 32">
+                                          <circle cx="16" cy="16" r="14" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="3" />
+                                          <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"
+                                            strokeDasharray={circumference}
+                                            strokeDashoffset={offset}
+                                            className="text-indigo-400 transition-all duration-700 ease-out"
+                                          />
+                                        </svg>
+                                        <span className="absolute text-[8px] font-black text-indigo-400 font-mono">{pct}%</span>
                                       </div>
-                                      <div className="flex flex-col items-end min-w-[100px]">
-                                          <span className="text-sm font-black text-emerald-400 font-mono tracking-tight">{formatUSD(s.amount_eth * ethPrice)}</span>
-                                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tighter">{s.amount_eth.toFixed(4)} ETH</span>
+                                      <div className="flex flex-col items-end min-w-[90px]">
+                                        <span className="text-sm font-black text-emerald-400 font-mono tracking-tight">{formatUSD(s.amount_eth * ethPrice)}</span>
+                                        <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tighter">{s.amount_eth?.toFixed(4) || '0'} ETH</span>
                                       </div>
                                     </div>
                                   </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             </motion.div>
                           </td>

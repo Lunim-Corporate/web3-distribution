@@ -1,4 +1,5 @@
 require("@nomicfoundation/hardhat-toolbox");
+require("@openzeppelin/hardhat-upgrades");
 const path = require("path");
 require("dotenv").config({ path: path.join(__dirname, ".env.local") });
 require("dotenv").config();
@@ -6,13 +7,26 @@ require("dotenv").config();
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
-    version: "0.8.20",
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 200,
+    compilers: [
+      {
+        version: "0.8.20",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
       },
-    },
+      {
+        version: "0.8.22",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
+      },
+    ],
   },
   networks: {
     localhost: {
@@ -24,10 +38,16 @@ module.exports = {
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
       chainId: 84532,
     },
+    "base-mainnet": {
+      url: process.env.NEXT_PUBLIC_BASE_MAINNET_RPC || "https://mainnet.base.org",
+      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
+      chainId: 8453,
+    },
   },
   etherscan: {
     apiKey: {
       "base-sepolia": process.env.BASESCAN_API_KEY || "",
+      "base-mainnet": process.env.BASESCAN_API_KEY || "",
     },
     customChains: [
       {
@@ -36,6 +56,14 @@ module.exports = {
         urls: {
           apiURL: "https://api-sepolia.basescan.org/api",
           browserURL: "https://sepolia.basescan.org",
+        },
+      },
+      {
+        network: "base-mainnet",
+        chainId: 8453,
+        urls: {
+          apiURL: "https://api.basescan.org/api",
+          browserURL: "https://basescan.org",
         },
       },
     ],

@@ -7,6 +7,7 @@ import { useRevenueSplitter } from '@/lib/web3';
 import { ADMIN_LIVE_ADDRESS } from '@/lib/web3/config';
 import { useEthPrice } from '@/app/lib/useEthPrice';
 import { toast } from 'react-hot-toast';
+import { dedupeJsonFetch } from '@/app/lib/requestCache';
 
 interface RightsHolder {
   id: string;
@@ -136,9 +137,10 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
   // Fetch transactions for this wallet
   const fetchTransactions = useCallback(async () => {
     try {
-      const res = await fetch(`/api/revenue?demo=${isDemoMode}&ts=${Date.now()}`, { cache: 'no-store' });
-      const data: Transaction[] = await res.json();
-      // Flatten: each transaction with its splits
+      const data: Transaction[] = await dedupeJsonFetch(
+        `revenue:myearnings:${isDemoMode}`,
+        `/api/revenue?demo=${isDemoMode}`
+      );
       setTransactions(data || []);
     } catch {
       setTransactions([]);

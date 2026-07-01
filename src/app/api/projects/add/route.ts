@@ -2,25 +2,28 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { requireAdmin } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
+import { validateBody, addProjectSchema } from '@/app/lib/validation';
 
 export async function POST(req: Request) {
   try {
-    // Rate limit: write tier
     const blocked = await checkRateLimit('write');
     if (blocked) return blocked;
 
     await requireAdmin();
-    const { name, genre, status } = await req.json();
 
-    if (!name) return NextResponse.json({ error: 'Project name is required' }, { status: 400 });
+    const result = await validateBody(req, addProjectSchema);
+    if (result.error) return result.response;
+
+    const { name, genre, description, status } = result.data;
 
     const { data, error } = await supabaseAdmin
       .from('projects')
       .insert({
         name,
         genre: genre || 'Entertainment',
+        description: description || '',
         status: status || 'active',
-        total_distributed: 0
+        total_distributed: 0,
       })
       .select()
       .single();

@@ -26,7 +26,7 @@ interface RateLimitConfig {
 }
 
 const TIER_DEFAULTS: Record<RateLimitConfig['tier'], Omit<RateLimitConfig, 'tier'>> = {
-  read:      { maxRequests: 120, windowSeconds: 60 },   // 120 reads/min
+  read:      { maxRequests: 300, windowSeconds: 60 },   // 300 reads/min
   write:     { maxRequests: 20,  windowSeconds: 60 },   // 20 writes/min
   auth:      { maxRequests: 10,  windowSeconds: 60 },   // 10 auth attempts/min
   sensitive: { maxRequests: 5,   windowSeconds: 60 },   // 5 sensitive ops/min (distribute, payments)

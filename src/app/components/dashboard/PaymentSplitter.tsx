@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { formatPercentage, calculatePaymentSplit } from '@/lib/utils';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
+import { dedupeJsonFetch } from '@/app/lib/requestCache';
 
 const formatUSD = (amount: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -30,10 +31,9 @@ export const PaymentSplitter: React.FC = () => {
 
   const fetchPaymentData = React.useCallback(async () => {
     try {
-      const ts = Date.now();
       const [projectsRes, revenueRes] = await Promise.all([
-        fetch(`/api/projects?ts=${ts}`, { cache: 'no-store' }).then((r) => r.json()),
-        fetch(`/api/revenue?ts=${ts}`, { cache: 'no-store' }).then((r) => r.json()),
+        fetch('/api/projects').then((r) => r.json()),
+        dedupeJsonFetch('revenue:splitter', '/api/revenue'),
       ]);
 
       const projects = Array.isArray(projectsRes) ? projectsRes : [];
@@ -139,8 +139,7 @@ export const PaymentSplitter: React.FC = () => {
       setRevenueSource('');
       setCalculatedSplits([]);
 
-      const revenueRes = await fetch('/api/revenue', { cache: 'no-store' });
-      const revenueJson = await revenueRes.json();
+      const revenueJson = await dedupeJsonFetch('revenue:splitter:after', '/api/revenue');
       setRecentPayments(Array.isArray(revenueJson) ? revenueJson : []);
       
       window.dispatchEvent(new CustomEvent('payment-recorded', { detail: { projectId: selectedProject, amount: amountUSD } }));
