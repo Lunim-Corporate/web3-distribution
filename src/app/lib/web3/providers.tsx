@@ -9,7 +9,7 @@ import { SUPPORTED_CHAINS } from './config';
 const queryClient = new QueryClient();
 
 export default function Web3Providers({ children }: { children: React.ReactNode }) {
-  const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || 'dummy-privy-app-id';
+  const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || 'cmp217w43000p0cie4kvln0y3';
   
   if (!process.env.NEXT_PUBLIC_PRIVY_APP_ID && typeof window !== 'undefined') {
     console.warn('[LUNIM] NEXT_PUBLIC_PRIVY_APP_ID is not set. Using fallback dummy app ID. Web3 features will be disabled, but sandbox login will function.');
