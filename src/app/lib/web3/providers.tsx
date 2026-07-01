@@ -9,13 +9,10 @@ import { SUPPORTED_CHAINS } from './config';
 const queryClient = new QueryClient();
 
 export default function Web3Providers({ children }: { children: React.ReactNode }) {
-  const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+  const privyAppId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || 'dummy-privy-app-id';
   
-  if (!privyAppId) {
-    if (typeof window !== 'undefined') {
-      console.warn('[LUNIM] NEXT_PUBLIC_PRIVY_APP_ID is not set. Web3 features (wallet connection, on-chain transactions) are disabled. Authentication via Privy is also unavailable.');
-    }
-    return <>{children}</>;
+  if (!process.env.NEXT_PUBLIC_PRIVY_APP_ID && typeof window !== 'undefined') {
+    console.warn('[LUNIM] NEXT_PUBLIC_PRIVY_APP_ID is not set. Using fallback dummy app ID. Web3 features will be disabled, but sandbox login will function.');
   }
 
   return (
