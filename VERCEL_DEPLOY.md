@@ -169,4 +169,4 @@ vercel --prod
 - `npm audit` shows 107 vulnerabilities (transitive deps of Privy/wagmi/MetaMask) — cannot fix without major version upgrades
 - `npm run build` = lint + typecheck + static generation — use as primary verification
 - Hardhat tests (`npx hardhat test`) run locally only, not on Vercel
-- No frontend tests exist (no Jest/Vitest/Playwright)
+- Frontend unit tests use Vitest (`vitest.config.ts`) in `src/app/__tests__/`

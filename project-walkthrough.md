@@ -157,10 +157,10 @@ User private keys are **never** stored on LUNIM servers or databases. The platfo
 If the contract listener goes offline, on-chain payouts continue to execute successfully because smart contracts run independently on the blockchain. However, the dashboard database records won't update in real-time. To address this, the **ETL Reconciliation Module** exists. Once the backend is online, running the reconciliation route `/api/etl/reconcile` automatically scans the blockchain for missing events and syncs the database.
 
 #### Q5: Can project share allocations be edited after a contract is deployed?
-Yes. The upgraded `RevenueSplitter.sol` contract contains an owner-restricted `updateShares` function. It updates royalty weight balances on-chain. When this is executed, the backend listens and updates the database records automatically.
+Yes. The `RevenueSplitter.sol` contract contains an owner-restricted `updateShares` function. For full upgradeability, `RevenueRightsUpgradeable.sol` uses a UUPS proxy pattern that allows replacing the entire implementation contract without changing the proxy address.
 
 #### Q6: How does the database protect user transaction splits from being tampered with?
 The database relies on Postgres **Row-Level Security (RLS)**. It guarantees that rights holders can only read or query records associated with their authenticated public key. Furthermore, the database schema is indexed on `tx_hash` and matches splits against transaction logs to prevent double-spending or fake manual record injection.
 
 #### Q7: Can this platform be deployed on Base Mainnet?
-Yes. The deployment script `scripts/deploy-testnet.js` and hardhat configurations are future-ready. By setting `NEXT_PUBLIC_CHAIN_ID=8453` and adding a funded Base deployer private key, the contract can be deployed to Base Mainnet instantly.
+Yes. There is a dedicated `scripts/deploy-mainnet.js` for Base Mainnet deployment. Set `NEXT_PUBLIC_CHAIN_ID=8453`, add a funded Base deployer private key, and run `npm run deploy:mainnet`.

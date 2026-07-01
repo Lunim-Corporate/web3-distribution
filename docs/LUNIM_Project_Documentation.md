@@ -32,12 +32,12 @@ The **Creative Revenue & Rights Dashboard** is a full-stack Web3 platform built 
 | Frontend | Next.js 14 (App Router), React 18, TypeScript |
 | Styling | Tailwind CSS 3, Framer Motion |
 | Charts | Chart.js + react-chartjs-2 |
-| Backend | Node.js + Express.js |
+| Backend | Next.js API Routes (no Express.js) |
 | Database | Supabase (PostgreSQL) |
-| Authentication | Supabase Auth (email/password) |
-| Blockchain | Ethereum via Hardhat (local node, Chain ID 31337) |
-| Web3 Library | Ethers.js v6 |
-| Wallet | MetaMask + WalletConnect v2 |
+| Authentication | Privy (email/social login, embedded wallets) |
+| Blockchain | Base Sepolia (Chain ID 84532) / Hardhat (31337) |
+| Web3 Library | Wagmi + Viem |
+| Wallet | Privy Embedded Wallets / Safe Smart Account (ERC-4337) |
 | Smart Contracts | Solidity ^0.8.20 |
 | Notifications | react-hot-toast |
 
@@ -56,7 +56,7 @@ A cinematic dark-themed hero page with animated gradient mesh backgrounds. Displ
 ### 3.2 Login Page (`/login`)
 
 Split-screen layout with branding on the left and sign-in form on the right:
-- Email and password authentication via Supabase Auth
+- Email/social login via Privy (Google, Email OTP)
 - Auto-fill button for demo admin credentials
 - Animated gradient backgrounds with Framer Motion
 - Auto-redirects to `/dashboard` on successful login
@@ -176,16 +176,20 @@ The application uses Next.js API routes:
 |---|---|
 | `/api/dashboard` | Main data endpoint (projects, holders, transactions) |
 | `/api/projects` | Project CRUD operations |
+| `/api/projects/add` | Create new project (Zod-validated) |
 | `/api/rights` | Rights holder management |
-| `/api/revenue` | Revenue data with protocol bridge |
+| `/api/rights/add` | Add rights holder |
+| `/api/rights/manage` | Update/delete rights holder |
+| `/api/revenue` | Revenue data |
 | `/api/web3/auto-distribute` | Automated distribution with DB sync |
-| `/api/auth` | Authentication endpoints |
+| `/api/web3/record-transaction` | Record on-chain transaction |
+| `/api/auth/sync` | Sync authenticated user to Supabase profile |
 | `/api/activities` | Activity feed data |
 | `/api/reports` | Report generation |
 | `/api/payments` | Payment processing |
 | `/api/stripe` | Stripe fiat demo layer |
-
-Plus an Express.js backend server on port 4000 with JWT middleware, rate limiting, and CORS.
+| `/api/users` | User management |
+| `/api/admin/users` | Admin user role management |
 
 ---
 
@@ -277,38 +281,47 @@ npm run demo 0.1
 web3-distribution/
 ├── contracts/
 │   ├── RevenueRights.sol           # Main distribution contract
-│   └── RevenueSplitter.sol         # Alternative splitter
+│   ├── RevenueSplitter.sol         # Alternative splitter
+│   └── RevenueRightsUpgradeable.sol # UUPS upgradeable variant
 ├── scripts/
-│   ├── deploy.js                   # Contract deployment
-│   ├── seed.js                     # Database seeding (7 projects, 41 holders)
-│   ├── seed_users.js               # User account seeding
-│   ├── demo_distribution.js        # CLI demo runner
-│   └── verifyDb.js                 # Database health check
-├── server/
-│   ├── index.js                    # Express server entry
-│   ├── middleware/                  # JWT, rate-limit, validation
-│   └── routes/                     # REST API handlers
+│   ├── deploy-demo.js              # Deploy demo contract (7 holders)
+│   ├── deploy-live.js              # Deploy live contract (10 holders)
+│   ├── deploy-testnet.js           # Deploy to Base Sepolia
+│   ├── deploy-mainnet.js           # Deploy to Base Mainnet
+│   ├── deploy-upgradeable.js       # Deploy UUPS upgradeable
+│   ├── seed.js                     # Database seeding
+│   ├── verify-e2e.js               # End-to-end verification
+│   └── api-smoke-test.js           # API endpoint tests
 ├── src/app/
 │   ├── page.tsx                    # Landing page
-│   ├── layout.tsx                  # Root layout (AuthProvider, WalletProvider)
+│   ├── layout.tsx                  # Root layout (PrivyProvider, Wagmi)
 │   ├── login/page.tsx              # Authentication page
-│   ├── dashboard/page.tsx          # Main dashboard (5 tabs)
+│   ├── dashboard/page.tsx          # Main dashboard
+│   ├── admin/page.tsx              # Admin panel
 │   ├── components/
-│   │   ├── Navbar.tsx              # Global navigation bar
+│   │   ├── Navbar.tsx              # Global navigation bar (live/demo toggle)
+│   │   ├── auth/                   # Login components
 │   │   └── dashboard/
 │   │       ├── ChartsPanel.tsx     # Revenue analytics charts
 │   │       ├── RevenueSnapshot.tsx # Transaction list with split expansion
-│   │       ├── DistributePanel.tsx # MetaMask distribution interface
-│   │       ├── RecentActivity.tsx  # Activity feed
-│   │       ├── ReportGenerator.tsx # PDF/CSV report builder
-│   │       └── AddRightsHolderModal.tsx
+│   │       ├── DistributePanel.tsx # Distribution interface
+│   │       ├── LiveDashboard.tsx   # Live network dashboard
+│   │       ├── EditRightsHolderModal.tsx # Inline holder editing
+│   │       ├── AddRightsHolderModal.tsx
+│   │       ├── AddProjectModal.tsx # Project creation modal
+│   │       ├── PaymentSplitter.tsx # Payment processing
+│   │       └── MyEarnings.tsx      # Personal earnings view
 │   └── lib/
 │       ├── auth.tsx                # Auth context and provider
-│       ├── wallet.tsx              # Web3 wallet context
-│       ├── supabaseClient.ts       # Supabase browser client
-│       ├── constants.ts            # ETH price, formatters
-│       └── types.ts                # TypeScript interfaces
+│       ├── apiSecurity.ts          # Server-side auth/role guards
+│       ├── rateLimit.ts            # Rate limiting
+│       ├── validation.ts           # Zod schemas
+│       ├── requestCache.ts         # Request deduplication
+│       ├── demoAccess.ts           # Demo mode helpers
+│       └── web3/                   # Wagmi, Viem, Privy config
 ├── supabase/migrations/            # SQL schema migrations
+├── vitest.config.ts                # Frontend test config
+├── src/app/__tests__/              # Frontend unit tests
 ├── package.json
 └── hardhat.config.js
 ```

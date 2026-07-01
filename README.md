@@ -39,7 +39,8 @@ A cinematic-grade Web3 platform for creative rights management and automated rev
 │  ├── Wagmi + Viem — Ethereum interaction                        │
 │  ├── Safe Smart Account — ERC-4337 Account Abstraction          │
 │  ├── Alchemy Paymaster — Gas sponsorship                        │
-│  └── RevenueRights.sol — On-chain revenue splitting             │
+│  ├── RevenueRights.sol — On-chain revenue splitting             │
+  └── RevenueRightsUpgradeable.sol — UUPS upgradeable variant    │
 │                                                                 │
 │  DATABASE (Supabase PostgreSQL)                                  │
 │  ├── projects           — Production projects                   │
@@ -51,7 +52,8 @@ A cinematic-grade Web3 platform for creative rights management and automated rev
 │                                                                 │
 │  BLOCKCHAIN (Hardhat Local / Base Sepolia)                       │
 │  ├── RevenueRights.sol — Basis-point revenue distribution       │
-│  └── RevenueSplitter.sol — Dynamic share management             │
+│  ├── RevenueSplitter.sol — Dynamic share management             │
+│  └── RevenueRightsUpgradeable.sol — UUPS upgradeable variant    │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -164,14 +166,20 @@ Covers: compilation, distribution math, reentrancy, claim logic, edge cases, bas
 web3-freedom-upgrade/
 ├── contracts/                    # Solidity source
 │   ├── RevenueRights.sol
-│   └── RevenueSplitter.sol
+│   ├── RevenueSplitter.sol
+│   └── RevenueRightsUpgradeable.sol
 ├── scripts/                      # Deploy, seed, verify, test scripts
 │   ├── deploy.js                 # Deploy to Hardhat localhost
+│   ├── deploy-demo.js            # Deploy demo contract (7 holders)
+│   ├── deploy-live.js            # Deploy live contract (10 holders)
 │   ├── deploy-testnet.js         # Deploy to Base Sepolia
+│   ├── deploy-mainnet.js         # Deploy to Base Mainnet
+│   ├── deploy-upgradeable.js     # Deploy UUPS upgradeable contract
 │   ├── seed.js                   # Populate demo data
 │   ├── verify-demo.js            # System verification
+│   ├── verify-e2e.js             # End-to-end verification
 │   └── api-smoke-test.js         # API endpoint tests
-├── test/                         # Hardhat unit tests (35 tests)
+├── test/                         # Hardhat unit tests (44 tests)
 ├── src/
 │   └── app/
 │       ├── page.tsx              # Landing page
@@ -206,7 +214,8 @@ web3-freedom-upgrade/
 │           ├── supabaseClient.ts # Supabase client
 │           ├── validation.ts     # Zod schemas
 │           ├── rateLimit.ts      # Rate limiting
-│           └── apiSecurity.ts    # Security headers
+│           ├── apiSecurity.ts    # Security headers
+│           └── requestCache.ts   # Request deduplication & caching
 ├── supabase/
 │   └── migrations/               # 11 SQL migration files
 ├── package.json
@@ -229,10 +238,12 @@ web3-freedom-upgrade/
 | `npm run chain` | Start Hardhat node only |
 | `npm run compile` | Compile Solidity contracts |
 | `npm run deploy:local` | Deploy contracts to Hardhat |
+| `npm run deploy:demo` | Deploy demo contract (7 holders, Hardhat) |
+| `npm run deploy:live` | Deploy live contract (10 holders) |
 | `npm run seed` | Seed database with demo data |
-| `npm run demo:full` | compile + deploy + seed (all-in-one) |
+| `npm run demo:full` | compile + deploy:demo + seed (all-in-one) |
 | `npm run test:api` | API smoke tests |
-| `npx hardhat test` | Smart contract unit tests (35 tests) |
+| `npx hardhat test` | Smart contract unit tests (44 tests) |
 | `npm run build` | Production build (lint + typecheck + static gen) |
 | `npm run lint` | ESLint (zero warnings) |
 
@@ -258,7 +269,7 @@ web3-freedom-upgrade/
 | `NEXT_PUBLIC_ALCHEMY_API_KEY` | Alchemy API key for Base Sepolia RPC |
 | `NEXT_PUBLIC_ALCHEMY_GAS_POLICY_ID` | Gas Manager policy for sponsored txs |
 | `NEXT_PUBLIC_REVENUE_SPLITTER_ADDRESS` | Deployed RevenueRights contract address |
-| `NEXT_PUBLIC_CHAIN_ID` | `84532` (Base Sepolia) or `31337` (Hardhat) |
+| `NEXT_PUBLIC_CHAIN_ID` | `84532` (Base Sepolia), `31337` (Hardhat), or `8453` (Base Mainnet) |
 | `STRIPE_SECRET_KEY` | Stripe secret key for payments |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key |
 

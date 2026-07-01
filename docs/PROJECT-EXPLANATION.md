@@ -599,7 +599,8 @@ User sees: "Aria Voss received 0.14 ETH"
 
 | Network | Chain ID | Status | Contract Address |
 |---------|----------|--------|------------------|
-| Hardhat (localhost) | 31337 | Deployed | 0x5FbDB2315678afecb367f032d93F642f64180aa3 |
+| Hardhat (localhost) | 31337 | Deployed (RevenueRights.sol) | 0x5FbDB2315678afecb367f032d93F642f64180aa3 |
+| Hardhat (localhost) | 31337 | Deployed (RevenueRightsUpgradeable.sol) | Via UUPS proxy |
 | Base Sepolia | 84532 | Configured | Needs deployment |
 | Base Mainnet | 8453 | Not deployed | Needs deployment |
 
@@ -639,31 +640,38 @@ networks: {
 Then run:
 
 ```bash
-npx hardhat run scripts/deploy.js --network baseSepolia
+npx hardhat run scripts/deploy-testnet.js --network baseSepolia
 ```
 
 #### Step 3: Deploy to Base Mainnet (Production)
 
 ```bash
-npx hardhat run scripts/deploy.js --network base
+npx hardhat run scripts/deploy-mainnet.js --network base
 ```
+
+#### Step 4: Deploy Upgradeable Contract (UUPS Proxy)
+
+```bash
+npm run deploy:upgradeable
+```
+
+This deploys `RevenueRightsUpgradeable.sol` via a UUPS proxy pattern, allowing future implementation upgrades without changing the contract address.
 
 ### Can You Update/Modify the Contract After Deployment?
 
-**Short Answer: It depends on how it was deployed.**
+**Short Answer: It depends on the contract.**
 
-#### Current Approach (Non-Upgradeable)
+#### Non-Upgradeable Contracts
 
-The current `RevenueRights.sol` has **no upgrade mechanism**. If you want to change the holders or percentages, you must:
+`RevenueRights.sol` and `RevenueSplitter.sol` have **no upgrade mechanism**. To change holders or percentages, you must:
 
 1. Deploy a **new** contract with new parameters
-2. Update the `CONTRACT_ADDRESS` in `.env.local`
-3. Update the `contract_address` in the Supabase `projects` table
-4. Migrate any remaining funds to the new contract
+2. Update the contract address in your config
+3. Migrate any remaining funds to the new contract
 
-#### For Production (Recommended)
+#### Upgradeable Contract (Implemented)
 
-For a production system that may need updates, implement the **Proxy Pattern**:
+For production, `RevenueRightsUpgradeable.sol` implements the **UUPS Proxy Pattern** (`contracts/RevenueRightsUpgradeable.sol`):
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -677,26 +685,20 @@ For a production system that may need updates, implement the **Proxy Pattern**:
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
 │               Implementation Contract (upgradeable)          │
-│  - RevenueRightsV2                                          │
+│  - RevenueRightsUpgradeable                                 │
 │  - All business logic                                       │
 │  - Can be replaced without changing Proxy                  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**To make the contract upgradeable:**
-
-1. Import OpenZeppelin contracts:
+The upgradeable contract uses OpenZeppelin's UUPS pattern:
 
 ```solidity
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-```
-
-2. Change contract declaration:
-
-```solidity
-contract RevenueRightsV2 is Initializable, OwnableUpgradeable, UUPSUpgradeable {
+contract RevenueRightsUpgradeable is
+    Initializable,
+    OwnableUpgradeable,
+    UUPSUpgradeable
+{
     function initialize(...) initializer public {
         __Ownable_init(msg.sender);
         __UUPSUpgradeable_init();
@@ -710,14 +712,10 @@ contract RevenueRightsV2 is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 }
 ```
 
-3. Deploy via Hardhat Upgrades:
+Deploy via `scripts/deploy-upgradeable.js`:
 
-```javascript
-const { deployProxy } = require('@openzeppelin/hardhat-upgrades');
-
-await deployProxy(RevenueRightsV2, [wallets, names, roles, basisPoints], {
-    initializer: 'initialize'
-});
+```bash
+npm run deploy:upgradeable
 ```
 
 ---
@@ -728,8 +726,8 @@ await deployProxy(RevenueRightsV2, [wallets, names, roles, basisPoints], {
 
 | # | Issue | Severity | Impact | Recommendation |
 |---|-------|----------|--------|----------------|
-| 1 | **No upgradeability** | HIGH | Cannot modify contract after deployment | Implement UUPS proxy pattern |
-| 2 | **Hardhat-only deployment** | HIGH | No Base Mainnet contract deployed | Deploy to Base Sepolia first, then Mainnet |
+| 1 | **Upgradeability implemented** | LOW | UUPS proxy available via `RevenueRightsUpgradeable.sol` / `deploy-upgradeable.js` | Use upgradeable contract for production |
+| 2 | **Base Mainnet deploy script ready** | MEDIUM | `scripts/deploy-mainnet.js` exists but not yet deployed | Set `DEPLOYER_PRIVATE_KEY` and Base RPC, then deploy |
 | 3 | **Single point of failure** | MEDIUM | If contract listener stops, on-chain events not recorded | Add redundancy or use The Graph |
 | 4 | **No contract verification** | MEDIUM | Cannot verify code on Block Explorer | Add verification to deployment |
 | 5 | **Demo mode logic mixed with production** | MEDIUM | Could accidentally write test data to production | Separate environments completely |
@@ -872,35 +870,47 @@ npm run lint           # ESLint (next lint)
 /
 ├── contracts/              # Smart contracts (Solidity)
 │   ├── RevenueRights.sol   # Main distribution contract
-│   └── RevenueSplitter.sol # Alternative splitter pattern
+│   ├── RevenueSplitter.sol # Alternative splitter pattern
+│   └── RevenueRightsUpgradeable.sol # UUPS upgradeable variant
 ├── src/
 │   ├── app/
 │   │   ├── lib/
 │   │   │   ├── auth.tsx           # Auth provider (Privy)
+│   │   │   ├── apiSecurity.ts     # Server-side auth/role guards
+│   │   │   ├── rateLimit.ts       # Rate limiting
+│   │   │   ├── validation.ts      # Zod schemas
+│   │   │   ├── requestCache.ts    # Request deduplication
+│   │   │   ├── demoAccess.ts      # Demo mode helpers
 │   │   │   ├── web3.ts            # Smart account hooks
 │   │   │   ├── web3/              # Wagmi + Viem config
 │   │   │   │   ├── providers.tsx  # Privy + Wagmi wrapper
 │   │   │   │   ├── wagmiConfig.ts # Wagmi configuration
 │   │   │   │   └── config.ts      # Chain configs
-│   │   │   ├── supabaseClient.ts  # Client-side Supabase
 │   │   │   └── database.ts        # DB helpers
 │   │   ├── components/
+│   │   │   ├── Navbar.tsx         # Global nav (live/demo toggle)
 │   │   │   └── dashboard/
-│   │   │       └── SmartContractPanel.tsx  # Main blockchain UI
-│   │   └── api/             # Next.js API routes
-│   └── contracts/           # ABI + addresses (generated)
-├── server/
-│   ├── index.js             # Express server entry
-│   ├── lib/
-│   │   └── contractListener.js  # Blockchain event listener
-│   └── routes/
-│       ├── transactions.js  # Transaction API
-│       └── projects.js      # Projects API
+│   │   │       ├── LiveDashboard.tsx  # Live network dashboard
+│   │   │       ├── SmartContractPanel.tsx  # Blockchain UI
+│   │   │       ├── DistributePanel.tsx
+│   │   │       ├── PaymentSplitter.tsx
+│   │   │       ├── EditRightsHolderModal.tsx # Inline editing
+│   │   │       └── AddRightsHolderModal.tsx
+│   │   ├── admin/page.tsx     # Admin control center
+│   │   └── api/               # Next.js API routes (15 groups)
+│   ├── contracts/           # ABI + addresses (generated)
+│   └── __tests__/           # Frontend unit tests (Vitest)
 ├── scripts/
-│   ├── deploy.js            # Contract deployment
-│   └── seed.js              # Database seeding
+│   ├── deploy-demo.js       # Deploy demo contract (7 holders)
+│   ├── deploy-live.js       # Deploy live contract (10 holders)
+│   ├── deploy-testnet.js    # Deploy to Base Sepolia
+│   ├── deploy-mainnet.js    # Deploy to Base Mainnet
+│   ├── deploy-upgradeable.js# Deploy UUPS upgradeable
+│   ├── seed.js              # Database seeding
+│   └── verify-e2e.js        # End-to-end verification
+├── vitest.config.ts         # Frontend test config
 ├── supabase/
-│   └── migrations/          # Database schema
+│   └── migrations/          # Database schema (11 migrations)
 └── hardhat.config.js       # Hardhat configuration
 ```
 
