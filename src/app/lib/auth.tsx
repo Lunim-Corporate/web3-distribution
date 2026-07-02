@@ -1,8 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { usePrivy } from '@privy-io/react-auth';
 import { isSandboxLoginEnabled, readDemoMode } from '@/lib/demoAccess';
 
 export type Role = 'admin' | 'creator' | 'contributor' | 'viewer';
@@ -24,6 +23,16 @@ export type User = {
   wallet_connected_at?: string | null;
 };
 
+type PrivyApi = {
+  ready: boolean;
+  user: any;
+  login: () => Promise<void>;
+  logout: () => Promise<void>;
+  getAccessToken: () => Promise<string | null>;
+  exportWallet: () => Promise<void>;
+  linkWallet: () => Promise<void>;
+};
+
 type AuthContextType = {
   user: User | null;
   isAuthHydrated: boolean;
@@ -41,34 +50,63 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const DEFAULT_SETTINGS: Settings = { notifyResurfacingHours: 24 };
 const SETTINGS_LS_KEY = 'crt_settings';
+
+function setCookie(u: User) {
+  try {
+    const safeUser = { ...u, isAdmin: undefined };
+    document.cookie = `crt_user=${encodeURIComponent(JSON.stringify(safeUser))}; path=/; SameSite=Lax; max-age=86400`;
+  } catch { /* ignore */ }
+}
+
+function clearCookie() {
+  try {
+    document.cookie = 'crt_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
+  } catch { /* ignore */ }
+}
+
+function useSafePrivy(): PrivyApi {
+  let ready = false;
+  let user: any = null;
+  let login = async () => { throw new Error('Authentication is not configured. Use Demo mode to explore the platform.'); };
+  let logout = async () => {};
+  let getAccessToken = async (): Promise<string | null> => null;
+  let exportWallet = async () => { throw new Error('Wallet features are not available.'); };
+  let linkWallet = async () => { throw new Error('Wallet linking is not available.'); };
+
+  try {
+    const privy = require('@privy-io/react-auth');
+    const result = privy.usePrivy();
+    if (result && typeof result === 'object' && 'ready' in result) {
+      ready = result.ready;
+      user = result.user;
+      login = result.login;
+      logout = result.logout;
+      getAccessToken = result.getAccessToken;
+      exportWallet = result.exportWallet;
+      linkWallet = result.linkWallet;
+    }
+  } catch { /* PrivyProvider not available - use fallbacks */ }
+
+  return { ready, user, login, logout, getAccessToken, exportWallet, linkWallet };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [isAuthHydrated, setIsAuthHydrated] = useState(false);
-  const [isDemoMode, setIsDemoMode] = useState(false);
+  const [isDemo, setIsDemo] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return readDemoMode();
+  });
+
+  const privy = useSafePrivy();
+  const hydrationDone = React.useRef(false);
 
   const effectiveSettings = useMemo<Settings>(() => {
     return settings ?? DEFAULT_SETTINGS;
   }, [settings]);
 
-  function setCookie(u: User) {
-    try {
-      // Strip isAdmin from cookie — server verifies role from DB, never trust client
-      const safeUser = { ...u, isAdmin: undefined };
-      document.cookie = `crt_user=${encodeURIComponent(JSON.stringify(safeUser))}; path=/; SameSite=Lax; max-age=86400`;
-    } catch { /* ignore */ }
-  }
-
-  function clearCookie() {
-    try {
-      document.cookie = 'crt_user=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax';
-    } catch { /* ignore */ }
-  }
-
-  const { user: privyUser, ready: privyReady, login: privyLogin, logout: privyLogout, getAccessToken, exportWallet: privyExportWallet, linkWallet: privyLinkWallet } = usePrivy();
-
   useEffect(() => {
-    // Load settings from localStorage
     const raw = localStorage.getItem(SETTINGS_LS_KEY);
     if (raw) {
       try { setSettings(JSON.parse(raw) as Settings); } catch { /* ignore */ }
@@ -76,9 +114,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    setIsDemoMode(readDemoMode());
-    const handler = (e: CustomEvent) => setIsDemoMode(e.detail);
-    const storageHandler = () => setIsDemoMode(readDemoMode());
+    const handler = () => setIsDemo(readDemoMode());
+    const storageHandler = () => setIsDemo(readDemoMode());
     window.addEventListener('demo-mode-changed', handler as EventListener);
     window.addEventListener('storage', storageHandler);
     return () => {
@@ -88,48 +125,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    async function syncPrivyUser() {
-      if (!privyReady) return;
+    if (hydrationDone.current) return;
 
-      if (!privyUser && isSandboxLoginEnabled && isDemoMode) {
-        const demoUser: User = {
-          id: 'demo-admin-id',
-          email: 'demo@lunim.io',
-          name: 'Demo Admin',
-          isAdmin: true,
-          role: 'admin',
-          isDemo: true,
-        };
-        setUser(demoUser);
-        setCookie(demoUser);
-        setIsAuthHydrated(true);
-        return;
-      }
+    const { ready, user: pUser, getAccessToken } = privy;
 
-      
-      if (!privyUser) {
-        clearCookie();
-        setUser(null);
-        setIsAuthHydrated(true);
-        return;
-      }
+    if (!ready && !isDemo) return;
 
+    hydrationDone.current = true;
+
+    if (isSandboxLoginEnabled && isDemo) {
+      setUser({
+        id: 'demo-admin-id',
+        email: 'demo@lunim.io',
+        name: 'Demo Admin',
+        isAdmin: true,
+        role: 'admin',
+        isDemo: true,
+      });
+      setIsAuthHydrated(true);
+      return;
+    }
+
+    if (!pUser) {
+      clearCookie();
+      setUser(null);
+      setIsAuthHydrated(true);
+      return;
+    }
+
+    const doSync = async () => {
       try {
         const token = await getAccessToken();
         const res = await fetch('/api/auth/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ privyUser })
+          body: JSON.stringify({ privyUser: pUser }),
         });
-        
+
         if (!res.ok) throw new Error('Sync failed');
-        
+
         const { user: supabaseProfile } = await res.json();
-        
+
         const profile: User = {
           id: supabaseProfile.id,
-          email: privyUser.email?.address || '',
-          name: supabaseProfile.display_name || privyUser.email?.address?.split('@')[0] || '',
+          email: pUser.email?.address || '',
+          name: supabaseProfile.display_name || pUser.email?.address?.split('@')[0] || '',
           isAdmin: supabaseProfile.role === 'ADMIN',
           role: supabaseProfile.role?.toLowerCase() as Role || 'creator',
           wallet_address: supabaseProfile.wallet_address || null,
@@ -139,44 +179,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setCookie(profile);
         setIsAuthHydrated(true);
       } catch (err) {
-        console.error('[AUTH] Privy Sync failed:', err);
-        // Fallback user state
-        const profile: User = {
-          id: privyUser.id.replace('did:privy:', ''), // fallback ID
-          email: privyUser.email?.address || '',
+        console.error('[AUTH] Sync failed:', err);
+        setUser({
+          id: pUser.id.replace('did:privy:', ''),
+          email: pUser.email?.address || '',
           role: 'creator',
-        };
-        setUser(profile);
+        });
         setIsAuthHydrated(true);
       }
+    };
+
+    doSync();
+  }, [privy.ready, privy.user, isDemo]);
+
+  const login = useCallback(async () => {
+    try {
+      await privy.login();
+    } catch (e: any) {
+      if (e.message?.includes('not configured') || e.message?.includes('not available')) {
+        window.location.href = '/login?mode=demo';
+      }
+      throw e;
     }
-    
-    syncPrivyUser();
-  }, [privyUser, privyReady, getAccessToken, isDemoMode]);
+  }, [privy.login]);
 
-  async function login() {
-    privyLogin();
-  }
-
-  async function logout() {
-    // Clear demo/sandbox state FIRST so syncPrivyUser doesn't re-create the demo user
+  const logout = useCallback(async () => {
     localStorage.removeItem('demo_mode');
     localStorage.removeItem('active_demo_wallet');
-    setIsDemoMode(false);
     window.dispatchEvent(new CustomEvent('demo-mode-changed', { detail: false }));
     window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: null }));
 
-    await privyLogout();
-    await supabase.auth.signOut();
+    try { await privy.logout(); } catch { /* ignore */ }
+    try { await supabase.auth.signOut(); } catch { /* ignore */ }
     clearCookie();
     setUser(null);
-    setIsAuthHydrated(true);
-
-    // Force redirect to login page
+    hydrationDone.current = false;
+    setIsAuthHydrated(false);
     window.location.href = '/login';
-  }
-
-
+  }, [privy.logout]);
 
   function setNotifyResurfacingHours(hours: number) {
     setSettings((prev) => {
@@ -186,19 +226,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
-
-
   async function connectUserWallet(walletAddress: string, walletType: 'metamask' | 'local' = 'local') {
     if (!user) return;
     const now = new Date().toISOString();
-    // Update users_profile table with wallet info
     const { error } = await supabase
       .from('users_profile')
-      .update({
-        wallet_address: walletAddress,
-        wallet_type: walletType,
-        updated_at: now,
-      })
+      .update({ wallet_address: walletAddress, wallet_type: walletType, updated_at: now })
       .eq('id', user.id);
     if (error) throw error;
     setUser((prev) => (prev ? { ...prev, wallet_address: walletAddress, wallet_connected: true, wallet_connected_at: now } : null));
@@ -224,15 +257,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     connectUserWallet,
     disconnectUserWallet,
     exportWallet: async () => {
-      try {
-        await privyExportWallet();
-      } catch (err: any) {
-        console.error('Wallet export failed:', err);
-        throw new Error(err.message || 'Private key export is only supported for embedded accounts.');
-      }
+      try { await privy.exportWallet(); }
+      catch (err: any) { throw new Error(err.message || 'Private key export is only supported for embedded accounts.'); }
     },
     linkWallet: async () => {
-      privyLinkWallet();
+      try { await privy.linkWallet(); } catch { /* ignore */ }
     },
   };
 
