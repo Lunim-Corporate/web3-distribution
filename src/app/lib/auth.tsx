@@ -190,6 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     doSync();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [privy.ready, privy.user, isDemo]);
 
   const login = useCallback(async () => {
@@ -201,6 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       throw e;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [privy.login]);
 
   const logout = useCallback(async () => {
@@ -216,6 +218,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     hydrationDone.current = false;
     setIsAuthHydrated(false);
     window.location.href = '/login';
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [privy.logout]);
 
   function setNotifyResurfacingHours(hours: number) {

@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useWallets } from '@privy-io/react-auth';
 import { useRevenueSplitter } from '@/lib/web3';
+import { useSafeWallets } from '@/lib/web3/useSafeWallets';
 import { ADMIN_LIVE_ADDRESS } from '@/lib/web3/config';
 import { useEthPrice } from '@/app/lib/useEthPrice';
 import { toast } from 'react-hot-toast';
@@ -62,7 +62,7 @@ const getTransactionDate = (tx: Transaction) => tx.created_at || tx.date || new 
 const demoClaimStorageKey = (wallet: string) => `demo_claimed_earnings:${wallet.toLowerCase()}`;
 
 export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projectId, holders, isDemoMode, project }) => {
-  const { wallets } = useWallets();
+  const { wallets } = useSafeWallets();
   const demoCA = project?.demo_contract_address || process.env.NEXT_PUBLIC_DEMO_CONTRACT_ADDRESS;
   const liveCA = project?.contract_address || process.env.NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS;
   const targetCA = isDemoMode ? demoCA : liveCA;

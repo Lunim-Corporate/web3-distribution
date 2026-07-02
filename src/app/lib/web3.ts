@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useWallets } from '@privy-io/react-auth';
+import { useSafeWallets } from '@/lib/web3/useSafeWallets';
 import { createPublicClient, createWalletClient, http, custom, encodeFunctionData, parseEther, formatEther } from 'viem';
 import { hardhat } from 'viem/chains';
 import { activeChain, ADMIN_LIVE_ADDRESS } from './web3/config';
@@ -51,7 +51,7 @@ const ABI = [
 ];
 
 export function useRevenueSplitter(overrideContractAddress?: string) {
-  const { wallets } = useWallets();
+  const { wallets } = useSafeWallets();
   
   const [smartAccountAddress, setSmartAccountAddress] = useState<Address | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);

@@ -9,7 +9,7 @@ import { useAuth } from '@/lib/auth';
 import { useRevenueSplitter } from '@/lib/web3';
 import { ADMIN_LIVE_ADDRESS } from '@/lib/web3/config';
 import { DEMO_ACCOUNTS } from '@/app/components/Navbar';
-import { useWallets } from '@privy-io/react-auth';
+import { useSafeWallets } from '@/lib/web3/useSafeWallets';
 import { toast } from 'react-hot-toast';
 import { useEthPrice } from '@/app/lib/useEthPrice';
 
@@ -17,7 +17,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const { user, logout, setNotifyResurfacingHours, settings, exportWallet, linkWallet } = useAuth();
   const { smartAccountAddress, isInitializing, getAccruedBalanceEth, claimRevenue } = useRevenueSplitter();
-  const { wallets } = useWallets();
+  const { wallets } = useSafeWallets();
   const hasEmbeddedWallet = wallets.some((w) => w.walletClientType === 'privy');
   const { formatEthAsUsd } = useEthPrice();
 

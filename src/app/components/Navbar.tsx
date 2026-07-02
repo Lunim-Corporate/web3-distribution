@@ -8,7 +8,7 @@ import { useRevenueSplitter } from '@/lib/web3';
 import { isDemoAccessEnabled, readDemoMode, setDemoMode } from '@/lib/demoAccess';
 import { ADMIN_LIVE_ADDRESS } from '@/lib/web3/config';
 import { truncateAddress } from '@/lib/utils';
-import { useWallets } from '@privy-io/react-auth';
+import { useSafeWallets } from '@/lib/web3/useSafeWallets';
 import { dedupeJsonFetch } from '@/app/lib/requestCache';
 
 // Seeded local Hardhat accounts for Demo Mode
@@ -58,7 +58,7 @@ export const WalletIcon = () => (
 export const Navbar: React.FC = () => {
   const { user, logout, linkWallet, connectUserWallet, disconnectUserWallet } = useAuth();
   const { smartAccountAddress } = useRevenueSplitter();
-  const { wallets } = useWallets();
+  const { wallets } = useSafeWallets();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);

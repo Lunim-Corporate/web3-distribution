@@ -118,7 +118,7 @@ export const authSyncSchema = z.object({
     id: z.string().min(1),
     email: z.object({
       address: z.string().email(),
-    }),
+    }).optional().nullable(),
     wallet: z.object({
       address: ethereumAddress,
       walletClientType: z.string().optional(),
