@@ -2,6 +2,7 @@ import { cookies, headers } from 'next/headers';
 import { supabaseAdmin, isSupabaseConfigured } from './supabaseServer';
 import { createClient } from '@/utils/supabase/server';
 import type { User } from './auth';
+import { getOrSetCachedPromise } from './requestCache';
 
 // ──────────────────────────────────────────────
 // Audit Log (in-memory buffer, flushed to console)
@@ -77,11 +78,19 @@ export async function getVerifiedUser(): Promise<User | null> {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (session?.user && !sessionError) {
-          const { data: dbUser } = await supabaseAdmin
-            .from('users_profile')
-            .select('id, display_name, role')
-            .eq('id', session.user.id)
-            .maybeSingle();
+          const cacheKey = `user-profile-${session.user.id}`;
+          const dbUser = await getOrSetCachedPromise(
+            cacheKey,
+            async () => {
+              const { data } = await supabaseAdmin
+                .from('users_profile')
+                .select('id, display_name, role')
+                .eq('id', session.user.id)
+                .maybeSingle();
+              return data;
+            },
+            30000 // 30 seconds TTL
+          );
 
           if (dbUser) {
             const role = dbUser.role || 'RIGHTS_HOLDER';
@@ -125,13 +134,22 @@ export async function getVerifiedUser(): Promise<User | null> {
     }
 
     // 3. Verify user exists in DB and get fresh role/admin status
-    const { data: dbUser, error } = await supabaseAdmin
-      .from('users_profile')
-      .select('id, display_name, role')
-      .eq('id', userData.id)
-      .maybeSingle();
+    const cacheKey = `user-profile-${userData.id}`;
+    const dbUser = await getOrSetCachedPromise(
+      cacheKey,
+      async () => {
+        const { data, error } = await supabaseAdmin
+          .from('users_profile')
+          .select('id, display_name, role')
+          .eq('id', userData.id)
+          .maybeSingle();
+        if (error) throw error;
+        return data;
+      },
+      30000 // 30 seconds TTL
+    );
 
-    if (error || !dbUser) return null;
+    if (!dbUser) return null;
 
     const role = dbUser.role || 'RIGHTS_HOLDER';
     const isAdmin = role.toUpperCase() === 'ADMIN';

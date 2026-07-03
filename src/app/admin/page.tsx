@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'react-hot-toast';
+import { readDemoMode } from '@/lib/demoAccess';
 
 interface Project { id: string; name: string; }
 interface RightsHolder { id: string; full_name: string; role: string; wallet_address: string; percentage: number; }
@@ -48,12 +49,13 @@ export default function AdminPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const res = await fetch(`/api/dashboard?pid=${selectedProjectId || 'all'}`);
+      const demoParam = readDemoMode();
+      const res = await fetch(`/api/dashboard?pid=${selectedProjectId || 'all'}&demo=${demoParam}`);
       if (!res.ok) throw new Error('Failed to fetch admin data');
       const data = await res.json();
-      setProjects(data.projectsList);
+      setProjects(data.projectsList || []);
       if (selectedProjectId && selectedProjectId !== 'all') {
-        setHolders(data.holders);
+        setHolders(data.holders || []);
       } else {
         setHolders([]);
       }

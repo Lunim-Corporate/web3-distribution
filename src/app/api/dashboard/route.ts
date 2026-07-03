@@ -4,6 +4,7 @@ import { requireAuth } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { isDemoAccessEnabled } from '@/app/lib/demoAccess';
 import { demoProjects, demoHolders, demoTransactions } from '@/app/lib/demoData';
+import { getOrSetCachedPromise } from '@/app/lib/requestCache';
 
 export async function GET(req: Request) {
   try {
@@ -28,29 +29,38 @@ export async function GET(req: Request) {
 
     if (configured) {
       // 2. Fetch user profile via admin to bypass RLS recursion
-      const { data: dbProfile } = await supabaseAdmin
-        .from('users_profile')
-        .select('role, wallet_address')
-        .eq('id', userId)
-        .maybeSingle();
-      profile = dbProfile;
+      profile = await getOrSetCachedPromise(`user-profile-role-${userId}`, async () => {
+        const { data } = await supabaseAdmin
+          .from('users_profile')
+          .select('role, wallet_address')
+          .eq('id', userId)
+          .maybeSingle();
+        return data;
+      }, 30000);
 
       // 3. Fetch all active projects, rights holders, and transactions
-      const { data: dbProjs } = await supabaseAdmin.from('projects').select('*').ilike('status', 'active');
-      const { data: dbHolders } = await supabaseAdmin.from('rights_holders').select('*');
-      allProjs = dbProjs || [];
-      allHolders = dbHolders || [];
+      allProjs = await getOrSetCachedPromise('dashboard-all-active-projects', async () => {
+        const { data } = await supabaseAdmin.from('projects').select('*').ilike('status', 'active');
+        return data || [];
+      }, 10000);
+
+      allHolders = await getOrSetCachedPromise('dashboard-all-rights-holders', async () => {
+        const { data } = await supabaseAdmin.from('rights_holders').select('*');
+        return data || [];
+      }, 10000);
 
       // Filter transactions by is_demo
-      let txQuery = supabaseAdmin.from('transactions').select('*, transaction_splits(*)').order('created_at', { ascending: false });
-      if (isDemoMode) {
-        txQuery = txQuery.eq('is_demo', true);
-      } else {
-        // In web3 mode, show transactions where is_demo is false OR null
-        txQuery = txQuery.or('is_demo.eq.false,is_demo.is.null');
-      }
-      const { data: dbTx } = await txQuery;
-      allTx = dbTx || [];
+      const txCacheKey = `dashboard-txs-demo-${isDemoMode}`;
+      allTx = await getOrSetCachedPromise(txCacheKey, async () => {
+        let txQuery = supabaseAdmin.from('transactions').select('*, transaction_splits(*)').order('created_at', { ascending: false });
+        if (isDemoMode) {
+          txQuery = txQuery.eq('is_demo', true);
+        } else {
+          txQuery = txQuery.or('is_demo.eq.false,is_demo.is.null');
+        }
+        const { data } = await txQuery;
+        return data || [];
+      }, 10000);
     } else {
       // Fallback configuration
       profile = { role: 'admin', wallet_address: '0x7C4B53DeBd4fa41Ce7fB0aC3CA25aa3243675fDE' };

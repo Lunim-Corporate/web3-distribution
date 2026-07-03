@@ -4,6 +4,7 @@ import { requireAdmin } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { validateBody, manageRightsHolderSchema } from '@/app/lib/validation';
 import { demoHolders } from '@/app/lib/demoData';
+import { clearCache } from '@/app/lib/requestCache';
 
 export async function POST(req: Request) {
   try {
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
         .from('rights_holders')
         .select('project_id, percentage')
         .eq('id', id)
-        .single();
+        .maybeSingle();
       thisHolder = data;
       if (thisHolder) {
         const { data: list } = await supabaseAdmin
@@ -45,6 +46,38 @@ export async function POST(req: Request) {
 
     if (!thisHolder) {
       return NextResponse.json({ error: 'Rights holder not found' }, { status: 404 });
+    }
+
+    // Protection check 1: System demo projects by name
+    if (configured) {
+      const { data: thisProj } = await supabaseAdmin
+        .from('projects')
+        .select('name')
+        .eq('id', thisHolder.project_id)
+        .maybeSingle();
+
+      if (thisProj && ['Neon Requiem', 'Aether Drift', 'LUNIM Genesis', 'The Salt Coast'].includes(thisProj.name)) {
+        return NextResponse.json({ error: 'Cannot modify system demo projects.' }, { status: 403 });
+      }
+
+      // Protection check 2: Projects containing any rights holders that are admins
+      const { data: allProjHolders } = await supabaseAdmin
+        .from('rights_holders')
+        .select('email, role')
+        .eq('project_id', thisHolder.project_id);
+
+      const hasAdmin = (allProjHolders || []).some(
+        h => (h.email && ['pete@tabb.cc', 'freewhynane62@gmail.com', 'jeevesh039@gmail.com'].includes(h.email.toLowerCase())) || 
+             (h.role && h.role.toLowerCase().includes('admin'))
+      );
+
+      if (hasAdmin) {
+        return NextResponse.json({ error: 'Cannot modify projects containing administrator accounts.' }, { status: 403 });
+      }
+    } else {
+      if (thisHolder.project_id === 'demo-project-1' || thisHolder.project_id === 'demo-project-2') {
+        return NextResponse.json({ error: 'Cannot modify system demo projects.' }, { status: 403 });
+      }
     }
 
     // Calculate total allocation impact
@@ -81,6 +114,8 @@ export async function POST(req: Request) {
         if (error) throw error;
       }
 
+      clearCache();
+
       const response: any = { success: true };
       if (warning) response.warning = warning;
       return NextResponse.json(response);
@@ -101,6 +136,8 @@ export async function POST(req: Request) {
           .eq('id', id);
         if (error) throw error;
       }
+
+      clearCache();
 
       const response: any = { success: true };
       if (warning) response.warning = warning;

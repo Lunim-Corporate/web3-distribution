@@ -5,6 +5,7 @@ import { checkRateLimit } from '@/app/lib/rateLimit';
 import { z } from 'zod';
 import { safeString } from '@/app/lib/validation';
 import { demoProjects, demoHolders } from '@/app/lib/demoData';
+import { clearCache } from '@/app/lib/requestCache';
 
 const updateProjectSchema = z.object({
   name: safeString(200).optional(),
@@ -96,6 +97,7 @@ export async function PATCH(
       if (id === 'demo-project-1' || id === 'demo-project-2') {
         return NextResponse.json({ error: 'Cannot modify system demo projects.' }, { status: 403 });
       }
+      clearCache();
       return NextResponse.json({
         success: true,
         data: {
@@ -153,6 +155,8 @@ export async function PATCH(
 
     if (error) throw error;
 
+    clearCache();
+
     const updated = await getProject(id);
     return NextResponse.json({ success: true, data: updated });
   } catch (err) {
@@ -164,3 +168,4 @@ export async function PATCH(
 }
 
 export const dynamic = 'force-dynamic';
+

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin, isSupabaseConfigured } from '@/app/lib/supabaseServer';
 import { requireAdmin, auditLog } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
+import { clearCache } from '@/app/lib/requestCache';
 
 export async function GET() {
   try {
@@ -70,6 +71,7 @@ export async function PUT(req: Request) {
 
     const configured = isSupabaseConfigured();
     if (!configured) {
+      clearCache();
       return NextResponse.json({
         id: user_id,
         display_name: user_id === 'demo-admin-id' ? 'Demo Admin' : 'Aria Vance',
@@ -87,6 +89,8 @@ export async function PUT(req: Request) {
     if (error) {
       return NextResponse.json({ error: 'Failed to update user role' }, { status: 500 });
     }
+
+    clearCache();
 
     await auditLog('admin:update_role', admin.id, true, `target=${user_id} new_role=${role}`);
 

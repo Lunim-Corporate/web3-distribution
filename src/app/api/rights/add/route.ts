@@ -4,6 +4,7 @@ import { requireAdmin } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { validateBody, addRightsHolderSchema } from '@/app/lib/validation';
 import { demoHolders } from '@/app/lib/demoData';
+import { clearCache } from '@/app/lib/requestCache';
 
 export async function POST(req: Request) {
   try {
@@ -17,8 +18,41 @@ export async function POST(req: Request) {
 
     const { project_id, full_name, role, wallet_address, percentage } = result.data;
 
-    // Check percentage total before inserting
     const configured = isSupabaseConfigured();
+
+    // Protection check 1: System demo projects by name
+    if (configured) {
+      const { data: thisProj } = await supabaseAdmin
+        .from('projects')
+        .select('name')
+        .eq('id', project_id)
+        .maybeSingle();
+
+      if (thisProj && ['Neon Requiem', 'Aether Drift', 'LUNIM Genesis', 'The Salt Coast'].includes(thisProj.name)) {
+        return NextResponse.json({ error: 'Cannot modify system demo projects.' }, { status: 403 });
+      }
+
+      // Protection check 2: Projects containing any rights holders that are admins
+      const { data: projectHolders } = await supabaseAdmin
+        .from('rights_holders')
+        .select('email, role')
+        .eq('project_id', project_id);
+
+      const hasAdmin = (projectHolders || []).some(
+        h => (h.email && ['pete@tabb.cc', 'freewhynane62@gmail.com', 'jeevesh039@gmail.com'].includes(h.email.toLowerCase())) || 
+             (h.role && h.role.toLowerCase().includes('admin'))
+      );
+
+      if (hasAdmin) {
+        return NextResponse.json({ error: 'Cannot modify projects containing administrator accounts.' }, { status: 403 });
+      }
+    } else {
+      if (project_id === 'demo-project-1' || project_id === 'demo-project-2') {
+        return NextResponse.json({ error: 'Cannot modify system demo projects.' }, { status: 403 });
+      }
+    }
+
+    // Check percentage total before inserting
     let currentTotal = 0;
     if (configured) {
       const { data: existingHolders } = await supabaseAdmin
@@ -72,6 +106,8 @@ export async function POST(req: Request) {
         updated_at: new Date().toISOString()
       };
     }
+
+    clearCache();
 
     const response: any = { success: true, data };
     if (warning) {

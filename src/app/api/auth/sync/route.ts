@@ -156,6 +156,21 @@ const privy = new PrivyClient(
   process.env.PRIVY_APP_SECRET || ''
 );
 
+// In-memory cache for user list lookup fallback
+let cachedUserList: any[] | null = null;
+let cachedUserListTime = 0;
+const USER_LIST_TTL = 5 * 60 * 1000; // 5 minutes
+
+async function getOrFetchUserList() {
+  if (!cachedUserList || Date.now() - cachedUserListTime > USER_LIST_TTL) {
+    const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    if (listError) throw listError;
+    cachedUserList = existingUsers?.users || [];
+    cachedUserListTime = Date.now();
+  }
+  return cachedUserList;
+}
+
 export async function POST(req: Request) {
   try {
     // Rate limit: auth tier (10 per minute)
@@ -207,9 +222,8 @@ export async function POST(req: Request) {
 
       if (rpcError && (rpcError.code === '42883' || rpcError.message?.includes('get_user_id_by_email'))) {
         // Fallback: RPC function does not exist, use listUsers() linear lookup
-        const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-        if (listError) throw listError;
-        supabaseUser = existingUsers.users.find(u => u.email === email) || null;
+        const existingUsers = await getOrFetchUserList();
+        supabaseUser = existingUsers.find(u => u.email === email) || null;
       } else if (rpcError) {
         throw rpcError;
       } else if (rpcData && rpcData.length > 0) {
@@ -220,9 +234,12 @@ export async function POST(req: Request) {
       }
     } catch (err) {
       console.warn('Efficient email lookup failed, using listUsers fallback:', err);
-      const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-      if (listError) throw listError;
-      supabaseUser = existingUsers.users.find(u => u.email === email) || null;
+      try {
+        const existingUsers = await getOrFetchUserList();
+        supabaseUser = existingUsers.find(u => u.email === email) || null;
+      } catch (listErr) {
+        console.error('List users fallback also failed:', listErr);
+      }
     }
 
     // 2. If not found, create a dummy auth.users row
@@ -239,7 +256,9 @@ export async function POST(req: Request) {
       
       if (createError) throw createError;
       supabaseUser = newUser.user;
+      cachedUserList = null; // Invalidate cache so next request includes the new user
     }
+
 
     // 3. Update or fetch their profile from users_profile
     const walletAddress = privyUser.wallet?.address || null;

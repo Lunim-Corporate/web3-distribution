@@ -3,6 +3,7 @@ import { supabaseAdmin, isSupabaseConfigured } from '@/app/lib/supabaseServer';
 import { requireAdmin } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { validateBody, addProjectSchema } from '@/app/lib/validation';
+import { clearCache } from '@/app/lib/requestCache';
 
 export async function POST(req: Request) {
   try {
@@ -18,6 +19,7 @@ export async function POST(req: Request) {
 
     const configured = isSupabaseConfigured();
     if (!configured) {
+      clearCache();
       return NextResponse.json({
         id: `demo-project-${Date.now()}`,
         name,
@@ -43,6 +45,8 @@ export async function POST(req: Request) {
       .single();
 
     if (error) throw error;
+
+    clearCache();
 
     return NextResponse.json(data);
   } catch (err: any) {
