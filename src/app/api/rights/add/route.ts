@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/app/lib/supabaseServer';
+import { supabaseAdmin, isSupabaseConfigured } from '@/app/lib/supabaseServer';
 import { requireAdmin } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { validateBody, addRightsHolderSchema } from '@/app/lib/validation';
+import { demoHolders } from '@/app/lib/demoData';
 
 export async function POST(req: Request) {
   try {
@@ -17,12 +18,19 @@ export async function POST(req: Request) {
     const { project_id, full_name, role, wallet_address, percentage } = result.data;
 
     // Check percentage total before inserting
-    const { data: existingHolders } = await supabaseAdmin
-      .from('rights_holders')
-      .select('percentage')
-      .eq('project_id', project_id);
+    const configured = isSupabaseConfigured();
+    let currentTotal = 0;
+    if (configured) {
+      const { data: existingHolders } = await supabaseAdmin
+        .from('rights_holders')
+        .select('percentage')
+        .eq('project_id', project_id);
+      currentTotal = (existingHolders || []).reduce((sum, h) => sum + Number(h.percentage), 0);
+    } else {
+      const existingHolders = demoHolders.filter(h => h.project_id === project_id);
+      currentTotal = existingHolders.reduce((sum, h) => sum + Number(h.percentage), 0);
+    }
 
-    const currentTotal = (existingHolders || []).reduce((sum, h) => sum + Number(h.percentage), 0);
     const newTotal = currentTotal + Number(percentage);
     const isOver100 = newTotal > 100.01;
     const warning = isOver100
@@ -31,22 +39,39 @@ export async function POST(req: Request) {
         ? `Total allocation will be ${newTotal.toFixed(2)}%. Adjust other holders or add more to reach exactly 100%.`
         : null;
 
-    // 1. Add to rights_holders table
-    const { data, error } = await supabaseAdmin
-      .from('rights_holders')
-      .insert({
+    let data: any;
+    if (configured) {
+      // 1. Add to rights_holders table
+      const { data: dbData, error } = await supabaseAdmin
+        .from('rights_holders')
+        .insert({
+          project_id,
+          full_name,
+          role: role || 'Contributor',
+          wallet_address,
+          percentage: Number(percentage),
+          total_received: 0,
+          status: 'ACTIVE'
+        })
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      data = dbData;
+    } else {
+      data = {
+        id: `demo-holder-${Date.now()}`,
         project_id,
         full_name,
         role: role || 'Contributor',
         wallet_address,
         percentage: Number(percentage),
         total_received: 0,
-        status: 'ACTIVE'
-      })
-      .select('*')
-      .single();
-
-    if (error) throw error;
+        status: 'ACTIVE',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+    }
 
     const response: any = { success: true, data };
     if (warning) {

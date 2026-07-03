@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { isSandboxLoginEnabled, readDemoMode } from '@/lib/demoAccess';
+import { usePrivy } from '@privy-io/react-auth';
 
 export type Role = 'admin' | 'creator' | 'contributor' | 'viewer';
 
@@ -21,16 +22,6 @@ export type User = {
   wallet_address?: string | null;
   wallet_connected?: boolean;
   wallet_connected_at?: string | null;
-};
-
-type PrivyApi = {
-  ready: boolean;
-  user: any;
-  login: () => Promise<void>;
-  logout: () => Promise<void>;
-  getAccessToken: () => Promise<string | null>;
-  exportWallet: () => Promise<void>;
-  linkWallet: () => Promise<void>;
 };
 
 type AuthContextType = {
@@ -64,33 +55,10 @@ function clearCookie() {
   } catch { /* ignore */ }
 }
 
-function useSafePrivy(): PrivyApi {
-  let ready = false;
-  let user: any = null;
-  let login = async () => { throw new Error('Authentication is not configured. Use Demo mode to explore the platform.'); };
-  let logout = async () => {};
-  let getAccessToken = async (): Promise<string | null> => null;
-  let exportWallet = async () => { throw new Error('Wallet features are not available.'); };
-  let linkWallet = async () => { throw new Error('Wallet linking is not available.'); };
-
-  try {
-    const privy = require('@privy-io/react-auth');
-    const result = privy.usePrivy();
-    if (result && typeof result === 'object' && 'ready' in result) {
-      ready = result.ready;
-      user = result.user;
-      login = result.login;
-      logout = result.logout;
-      getAccessToken = result.getAccessToken;
-      exportWallet = result.exportWallet;
-      linkWallet = result.linkWallet;
-    }
-  } catch { /* PrivyProvider not available - use fallbacks */ }
-
-  return { ready, user, login, logout, getAccessToken, exportWallet, linkWallet };
-}
-
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+// ----------------------------------------------------
+// Privy Auth Provider (Used when app ID is present)
+// ----------------------------------------------------
+function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [isAuthHydrated, setIsAuthHydrated] = useState(false);
@@ -99,7 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return readDemoMode();
   });
 
-  const privy = useSafePrivy();
+  const privy = usePrivy();
   const hydrationDone = React.useRef(false);
 
   const effectiveSettings = useMemo<Settings>(() => {
@@ -173,6 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           isAdmin: supabaseProfile.role === 'ADMIN',
           role: supabaseProfile.role?.toLowerCase() as Role || 'creator',
           wallet_address: supabaseProfile.wallet_address || null,
+          wallet_connected: !!supabaseProfile.wallet_address,
         };
 
         setUser(profile);
@@ -206,7 +175,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [privy.login]);
 
   const logout = useCallback(async () => {
-    localStorage.removeItem('demo_mode');
+    localStorage.setItem('demo_mode', 'false');
     localStorage.removeItem('active_demo_wallet');
     window.dispatchEvent(new CustomEvent('demo-mode-changed', { detail: false }));
     window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: null }));
@@ -273,6 +242,136 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
+}
+
+// ----------------------------------------------------
+// Demo Auth Provider (Used when app ID is missing)
+// ----------------------------------------------------
+function DemoAuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [isAuthHydrated, setIsAuthHydrated] = useState(false);
+
+  const effectiveSettings = useMemo<Settings>(() => {
+    return settings ?? DEFAULT_SETTINGS;
+  }, [settings]);
+
+  useEffect(() => {
+    const raw = localStorage.getItem(SETTINGS_LS_KEY);
+    if (raw) {
+      try { setSettings(JSON.parse(raw) as Settings); } catch { /* ignore */ }
+    }
+  }, []);
+
+  // Sync user state on mount
+  useEffect(() => {
+    const activeWallet = localStorage.getItem('active_demo_wallet');
+    const demoUser: User = {
+      id: 'demo-admin-id',
+      email: 'demo@lunim.io',
+      name: 'Demo Admin',
+      isAdmin: true,
+      role: 'admin',
+      isDemo: true,
+      wallet_address: activeWallet || null,
+      wallet_connected: !!activeWallet,
+    };
+
+    const storedUser = localStorage.getItem('demo_user_logged_in');
+    if (storedUser === 'true') {
+      setUser(demoUser);
+      setCookie(demoUser);
+    } else {
+      setUser(null);
+      clearCookie();
+    }
+    setIsAuthHydrated(true);
+  }, []);
+
+  const login = useCallback(async () => {
+    const demoUser: User = {
+      id: 'demo-admin-id',
+      email: 'demo@lunim.io',
+      name: 'Demo Admin',
+      isAdmin: true,
+      role: 'admin',
+      isDemo: true,
+    };
+    localStorage.setItem('demo_mode', 'true');
+    localStorage.setItem('demo_user_logged_in', 'true');
+    window.dispatchEvent(new CustomEvent('demo-mode-changed', { detail: true }));
+    setUser(demoUser);
+    setCookie(demoUser);
+    setIsAuthHydrated(true);
+  }, []);
+
+  const logout = useCallback(async () => {
+    localStorage.setItem('demo_mode', 'false');
+    localStorage.removeItem('demo_user_logged_in');
+    localStorage.removeItem('active_demo_wallet');
+    window.dispatchEvent(new CustomEvent('demo-mode-changed', { detail: false }));
+    window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: null }));
+    clearCookie();
+    setUser(null);
+    setIsAuthHydrated(true);
+    window.location.href = '/login';
+  }, []);
+
+  function setNotifyResurfacingHours(hours: number) {
+    setSettings((prev) => {
+      const next = { ...(prev ?? DEFAULT_SETTINGS), notifyResurfacingHours: hours };
+      localStorage.setItem(SETTINGS_LS_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
+
+  async function connectUserWallet(walletAddress: string, _walletType: 'metamask' | 'local' = 'local') {
+    localStorage.setItem('active_demo_wallet', walletAddress);
+    setUser((prev) => (prev ? { ...prev, wallet_address: walletAddress, wallet_connected: true } : null));
+    window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: walletAddress }));
+  }
+
+  async function disconnectUserWallet() {
+    localStorage.removeItem('active_demo_wallet');
+    setUser((prev) => (prev ? { ...prev, wallet_address: null, wallet_connected: false } : null));
+    window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: null }));
+  }
+
+  const value: AuthContextType = {
+    user,
+    isAuthHydrated,
+    login,
+    logout,
+    settings: effectiveSettings,
+    setNotifyResurfacingHours,
+    connectUserWallet,
+    disconnectUserWallet,
+    exportWallet: async () => {
+      throw new Error('Private key export is not available in demo mode.');
+    },
+    linkWallet: async () => {
+      throw new Error('Wallet linking is not available in demo mode.');
+    },
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+// ----------------------------------------------------
+// Main Auth Provider router
+// ----------------------------------------------------
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const hasAppId = typeof window !== 'undefined' && !!process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+
+  if (hasAppId) {
+    return <PrivyAuthProvider>{children}</PrivyAuthProvider>;
+  } else {
+    return <DemoAuthProvider>{children}</DemoAuthProvider>;
+  }
 }
 
 export function useAuth() {

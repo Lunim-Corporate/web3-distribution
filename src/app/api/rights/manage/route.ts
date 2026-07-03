@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/app/lib/supabaseServer';
+import { supabaseAdmin, isSupabaseConfigured } from '@/app/lib/supabaseServer';
 import { requireAdmin } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { validateBody, manageRightsHolderSchema } from '@/app/lib/validation';
+import { demoHolders } from '@/app/lib/demoData';
 
 export async function POST(req: Request) {
   try {
@@ -17,22 +18,36 @@ export async function POST(req: Request) {
     const { action, id } = result.data;
 
     // Fetch the holder being modified (for total calculation)
-    const { data: thisHolder } = await supabaseAdmin
-      .from('rights_holders')
-      .select('project_id, percentage')
-      .eq('id', id)
-      .single();
+    const configured = isSupabaseConfigured();
+    let thisHolder: any = null;
+    let projectHolders: any[] = [];
+
+    if (configured) {
+      const { data } = await supabaseAdmin
+        .from('rights_holders')
+        .select('project_id, percentage')
+        .eq('id', id)
+        .single();
+      thisHolder = data;
+      if (thisHolder) {
+        const { data: list } = await supabaseAdmin
+          .from('rights_holders')
+          .select('id, percentage')
+          .eq('project_id', thisHolder.project_id);
+        projectHolders = list || [];
+      }
+    } else {
+      thisHolder = demoHolders.find(h => h.id === id);
+      if (thisHolder) {
+        projectHolders = demoHolders.filter(h => h.project_id === thisHolder.project_id);
+      }
+    }
 
     if (!thisHolder) {
       return NextResponse.json({ error: 'Rights holder not found' }, { status: 404 });
     }
 
     // Calculate total allocation impact
-    const { data: projectHolders } = await supabaseAdmin
-      .from('rights_holders')
-      .select('id, percentage')
-      .eq('project_id', thisHolder.project_id);
-
     const totalWithoutThis = (projectHolders || [])
       .filter(h => h.id !== id)
       .reduce((sum, h) => sum + Number(h.percentage), 0);
@@ -58,11 +73,14 @@ export async function POST(req: Request) {
         warning = `Total allocation will be ${newTotal.toFixed(2)}%. Adjust other holders or add more to reach exactly 100%.`;
       }
 
-      const { error } = await supabaseAdmin
-        .from('rights_holders')
-        .update(updateData)
-        .eq('id', id);
-      if (error) throw error;
+      if (configured) {
+        const { error } = await supabaseAdmin
+          .from('rights_holders')
+          .update(updateData)
+          .eq('id', id);
+        if (error) throw error;
+      }
+
       const response: any = { success: true };
       if (warning) response.warning = warning;
       return NextResponse.json(response);
@@ -76,11 +94,14 @@ export async function POST(req: Request) {
         warning = `After deletion, total allocation will be ${newTotal.toFixed(2)}%. Add more holders or adjust percentages to reach exactly 100%.`;
       }
 
-      const { error } = await supabaseAdmin
-        .from('rights_holders')
-        .delete()
-        .eq('id', id);
-      if (error) throw error;
+      if (configured) {
+        const { error } = await supabaseAdmin
+          .from('rights_holders')
+          .delete()
+          .eq('id', id);
+        if (error) throw error;
+      }
+
       const response: any = { success: true };
       if (warning) response.warning = warning;
       return NextResponse.json(response);

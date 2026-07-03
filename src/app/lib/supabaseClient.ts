@@ -5,6 +5,16 @@ const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PU
 
 export const supabase = createClient(url, anonKey);
 
+export function isSupabaseConfigured(): boolean {
+  const currentKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '';
+  return !!process.env.NEXT_PUBLIC_SUPABASE_URL && 
+         !process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder') &&
+         !!currentKey &&
+         !currentKey.includes('placeholder-key') &&
+         !currentKey.includes('your-supabase-anon-key');
+}
+
+
 export async function fetchProjectByName(name: string) {
   const { data, error } = await supabase
     .from('projects')

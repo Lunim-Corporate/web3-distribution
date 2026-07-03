@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/app/lib/supabaseServer';
+import { supabaseAdmin, isSupabaseConfigured } from '@/app/lib/supabaseServer';
 import { requireAuth } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { getEthPriceUSD } from '@/app/lib/ethPrice';
 import { isDemoAccessEnabled } from '@/app/lib/demoAccess';
+import { demoActivities } from '@/app/lib/demoData';
 
 export async function GET(req: Request) {
   try {
@@ -18,22 +19,35 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const isDemoMode = isDemoAccessEnabled && searchParams.get('demo') === 'true';
 
-    // 1. Try to get actual activities from the activities table
-    const actQuery = supabaseAdmin
-      .from('activities')
-      .select('*, projects(name)')
-      .order('timestamp', { ascending: false });
+    const configured = isSupabaseConfigured();
 
-    const { data: directActivities, error: activityError } = await actQuery.limit(15);
+    if (configured) {
+      // 1. Try to get actual activities from the activities table
+      const actQuery = supabaseAdmin
+        .from('activities')
+        .select('*, projects(name)')
+        .order('timestamp', { ascending: false });
 
-    if (!activityError && directActivities && directActivities.length > 0) {
-      return NextResponse.json(directActivities.map(a => ({
+      const { data: directActivities, error: activityError } = await actQuery.limit(15);
+
+      if (!activityError && directActivities && directActivities.length > 0) {
+        return NextResponse.json(directActivities.map(a => ({
+          id: a.id,
+          activity_type: a.action || 'info',
+          description: a.description,
+          projectName: a.projects?.name || 'LUNIM',
+          created_at: a.timestamp,
+          icon: a.action === 'payment_recorded' ? '💰' : '🔔'
+        })));
+      }
+    } else {
+      return NextResponse.json(demoActivities.map(a => ({
         id: a.id,
         activity_type: a.action || 'info',
         description: a.description,
-        projectName: a.projects?.name || 'LUNIM',
+        projectName: a.project_id === 'demo-project-1' ? 'Neon Requiem' : 'The Salt Coast',
         created_at: a.timestamp,
-        icon: a.action === 'payment_recorded' ? '💰' : '🔔'
+        icon: a.action === 'holder_added' ? '👥' : '💰'
       })));
     }
 

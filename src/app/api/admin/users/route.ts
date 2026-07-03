@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/app/lib/supabaseServer';
+import { supabaseAdmin, isSupabaseConfigured } from '@/app/lib/supabaseServer';
 import { requireAdmin, auditLog } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 
@@ -9,6 +9,28 @@ export async function GET() {
     if (blocked) return blocked;
 
     await requireAdmin();
+
+    const configured = isSupabaseConfigured();
+    if (!configured) {
+      return NextResponse.json([
+        {
+          id: 'demo-admin-id',
+          display_name: 'Demo Admin',
+          role: 'ADMIN',
+          wallet_address: '0x7C4B53DeBd4fa41Ce7fB0aC3CA25aa3243675fDE',
+          wallet_type: 'local',
+          created_at: new Date().toISOString()
+        },
+        {
+          id: 'user-aria',
+          display_name: 'Aria Vance',
+          role: 'RIGHTS_HOLDER',
+          wallet_address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+          wallet_type: 'metamask',
+          created_at: new Date().toISOString()
+        }
+      ]);
+    }
 
     const { data: users, error } = await supabaseAdmin
       .from('users_profile')
@@ -44,6 +66,15 @@ export async function PUT(req: Request) {
     const validRoles = ['ADMIN', 'RIGHTS_HOLDER'];
     if (!validRoles.includes(role.toUpperCase())) {
       return NextResponse.json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` }, { status: 400 });
+    }
+
+    const configured = isSupabaseConfigured();
+    if (!configured) {
+      return NextResponse.json({
+        id: user_id,
+        display_name: user_id === 'demo-admin-id' ? 'Demo Admin' : 'Aria Vance',
+        role: role.toUpperCase()
+      });
     }
 
     const { data: updated, error } = await supabaseAdmin

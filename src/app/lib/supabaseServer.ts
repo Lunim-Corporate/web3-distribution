@@ -10,6 +10,15 @@ export const supabaseAdmin = createClient(url, serviceKey, {
   }
 });
 
+export function isSupabaseConfigured(): boolean {
+  return !!process.env.NEXT_PUBLIC_SUPABASE_URL && 
+         !process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder') &&
+         !!process.env.SUPABASE_SERVICE_ROLE_KEY &&
+         !process.env.SUPABASE_SERVICE_ROLE_KEY.includes('placeholder-key') &&
+         !process.env.SUPABASE_SERVICE_ROLE_KEY.includes('your-supabase-service-role-key');
+}
+
+
 export async function computeDistributions(
   projectId: string,
   amountCents: number

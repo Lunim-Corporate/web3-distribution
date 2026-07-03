@@ -14,9 +14,7 @@ export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const searchParams = new URLSearchParams(window.location.search);
-      const hasSandboxParam = searchParams.get('sandbox') === 'true' || searchParams.get('demo') === 'true';
-      setShowSandbox(isSandboxLoginEnabled && hasSandboxParam);
+      setShowSandbox(isSandboxLoginEnabled);
     }
   }, []);
 

@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/app/lib/supabaseServer';
+import { supabaseAdmin, isSupabaseConfigured } from '@/app/lib/supabaseServer';
 import { requireAuth } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { isDemoAccessEnabled } from '@/app/lib/demoAccess';
+import { demoTransactions } from '@/app/lib/demoData';
 
 export async function GET(req: Request) {
   try {
@@ -17,21 +18,32 @@ export async function GET(req: Request) {
     ]);
     if (blocked) return blocked;
 
-    let query = supabaseAdmin
-      .from('transactions')
-      .select('*, projects(name), transaction_splits(*)')
-      .order('created_at', { ascending: false })
-      .limit(limit);
+    let data: any[] = [];
+    const configured = isSupabaseConfigured();
 
-    if (isDemoMode) {
-      query = query.eq('is_demo', true);
+    if (configured) {
+      let query = supabaseAdmin
+        .from('transactions')
+        .select('*, projects(name), transaction_splits(*)')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (isDemoMode) {
+        query = query.eq('is_demo', true);
+      } else {
+        query = query.or('is_demo.eq.false,is_demo.is.null');
+      }
+
+      const { data: dbData, error } = await query;
+      if (error) throw error;
+      data = dbData || [];
     } else {
-      query = query.or('is_demo.eq.false,is_demo.is.null');
+      // Mock data map
+      data = demoTransactions.map(tx => ({
+        ...tx,
+        projects: { name: tx.project_id === 'demo-project-1' ? 'Neon Requiem' : 'The Salt Coast' }
+      }));
     }
-
-    const { data, error } = await query;
-
-    if (error) throw error;
 
     const formatted = (data || []).map((p) => {
       const amount = Number(p.total_amount_eth || p.total_amount || 0);

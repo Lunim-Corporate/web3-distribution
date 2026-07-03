@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/app/lib/supabaseServer';
+import { supabaseAdmin, isSupabaseConfigured } from '@/app/lib/supabaseServer';
 import { requireAdmin } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { validateBody, updateUserRoleSchema } from '@/app/lib/validation';
@@ -11,6 +11,20 @@ export async function GET() {
 
     // Admin only — user listing is sensitive
     await requireAdmin();
+
+    const configured = isSupabaseConfigured();
+    if (!configured) {
+      return NextResponse.json([
+        {
+          id: 'demo-admin-id',
+          display_name: 'Demo Admin',
+          role: 'ADMIN',
+          wallet_address: '0x7C4B53DeBd4fa41Ce7fB0aC3CA25aa3243675fDE',
+          wallet_type: 'local',
+          created_at: new Date().toISOString()
+        }
+      ]);
+    }
 
     const { data, error } = await supabaseAdmin.from('users_profile').select('*');
     if (error) throw error;
@@ -37,6 +51,11 @@ export async function PUT(req: Request) {
     if (result.error) return result.response;
 
     const { userId, role } = result.data;
+
+    const configured = isSupabaseConfigured();
+    if (!configured) {
+      return NextResponse.json({ success: true });
+    }
 
     const { error } = await supabaseAdmin
       .from('users_profile')

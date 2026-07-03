@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseServer';
-import { requireAuth } from '@/lib/apiSecurity';
+import { supabaseAdmin, isSupabaseConfigured } from '@/app/lib/supabaseServer';
+import { requireAuth } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
+import { demoProjects } from '@/app/lib/demoData';
 
 export async function GET() {
   try {
@@ -10,14 +11,21 @@ export async function GET() {
 
     await requireAuth();
 
-    const { data, error } = await supabaseAdmin
-      .from('projects')
-      .select('*')
-      .ilike('status', 'active')
-      .order('created_at', { ascending: false });
+    let data: any[] = [];
+    if (isSupabaseConfigured()) {
+      const { data: dbData, error } = await supabaseAdmin
+        .from('projects')
+        .select('*')
+        .ilike('status', 'active')
+        .order('created_at', { ascending: false });
 
-    if (error) throw error;
-    return NextResponse.json(data || []);
+      if (error) throw error;
+      data = dbData || [];
+    } else {
+      data = demoProjects;
+    }
+
+    return NextResponse.json(data);
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Error';
     if (msg === 'Unauthorized') return NextResponse.json({ error: msg }, { status: 401 });

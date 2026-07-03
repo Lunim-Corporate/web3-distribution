@@ -1,5 +1,5 @@
 import { cookies, headers } from 'next/headers';
-import { supabaseAdmin } from './supabaseServer';
+import { supabaseAdmin, isSupabaseConfigured } from './supabaseServer';
 import { createClient } from '@/utils/supabase/server';
 import type { User } from './auth';
 
@@ -48,12 +48,14 @@ export async function auditLog(
 
   // Optionally persist to DB (fire-and-forget, don't block the request)
   try {
-    await supabaseAdmin.from('activities').insert({
-      project_id: null,
-      action: `audit:${action}`,
-      description: `${success ? '✓' : '✗'} ${action} by ${userId || 'anon'} from ${ip}${details ? ` — ${details}` : ''}`,
-      timestamp: entry.timestamp,
-    });
+    if (isSupabaseConfigured()) {
+      await supabaseAdmin.from('activities').insert({
+        project_id: null,
+        action: `audit:${action}`,
+        description: `${success ? '✓' : '✗'} ${action} by ${userId || 'anon'} from ${ip}${details ? ` — ${details}` : ''}`,
+        timestamp: entry.timestamp,
+      });
+    }
   } catch {
     // Non-critical — don't let audit logging break the request
   }
@@ -66,27 +68,34 @@ export async function auditLog(
 export async function getVerifiedUser(): Promise<User | null> {
   try {
     const cookieStore = await cookies();
+    const configured = isSupabaseConfigured();
 
     // 1. Try Supabase SSR session verification first (uses httpOnly sb-* cookies)
-    const supabase = createClient(cookieStore);
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (configured) {
+      try {
+        const supabase = createClient(cookieStore);
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-    if (session?.user && !sessionError) {
-      const { data: dbUser } = await supabaseAdmin
-        .from('users_profile')
-        .select('id, display_name, role')
-        .eq('id', session.user.id)
-        .maybeSingle();
+        if (session?.user && !sessionError) {
+          const { data: dbUser } = await supabaseAdmin
+            .from('users_profile')
+            .select('id, display_name, role')
+            .eq('id', session.user.id)
+            .maybeSingle();
 
-      if (dbUser) {
-        const role = dbUser.role || 'RIGHTS_HOLDER';
-        return {
-          id: dbUser.id,
-          email: session.user.email || '',
-          name: dbUser.display_name || '',
-          role: role.toLowerCase() as any,
-          isAdmin: role.toUpperCase() === 'ADMIN',
-        };
+          if (dbUser) {
+            const role = dbUser.role || 'RIGHTS_HOLDER';
+            return {
+              id: dbUser.id,
+              email: session.user.email || '',
+              name: dbUser.display_name || '',
+              role: role.toLowerCase() as any,
+              isAdmin: role.toUpperCase() === 'ADMIN',
+            };
+          }
+        }
+      } catch (err) {
+        console.warn('[SECURITY] Supabase SSR session check failed:', err);
       }
     }
 
@@ -104,13 +113,13 @@ export async function getVerifiedUser(): Promise<User | null> {
 
     // Demo sandbox mode: return demo profile so API routes work.
     // Demo data is isolated via is_demo=true DB filtering.
-    if (userData.isDemo) {
+    if (userData.isDemo || !configured) {
       return {
         id: userData.id || 'demo-user',
         email: userData.email || 'demo@lunim.io',
         name: userData.name || 'Demo User',
-        role: 'admin',
-        isAdmin: true,
+        role: userData.role || 'admin',
+        isAdmin: userData.isAdmin ?? true,
         isDemo: true,
       };
     }

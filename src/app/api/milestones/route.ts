@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/app/lib/supabaseServer';
+import { supabaseAdmin, isSupabaseConfigured } from '@/app/lib/supabaseServer';
 import { requireAuth } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 
@@ -9,6 +9,11 @@ export async function GET() {
     if (blocked) return blocked;
 
     await requireAuth();
+
+    const configured = isSupabaseConfigured();
+    if (!configured) {
+      return NextResponse.json([]);
+    }
 
     const { data, error } = await supabaseAdmin
       .from('activities')

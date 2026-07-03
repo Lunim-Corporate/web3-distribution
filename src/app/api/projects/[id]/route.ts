@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabaseServer';
+import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabaseServer';
 import { requireAdmin, requireAuth } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { z } from 'zod';
 import { safeString } from '@/app/lib/validation';
+import { demoProjects, demoHolders } from '@/app/lib/demoData';
 
 const updateProjectSchema = z.object({
   name: safeString(200).optional(),
@@ -36,6 +37,20 @@ export async function GET(
     const id = params.id;
     if (!id) {
       return NextResponse.json({ error: 'missing id' }, { status: 400 });
+    }
+
+    if (!isSupabaseConfigured()) {
+      const demoProj = demoProjects.find(p => p.id === id);
+      if (!demoProj) {
+        return NextResponse.json({ error: 'not found' }, { status: 404 });
+      }
+      const projectHolders = demoHolders.filter(h => h.project_id === id);
+      return NextResponse.json({
+        data: {
+          ...demoProj,
+          project_contributors: projectHolders
+        }
+      });
     }
 
     const data = await getProject(id);
@@ -74,6 +89,49 @@ export async function PATCH(
         { error: 'Validation failed', details: parsed.error.errors },
         { status: 400 }
       );
+    }
+
+    // Fallback sandbox check
+    if (!isSupabaseConfigured()) {
+      if (id === 'demo-project-1' || id === 'demo-project-2') {
+        return NextResponse.json({ error: 'Cannot modify system demo projects.' }, { status: 403 });
+      }
+      return NextResponse.json({
+        success: true,
+        data: {
+          id,
+          name: parsed.data.name,
+          genre: parsed.data.genre,
+          status: parsed.data.status || 'active',
+          updated_at: new Date().toISOString()
+        }
+      });
+    }
+
+    // Protection check 1: System demo projects by name
+    const { data: thisProj } = await supabaseAdmin
+      .from('projects')
+      .select('name')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (thisProj && ['Neon Requiem', 'Aether Drift', 'LUNIM Genesis', 'The Salt Coast'].includes(thisProj.name)) {
+      return NextResponse.json({ error: 'Cannot modify system demo projects.' }, { status: 403 });
+    }
+
+    // Protection check 2: Projects containing any rights holders that are admins
+    const { data: projectHolders } = await supabaseAdmin
+      .from('rights_holders')
+      .select('email, role')
+      .eq('project_id', id);
+
+    const hasAdmin = (projectHolders || []).some(
+      h => (h.email && ['pete@tabb.cc', 'freewhynane62@gmail.com', 'jeevesh039@gmail.com'].includes(h.email.toLowerCase())) || 
+           (h.role && h.role.toLowerCase().includes('admin'))
+    );
+
+    if (hasAdmin) {
+      return NextResponse.json({ error: 'Cannot modify projects containing administrator accounts.' }, { status: 403 });
     }
 
     const updateData: Record<string, any> = {};

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/app/lib/supabaseServer';
+import { supabaseAdmin, isSupabaseConfigured } from '@/app/lib/supabaseServer';
 import { requireAuth } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
+import { demoHolders } from '@/app/lib/demoData';
 
 /**
  * GET /api/rights — Fetch rights holders.
@@ -18,13 +19,22 @@ export async function GET() {
     // Auth required
     await requireAuth();
 
-    // Fetch rights holders with project name
-    const { data, error } = await supabaseAdmin
-      .from('rights_holders')
-      .select('*, projects(name)')
-      .order('created_at', { ascending: false });
+    let data: any[] = [];
+    if (isSupabaseConfigured()) {
+      // Fetch rights holders with project name
+      const { data: dbData, error } = await supabaseAdmin
+        .from('rights_holders')
+        .select('*, projects(name)')
+        .order('created_at', { ascending: false });
 
-    if (error) throw error;
+      if (error) throw error;
+      data = dbData || [];
+    } else {
+      data = demoHolders.map(h => ({
+        ...h,
+        projects: { name: h.project_id === 'demo-project-1' ? 'Neon Requiem' : 'The Salt Coast' }
+      }));
+    }
 
     const formatted = (data || []).map((r: any) => {
       const projectName = r.projects?.name || 'Unknown Project';
