@@ -107,6 +107,15 @@ Navigate to **/dashboard** — you'll see:
 | **Reports** | Generate revenue reports per project |
 | **Distribute** | (Admin only) Send revenue distributions on-chain |
 
+### B2. Admin Control Center (/admin)
+
+Navigate to **/admin** (requires admin role or Demo Mode active) to manage projects and rights allocations:
+- **Create New Project**: Set project name and genre.
+- **Edit Project Details**: Update name and genre for user-created projects (system demo projects containing admins are protected from edits).
+- **Assign Rights Holder**: Add contributor names, roles, wallet addresses, and royalty split percentages (which must sum to 100.00% to successfully activate smart contracts).
+- **Manage Roster**: Update or delete existing rights holders' details and split percentages.
+- **User Management Tab**: Promote other users to ADMIN or demote to RIGHTS_HOLDER to delegate production management access.
+
 ### C. Run a Web3 Distribution
 
 Navigate to **/web3-demo**:
