@@ -294,7 +294,7 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ projectId, isDemoMode }) => {
           </h2>
         </div>
         <div className="relative z-10 flex flex-col md:flex-row items-center justify-center h-[350px] gap-8">
-          <div className="w-full max-w-[350px] flex-shrink-0">
+          <div className="w-full max-w-[480px] h-full flex-shrink-0">
             <Doughnut
               data={{
                 labels: projectSegments.map(s => s.label),
