@@ -58,11 +58,11 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://auth.privy.io https://js.stripe.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://auth.privy.io https://js.stripe.com https://*.vercel-insights.com https://*.vercel-analytics.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https://images.unsplash.com https://via.placeholder.com",
-              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://auth.privy.io https://*.alchemy.com https://sepolia.base.org http://127.0.0.1:8545 https://js.stripe.com",
+              "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://auth.privy.io https://*.alchemy.com https://sepolia.base.org http://127.0.0.1:8545 https://js.stripe.com https://*.vercel-insights.com https://*.vercel-analytics.com",
               "frame-src https://auth.privy.io https://js.stripe.com",
               "object-src 'none'",
               "base-uri 'self'",
