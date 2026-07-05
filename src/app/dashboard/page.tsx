@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, Suspense } from 'react';
+import React, { useEffect, useState, useCallback, Suspense, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
@@ -22,7 +22,7 @@ import { formatUSD as fmtUSD, formatETH as fmtETH } from '@/app/lib/constants';
 interface Project { id: string; name: string; genre?: string; status: string; total_distributed: number; contract_address?: string; demo_contract_address?: string; }
 interface RightsHolder { id: string; full_name: string; role: string; wallet_address: string; percentage: number; avatar_initials?: string; total_received: number; project_id?: string; }
 interface TxSplit { id: string; rights_holder_id: string; full_name: string; role: string; percentage: number; amount_eth: number; wallet_address: string; }
-interface Transaction { id: string; tx_hash: string; sender_address: string; total_amount_eth: number; status: string; created_at: string; transaction_splits?: TxSplit[]; }
+interface Transaction { id: string; tx_hash: string; sender_address: string; total_amount_eth: number; status: string; created_at: string; transaction_splits?: TxSplit[]; project_id?: string; }
 
 /* ─── Formatters ─────────────────────────────────────────── */
 
@@ -87,11 +87,34 @@ function DashboardContent() {
   /* Project */
   const [projectsList, setProjectsList] = useState<Project[]>([]);
   const [projectId, setProjectId] = useState<string | null>(null);
-  const [project, setProject] = useState<Project | null>(null);
+  const [allHoldersList, setAllHoldersList] = useState<RightsHolder[]>([]);
+  const [allTransactionsList, setAllTransactionsList] = useState<Transaction[]>([]);
 
-  /* Rights-holder data */
-  const [holders, setHolders] = useState<RightsHolder[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const project = useMemo(() => {
+    if (!projectId || projectId === 'all') {
+      return {
+        id: 'all',
+        name: 'All Projects',
+        status: 'active',
+        total_distributed: projectsList.reduce((s, p) => s + Number(p.total_distributed || 0), 0)
+      };
+    }
+    return projectsList.find(p => p.id === projectId) || null;
+  }, [projectId, projectsList]);
+
+  const holders = useMemo(() => {
+    if (!projectId || projectId === 'all') {
+      return allHoldersList;
+    }
+    return allHoldersList.filter(h => h.project_id === projectId);
+  }, [projectId, allHoldersList]);
+
+  const transactions = useMemo(() => {
+    if (!projectId || projectId === 'all') {
+      return allTransactionsList;
+    }
+    return allTransactionsList.filter(t => t.project_id === projectId);
+  }, [projectId, allTransactionsList]);
 
   const [activeTab, setActiveTab] = useState<TabId>(() => {
     const tabParam = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('tab') : null;
@@ -133,7 +156,25 @@ function DashboardContent() {
   }, [activeTab]);
 
 
-  /* ── Auth guard ──────────────────────────────────────────── */
+  /* ── Load project data helper ─────────────────────────────── */
+  const loadProjectData = useCallback(async () => {
+    if (!user) return;
+    try {
+      const demoParam = readDemoMode();
+      const res = await fetch(`/api/dashboard?pid=all&demo=${demoParam}`, { cache: 'no-store' });
+      if (!res.ok) {
+        throw new Error('Failed to fetch dashboard data');
+      }
+      const data = await res.json();
+      setProjectsList(data.projectsList || []);
+      setAllHoldersList(data.holders || []);
+      setAllTransactionsList(data.transactions || []);
+    } catch (err: any) {
+      console.error(err);
+    }
+  }, [user]);
+
+  /* ── Auth guard & Initial load ───────────────────────────── */
   useEffect(() => {
     if (!isAuthHydrated) { setStage('Checking authentication…'); return; }
     if (!user) { setStage('Redirecting to login…'); window.location.href = '/login'; return; }
@@ -152,6 +193,9 @@ function DashboardContent() {
           return;
         }
         setProjectsList(data.projectsList);
+        setAllHoldersList(data.holders || []);
+        setAllTransactionsList(data.transactions || []);
+        
         // Use defaultProjectId if provided (admin's own project), otherwise first project
         const initialId = data.defaultProjectId || data.projectsList[0].id;
         setProjectId(initialId);
@@ -163,45 +207,9 @@ function DashboardContent() {
     void load();
   }, [isAuthHydrated, user]);
 
-  /* ── Load project data whenever projectId changes ─────────── */
-  /* ── Load project data whenever projectId changes ─────────── */
-  const loadProjectData = useCallback(async (pid: string | null) => {
-    if (!user) return;
-    
-    try {
-      const res = await fetch(`/api/dashboard?pid=${pid || 'all'}&demo=${isDemoMode}`, { cache: 'no-store' });
-      if (!res.ok) {
-        throw new Error('Failed to fetch dashboard data');
-      }
-      
-      const data = await res.json();
-      
-      if (!pid) {
-        setProject(data.project);
-        setHolders(data.holders || []);
-        setTransactions(data.transactions || []);
-      } else {
-        setProject(data.project);
-        setHolders(data.holders || []);
-        setTransactions(data.transactions || []);
-      }
-    } catch (err: any) {
-      console.error(err);
-      if (!pid) {
-        setIsError(true);
-        setErrorMsg('Failed to load project data. Please try again.');
-      }
-    }
-  }, [user, isDemoMode]);
-
-  useEffect(() => {
-    if (isError) return;
-    void loadProjectData(projectId);
-  }, [projectId, loadProjectData, isError]);
-
   /* ── Realtime: refresh when a new transaction lands ─────────── */
   useEffect(() => {
-    const onPayment = () => void loadProjectData(projectId);
+    const onPayment = () => void loadProjectData();
     window.addEventListener('payment-recorded', onPayment);
     
     let bc: BroadcastChannel | null = null;
@@ -220,15 +228,15 @@ function DashboardContent() {
       window.removeEventListener('payment-recorded', onPayment);
       if (bc) bc.close();
     };
-  }, [projectId, loadProjectData]);
+  }, [loadProjectData]);
 
   useEffect(() => {
     const channel = supabase.channel('dashboard-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => void loadProjectData(projectId))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'transaction_splits' }, () => void loadProjectData(projectId))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => void loadProjectData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'transaction_splits' }, () => void loadProjectData())
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [projectId, loadProjectData]);
+  }, [loadProjectData]);
 
   /* ─── Render guards ──────────────────────────────────────── */
   if (!isAuthHydrated || (!projectId && !isError && projectsList.length === 0)) return <Spinner text={stage} />;
@@ -531,10 +539,10 @@ function DashboardContent() {
 
       {/* Modals */}
       <AddRightsHolderModal 
-        isOpen={isAddHolderModalOpen}
+      isOpen={isAddHolderModalOpen}
         onClose={() => setIsAddHolderModalOpen(false)}
         projectId={project?.id || ''}
-        onSuccess={() => void loadProjectData(projectId)}
+        onSuccess={() => void loadProjectData()}
         allHolders={holders}
       />
 
@@ -542,7 +550,7 @@ function DashboardContent() {
         isOpen={isEditHolderModalOpen}
         holder={editingHolder}
         onClose={() => { setIsEditHolderModalOpen(false); setEditingHolder(null); }}
-        onSuccess={() => void loadProjectData(projectId)}
+        onSuccess={() => void loadProjectData()}
         allHolders={holders}
       />
 
