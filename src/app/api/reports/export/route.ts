@@ -269,10 +269,14 @@ export async function GET(request: Request) {
     });
 
   } catch (error: any) {
+    const msg = error?.message || String(error) || 'Unknown error';
+    if (msg === 'Unauthorized' || msg === 'Forbidden: Admins only') {
+      return NextResponse.json({ error: msg }, { status: msg === 'Unauthorized' ? 401 : 403 });
+    }
     console.error('SERVER-SIDE PDF GENERATION FAILED:', error);
     return NextResponse.json({ 
       error: 'PDF generation failed on server', 
-      details: error.message,
+      details: msg,
       environment: 'node-jspdf'
     }, { status: 500 });
   }

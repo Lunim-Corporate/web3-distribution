@@ -70,6 +70,10 @@ export async function GET() {
 
     return NextResponse.json(diagnostics);
   } catch (error: any) {
+    const msg = error?.message || String(error) || 'Unknown error';
+    if (msg === 'Unauthorized' || msg === 'Forbidden: Admins only') {
+      return NextResponse.json({ error: msg }, { status: msg === 'Unauthorized' ? 401 : 403 });
+    }
     return NextResponse.json(
       { status: 'error', message: 'Internal server error' },
       { status: 500 }

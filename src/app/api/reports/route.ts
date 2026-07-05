@@ -30,9 +30,13 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ data: report }, { status: 200 });
   } catch (error: any) {
+    const msg = error?.message || String(error) || 'Unknown error';
+    if (msg === 'Unauthorized' || msg === 'Forbidden: Admins only') {
+      return NextResponse.json({ error: msg }, { status: msg === 'Unauthorized' ? 401 : 403 });
+    }
     console.error('Error generating report:', error);
     return NextResponse.json(
-      { error: error?.message || error || 'Unknown error' },
+      { error: msg },
       { status: 500 }
     );
   }
