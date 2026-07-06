@@ -60,9 +60,10 @@ export async function GET(
     }
 
     return NextResponse.json({ data });
-  } catch (err) {
+  } catch (err: any) {
+    const msg = typeof err === 'string' ? err : err?.message || err?.error || (err instanceof Error ? err.message : String(err));
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
+      { error: msg },
       { status: 500 }
     );
   }
@@ -94,9 +95,6 @@ export async function PATCH(
 
     // Fallback sandbox check
     if (!isSupabaseConfigured()) {
-      if (id === 'demo-project-1' || id === 'demo-project-2') {
-        return NextResponse.json({ error: 'Cannot modify system demo projects.' }, { status: 403 });
-      }
       clearCache();
       return NextResponse.json({
         success: true,
@@ -110,31 +108,7 @@ export async function PATCH(
       });
     }
 
-    // Protection check 1: System demo projects by name
-    const { data: thisProj } = await supabaseAdmin
-      .from('projects')
-      .select('name')
-      .eq('id', id)
-      .maybeSingle();
 
-    if (thisProj && ['Neon Requiem', 'Aether Drift', 'LUNIM Genesis', 'The Salt Coast'].includes(thisProj.name)) {
-      return NextResponse.json({ error: 'Cannot modify system demo projects.' }, { status: 403 });
-    }
-
-    // Protection check 2: Projects containing any rights holders that are admins
-    const { data: projectHolders } = await supabaseAdmin
-      .from('rights_holders')
-      .select('email, role')
-      .eq('project_id', id);
-
-    const hasAdmin = (projectHolders || []).some(
-      h => (h.email && ['pete@tabb.cc', 'freewhynane62@gmail.com', 'jeevesh039@gmail.com'].includes(h.email.toLowerCase())) || 
-           (h.role && h.role.toLowerCase().includes('admin'))
-    );
-
-    if (hasAdmin) {
-      return NextResponse.json({ error: 'Cannot modify projects containing administrator accounts.' }, { status: 403 });
-    }
 
     const updateData: Record<string, any> = {};
     if (parsed.data.name !== undefined) updateData.name = parsed.data.name;
@@ -159,9 +133,10 @@ export async function PATCH(
 
     const updated = await getProject(id);
     return NextResponse.json({ success: true, data: updated });
-  } catch (err) {
+  } catch (err: any) {
+    const msg = typeof err === 'string' ? err : err?.message || err?.error || (err instanceof Error ? err.message : String(err));
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
+      { error: msg },
       { status: 500 }
     );
   }

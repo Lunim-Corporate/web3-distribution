@@ -35,6 +35,8 @@ export default function AdminPage() {
   const [editRole, setEditRole] = useState<string>('');
   const [editWallet, setEditWallet] = useState<string>('');
   const [editPct, setEditPct] = useState<string>('');
+  const [editingWalletUserId, setEditingWalletUserId] = useState<string | null>(null);
+  const [editedWalletAddress, setEditedWalletAddress] = useState<string>('');
 
   // Project Creation State
   const [isCreatingProject, setIsCreatingProject] = useState(false);
@@ -255,6 +257,26 @@ export default function AdminPage() {
       await fetchUsers();
     } catch (e: any) {
       toast.error(e.message || 'Failed to update role');
+    }
+  };
+
+  const handleSaveUserWallet = async (userId: string) => {
+    if (editedWalletAddress && !editedWalletAddress.startsWith('0x')) {
+      return toast.error('Wallet address must start with 0x');
+    }
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, wallet_address: editedWalletAddress || null }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update wallet');
+      toast.success('User wallet updated successfully');
+      setEditingWalletUserId(null);
+      await fetchUsers();
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to update wallet');
     }
   };
 
@@ -576,7 +598,6 @@ export default function AdminPage() {
                     <tr key={pu.id} className="hover:bg-white/[0.02] transition-colors">
                       <td className="p-5">
                         <div className="font-black text-white">{pu.display_name || 'Unnamed'}</div>
-                        <div className="text-[10px] text-gray-500 font-mono mt-0.5">{pu.id.slice(0, 16)}...</div>
                       </td>
                       <td className="p-5">
                         <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${
@@ -588,12 +609,57 @@ export default function AdminPage() {
                         </span>
                       </td>
                       <td className="p-5">
-                        {pu.wallet_address ? (
-                          <span className="font-mono text-xs text-gray-400">
-                            {pu.wallet_address.slice(0, 10)}...{pu.wallet_address.slice(-6)}
-                          </span>
+                        {editingWalletUserId === pu.id ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={editedWalletAddress}
+                              onChange={(e) => setEditedWalletAddress(e.target.value)}
+                              className="bg-gray-900 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white font-mono outline-none focus:ring-1 focus:ring-indigo-500 w-44"
+                              placeholder="0x..."
+                            />
+                            <button
+                              onClick={() => handleSaveUserWallet(pu.id)}
+                              className="px-2 py-1 bg-emerald-500/10 text-emerald-400 rounded-lg hover:bg-emerald-500/20 text-[10px] font-black uppercase tracking-widest border border-emerald-500/20 transition-all"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingWalletUserId(null)}
+                              className="px-2 py-1 bg-white/5 text-gray-400 rounded-lg hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-all"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         ) : (
-                          <span className="text-gray-600 text-xs">No wallet</span>
+                          <div className="flex items-center gap-2">
+                            {pu.wallet_address ? (
+                              <>
+                                <span className="font-mono text-xs text-gray-400">
+                                  {pu.wallet_address.slice(0, 10)}...{pu.wallet_address.slice(-6)}
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    setEditingWalletUserId(pu.id);
+                                    setEditedWalletAddress(pu.wallet_address || '');
+                                  }}
+                                  className="text-indigo-400 hover:text-indigo-300 text-[10px] font-black uppercase tracking-widest underline decoration-2 underline-offset-4 ml-2"
+                                >
+                                  Edit
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  setEditingWalletUserId(pu.id);
+                                  setEditedWalletAddress('');
+                                }}
+                                className="px-3 py-1.5 bg-indigo-500/10 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-indigo-500/20 hover:bg-indigo-500/20 transition-all"
+                              >
+                                + Add Wallet
+                              </button>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td className="p-5 text-right">

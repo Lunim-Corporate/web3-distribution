@@ -68,7 +68,7 @@ function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const privy = usePrivy();
-  const hydrationDone = React.useRef(false);
+  const syncedUserIdRef = React.useRef<string | null>(null);
 
   const effectiveSettings = useMemo<Settings>(() => {
     return settings ?? DEFAULT_SETTINGS;
@@ -93,14 +93,6 @@ function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (hydrationDone.current) return;
-
-    const { ready, user: pUser, getAccessToken } = privy;
-
-    if (!ready && !isDemo) return;
-
-    hydrationDone.current = true;
-
     if (isSandboxLoginEnabled && isDemo) {
       setUser({
         id: 'demo-admin-id',
@@ -114,12 +106,25 @@ function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    const { ready, user: pUser, getAccessToken } = privy;
+
+    if (!ready) return;
+
     if (!pUser) {
       clearCookie();
       setUser(null);
+      syncedUserIdRef.current = null;
       setIsAuthHydrated(true);
       return;
     }
+
+    if (syncedUserIdRef.current === pUser.id) {
+      setIsAuthHydrated(true);
+      return;
+    }
+
+    syncedUserIdRef.current = pUser.id;
+    setIsAuthHydrated(false);
 
     const doSync = async () => {
       try {
@@ -184,7 +189,7 @@ function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
     try { await supabase.auth.signOut(); } catch { /* ignore */ }
     clearCookie();
     setUser(null);
-    hydrationDone.current = false;
+    syncedUserIdRef.current = null;
     setIsAuthHydrated(false);
     window.location.href = '/login';
     // eslint-disable-next-line react-hooks/exhaustive-deps

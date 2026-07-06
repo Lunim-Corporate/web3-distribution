@@ -72,7 +72,7 @@ const seedData = async () => {
       description: "A rogue AI infiltrates a megacity's neural grid, forcing a burned intelligence officer to confront her own manufactured memories.",
       status: "active",
       holders: [
-        { full_name: "Aria Voss", role: "Director", percentage: 25 },
+        { full_name: "Aria Voss", role: "Director", percentage: 20 },
         { full_name: "Marcus Delgado", role: "Lead Actor", percentage: 20 },
         { full_name: "Priya Nair", role: "Producer", percentage: 15 },
         { full_name: "Theo Harrington", role: "Music Composer", percentage: 15 },

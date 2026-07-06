@@ -40,7 +40,7 @@ async function main() {
     "Administrator",
     "Administrator",
   ];
-  const basisPoints = [2500, 2000, 1500, 1500, 1500, 500, 500, 500];
+  const basisPoints = [2000, 2000, 1500, 1500, 1500, 500, 500, 500];
 
   console.log("\n--- Deploying LIVE RevenueRights ---");
   console.log("Network:", hre.network.name);

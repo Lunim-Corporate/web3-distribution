@@ -164,3 +164,25 @@ The database relies on Postgres **Row-Level Security (RLS)**. It guarantees that
 
 #### Q7: Can this platform be deployed on Base Mainnet?
 Yes. There is a dedicated `scripts/deploy-mainnet.js` for Base Mainnet deployment. Set `NEXT_PUBLIC_CHAIN_ID=8453`, add a funded Base deployer private key, and run `npm run deploy:mainnet`.
+
+#### Q8: Where are the smart contracts of both modes running on or coming from?
+*   **DEMO Mode**: Runs on the local Hardhat simulator (Chain ID `31337`) at `http://127.0.0.1:8545` for local development. On the live Vercel deployment, it utilizes the contract configured via `NEXT_PUBLIC_DEMO_CONTRACT_ADDRESS` on **Base Sepolia** (or falls back to a sandbox mode if no RPC node is reachable).
+*   **LIVE Mode**: Runs on the **Base Sepolia Testnet** (Chain ID `84532`) by default. The live contracts are deployed using `scripts/deploy-live.js` (or via `deploy-testnet.js`) and verified on BaseScan. The address is loaded from the `projects.contract_address` column in the database, falling back to the `NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS` environment variable on Vercel.
+
+#### Q9: How does each distribution work and what are the steps taken?
+1.  **Revenue Inflow**: Revenue (e.g. Stripe checkout completion or manual admin invoice recording) is captured by the ETL API.
+2.  **Roster Verification**: The backend verifies that the project's roster totals exactly **100.00%** allocation to prevent distribution errors.
+3.  **On-Chain Distribution**: The `/api/web3/auto-distribute` API route is triggered. It uses a server-side EOA signing key to submit a transaction calling `distributeRevenue()` on the contract with the incoming ETH value.
+4.  **Gas Sponsorship**: The transaction is routed through Alchemy Paymaster (ERC-4337 Account Abstraction) to sponsor gas fees, making the distribution entirely gasless for the production admins.
+5.  **Balance Ledger Update**: The contract divides the ETH according to the rights holders' allocations and updates their respective claimable balances (`accruedBalances`) on-chain.
+
+#### Q10: How can rights holders claim their accrued earnings?
+1.  **Check Balance**: The client page (e.g. `/profile` or "My Earnings" tab) queries the `accruedBalances` function of the contract for the user's logged-in wallet address.
+2.  **Submit Claim**: If a balance is due, the user clicks **"Claim Earnings"**.
+3.  **Wallet Signature**: The app requests a transaction signature from the user's Privy embedded wallet or connected external wallet (MetaMask, Coinbase Wallet).
+4.  **Funds Transfer**: The contract executes `claim()`, which transfers the accrued balance directly to the user's wallet address.
+
+#### Q11: How does Privy make a new wallet for a new user, and how can they link or export it?
+*   **Automatic MPC Wallet**: When a user logs in for the first time using an email OTP or Google account, Privy automatically creates an embedded Ethereum wallet using **Multi-Party Computation (MPC)**. Key shares are divided between the user's device and Privy's security module, ensuring self-custody with zero seed phrase management.
+*   **Wallet Export**: Users can navigate to the `/profile` page and click **"Export Private Key"**. After confirming, they can copy their raw private key and import it into standard wallet providers like **MetaMask**, **Coinbase Wallet**, **Rabby**, or **Trust Wallet** to take full external custody.
+*   **Wallet Linking**: Users can link their existing external Web3 wallets (MetaMask, Coinbase Wallet, etc.) to their LUNIM account. Linking is done securely via a cryptographic signature, allowing them to use their preferred external wallet directly for royalty distribution and claiming.

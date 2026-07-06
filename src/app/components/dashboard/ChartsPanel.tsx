@@ -293,15 +293,15 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ projectId, isDemoMode }) => {
             {(!projectId || projectId === 'all') ? 'Revenue Share by Project' : 'Transaction Distribution'}
           </h2>
         </div>
-        <div className="relative z-10 flex flex-col md:flex-row items-center justify-center h-[350px] gap-8">
-          <div className="w-full max-w-[480px] h-full flex-shrink-0">
+        <div className="relative z-10 flex flex-col md:flex-row items-center justify-center h-[260px] gap-8">
+          <div className="w-full max-w-[420px] h-full flex-shrink-0">
             <Doughnut
               data={{
                 labels: projectSegments.map(s => s.label),
                 datasets: [{ data: projectSegments.length ? projectSegments.map(s=>s.value) : [1], backgroundColor: projectSegments.length ? projectSegments.map(s=>s.color) : ['rgba(255,255,255,0.05)'], borderWidth: 0, hoverOffset: 4 }]
               }}
               options={{
-                cutout: '65%',
+                cutout: '50%',
                 plugins: {
                   legend: { 
                     position: 'right' as const, 

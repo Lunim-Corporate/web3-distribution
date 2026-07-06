@@ -58,15 +58,29 @@ export async function PUT(req: Request) {
 
     const admin = await requireAdmin();
 
-    const { user_id, role } = await req.json();
+    const { user_id, role, wallet_address } = await req.json();
 
-    if (!user_id || !role) {
-      return NextResponse.json({ error: 'Missing user_id or role' }, { status: 400 });
+    if (!user_id) {
+      return NextResponse.json({ error: 'Missing user_id' }, { status: 400 });
     }
 
-    const validRoles = ['ADMIN', 'RIGHTS_HOLDER'];
-    if (!validRoles.includes(role.toUpperCase())) {
-      return NextResponse.json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` }, { status: 400 });
+    const updateFields: any = {};
+
+    if (role !== undefined) {
+      const validRoles = ['ADMIN', 'RIGHTS_HOLDER'];
+      if (!validRoles.includes(role.toUpperCase())) {
+        return NextResponse.json({ error: `Invalid role. Must be one of: ${validRoles.join(', ')}` }, { status: 400 });
+      }
+      updateFields.role = role.toUpperCase();
+    }
+
+    if (wallet_address !== undefined) {
+      updateFields.wallet_address = wallet_address || null;
+      updateFields.wallet_type = wallet_address ? 'local' : null;
+    }
+
+    if (Object.keys(updateFields).length === 0) {
+      return NextResponse.json({ error: 'Missing role or wallet_address to update' }, { status: 400 });
     }
 
     const configured = isSupabaseConfigured();
@@ -75,30 +89,31 @@ export async function PUT(req: Request) {
       return NextResponse.json({
         id: user_id,
         display_name: user_id === 'demo-admin-id' ? 'Demo Admin' : 'Aria Vance',
-        role: role.toUpperCase()
+        ...updateFields
       });
     }
 
     const { data: updated, error } = await supabaseAdmin
       .from('users_profile')
-      .update({ role: role.toUpperCase() })
+      .update(updateFields)
       .eq('id', user_id)
-      .select('id, display_name, role')
+      .select('id, display_name, role, wallet_address, wallet_type')
       .single();
 
     if (error) {
-      return NextResponse.json({ error: 'Failed to update user role' }, { status: 500 });
+      return NextResponse.json({ error: error.message || 'Failed to update user profile' }, { status: 500 });
     }
 
     clearCache();
 
-    await auditLog('admin:update_role', admin.id, true, `target=${user_id} new_role=${role}`);
+    await auditLog('admin:update_user', admin.id, true, `target=${user_id} updates=${JSON.stringify(updateFields)}`);
 
     return NextResponse.json(updated);
   } catch (err: any) {
-    if (err.message === 'Unauthorized' || err.message === 'Forbidden: Admins only') {
-      return NextResponse.json({ error: err.message }, { status: err.message === 'Unauthorized' ? 401 : 403 });
+    const msg = typeof err === 'string' ? err : err?.message || err?.error || (err instanceof Error ? err.message : String(err));
+    if (msg === 'Unauthorized' || msg === 'Forbidden: Admins only') {
+      return NextResponse.json({ error: msg }, { status: msg === 'Unauthorized' ? 401 : 403 });
     }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
