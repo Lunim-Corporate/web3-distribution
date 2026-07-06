@@ -5,13 +5,15 @@ import { checkRateLimit } from '@/app/lib/rateLimit';
 import { validateBody, addRightsHolderSchema } from '@/app/lib/validation';
 import { demoHolders } from '@/app/lib/demoData';
 import { clearCache } from '@/app/lib/requestCache';
+import { syncContractWithDatabase } from '@/app/lib/web3/deployHelper';
 
 export async function POST(req: Request) {
   try {
     const blocked = await checkRateLimit('write');
     if (blocked) return blocked;
 
-    await requireAdmin();
+    const user = await requireAdmin();
+    const isDemo = !!user.isDemo;
 
     const result = await validateBody(req, addRightsHolderSchema);
     if (result.error) return result.response;
@@ -62,6 +64,9 @@ export async function POST(req: Request) {
 
       if (error) throw error;
       data = dbData;
+
+      // Auto-sync contract with database
+      await syncContractWithDatabase(project_id, isDemo);
     } else {
       data = {
         id: `demo-holder-${Date.now()}`,

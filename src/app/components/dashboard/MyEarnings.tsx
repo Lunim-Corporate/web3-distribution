@@ -16,6 +16,7 @@ interface RightsHolder {
   wallet_address: string;
   percentage: number;
   total_received: number;
+  email?: string;
 }
 
 interface TransactionSplit {
@@ -80,6 +81,15 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
 
   const determineWallet = useCallback(() => {
     if (isDemoMode) {
+      // Prioritize matching the logged in user with a rights holder email/name in the project roster
+      const matchingHolder = holders.find(
+        h =>
+          (h.email && user?.email && h.email.toLowerCase() === user.email.toLowerCase()) ||
+          (h.full_name && user?.name && h.full_name.toLowerCase() === user.name.toLowerCase())
+      );
+      if (matchingHolder) {
+        return matchingHolder.wallet_address;
+      }
       return localStorage.getItem('active_demo_wallet') || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
     } else {
       // Prefer the user's own wallet from their profile first
@@ -93,7 +103,7 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
       if (isAdmin && ADMIN_LIVE_ADDRESS) return ADMIN_LIVE_ADDRESS;
       return wallets[0]?.address || null;
     }
-  }, [isDemoMode, user, wallets]);
+  }, [isDemoMode, user, wallets, holders]);
 
   useEffect(() => {
     const updateWallet = () => setActiveWallet(determineWallet());
@@ -197,7 +207,12 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
     const tid = toast.loading('Claiming your earnings...');
     try {
       if (isDemoMode && activeWallet) {
-        await new Promise((resolve) => setTimeout(resolve, 900));
+        // Execute smart contract claim if connected to MetaMask on localhost Hardhat network
+        try {
+          await claimRevenue();
+        } catch (contractErr) {
+          console.warn('Smart contract claim transaction skipped or failed in demo mode:', contractErr);
+        }
         localStorage.setItem(demoClaimStorageKey(activeWallet), totalDistributedEth.toFixed(8));
         setClaimedDemoTotal(totalDistributedEth);
       } else {
