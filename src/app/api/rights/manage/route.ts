@@ -100,6 +100,12 @@ export async function POST(req: Request) {
       }
 
       if (configured) {
+        // Set referencing columns to null to satisfy foreign key constraints
+        await supabaseAdmin
+          .from('transaction_splits')
+          .update({ rights_holder_id: null })
+          .eq('rights_holder_id', id);
+
         const { error } = await supabaseAdmin
           .from('rights_holders')
           .delete()
