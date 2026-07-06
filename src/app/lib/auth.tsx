@@ -94,14 +94,16 @@ function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isSandboxLoginEnabled && isDemo) {
-      setUser({
+      const demoUser = {
         id: 'demo-admin-id',
         email: 'demo@lunim.io',
         name: 'Demo Admin',
         isAdmin: true,
-        role: 'admin',
+        role: 'admin' as const,
         isDemo: true,
-      });
+      };
+      setUser(demoUser);
+      setCookie(demoUser);
       setIsAuthHydrated(true);
       return;
     }
@@ -118,9 +120,15 @@ function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Force resync if the user cookie is currently set to demo-admin-id but we are now in LIVE mode
     if (syncedUserIdRef.current === pUser.id) {
-      setIsAuthHydrated(true);
-      return;
+      const cookieVal = typeof document !== 'undefined' ? document.cookie : '';
+      if (cookieVal.includes('demo-admin-id')) {
+        syncedUserIdRef.current = null;
+      } else {
+        setIsAuthHydrated(true);
+        return;
+      }
     }
 
     syncedUserIdRef.current = pUser.id;
