@@ -73,7 +73,7 @@ export async function syncContractWithDatabase(projectId: string, isDemo: boolea
     // Order of holders for deterministic remaining basis points remainder assignment
     const sortedHolders = [...holders].sort((a, b) => a.id.localeCompare(b.id));
 
-    let bpsSum = 0n;
+    let bpsSum = BigInt(0);
     for (let i = 0; i < sortedHolders.length; i++) {
       const h = sortedHolders[i];
       wallets.push(h.wallet_address);
@@ -82,7 +82,7 @@ export async function syncContractWithDatabase(projectId: string, isDemo: boolea
       
       let bps = BigInt(Math.round(Number(h.percentage) * 100));
       if (i === sortedHolders.length - 1) {
-        bps = 10000n - bpsSum; // Guarantee exact 10000 basis points sum
+        bps = BigInt(10000) - bpsSum; // Guarantee exact 10000 basis points sum
       } else {
         bpsSum += bps;
       }
