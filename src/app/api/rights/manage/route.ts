@@ -78,6 +78,9 @@ export async function POST(req: Request) {
         warning = `Total allocation will be ${newTotal.toFixed(2)}%. Adjust other holders or add more to reach exactly 100%.`;
       }
 
+      // Auto-sync contract with database — deploys a new contract with updated roster
+      let newContractAddress: string | null = null;
+
       if (configured) {
         const { error } = await supabaseAdmin
           .from('rights_holders')
@@ -85,14 +88,14 @@ export async function POST(req: Request) {
           .eq('id', id);
         if (error) throw error;
 
-        // Auto-sync contract with database
-        await syncContractWithDatabase(thisHolder.project_id, isDemo);
+        newContractAddress = await syncContractWithDatabase(thisHolder.project_id, isDemo);
       }
 
       clearCache();
 
       const response: any = { success: true };
       if (warning) response.warning = warning;
+      if (newContractAddress) response.newContractAddress = newContractAddress;
       return NextResponse.json(response);
     }
 
@@ -103,6 +106,8 @@ export async function POST(req: Request) {
       } else if (Math.abs(newTotal - 100) > 0.01) {
         warning = `After deletion, total allocation will be ${newTotal.toFixed(2)}%. Add more holders or adjust percentages to reach exactly 100%.`;
       }
+
+      let newContractAddress: string | null = null;
 
       if (configured) {
         // Set referencing columns to null to satisfy foreign key constraints
@@ -117,14 +122,15 @@ export async function POST(req: Request) {
           .eq('id', id);
         if (error) throw error;
 
-        // Auto-sync contract with database
-        await syncContractWithDatabase(thisHolder.project_id, isDemo);
+        // Auto-sync contract with database — deploys a new contract with updated roster
+        newContractAddress = await syncContractWithDatabase(thisHolder.project_id, isDemo);
       }
 
       clearCache();
 
       const response: any = { success: true };
       if (warning) response.warning = warning;
+      if (newContractAddress) response.newContractAddress = newContractAddress;
       return NextResponse.json(response);
     }
 

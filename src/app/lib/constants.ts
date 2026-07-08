@@ -1,14 +1,12 @@
-/**
- * LUNIM Shared Constants
- */
-
 export const ETH_PRICE_USD = 3200;
+export const HARDHAT_CHAIN_ID = 31337;
+export const HARDHAT_CHAIN_ID_HEX = '0x7a69';
 
 export const APP_CONFIG = {
   name: 'LUNIM',
   version: '1.0.0',
   defaultNetwork: 'localhost',
-  hardhatChainId: 31337,
+  hardhatChainId: HARDHAT_CHAIN_ID,
   hardhatRpcUrl: 'http://127.0.0.1:8545',
 };
 

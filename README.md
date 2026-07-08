@@ -6,6 +6,18 @@ A cinematic-grade Web3 platform for creative rights management and automated rev
 
 ---
 
+## Web3 Freedom Upgrade Highlights
+
+This branch contains the following major features and usability improvements:
+- **USD-Denominated Distributions**: All distribution inputs are denominated in USD (dollars) rather than Raw Ether, utilizing real-time price feeds (`useEthPrice`) to calculate and display exact USD/ETH conversions for every rights holder share (e.g. `$25.00 (0.0083 Ξ)`).
+- **Cinematic Multi-Stage Progress Modal**: The distribution execution popup sequentially animates circular loaders through each individual rights holder, providing granular real-time feedback for each transfer step.
+- **Demo Mode Accrued Earnings Claims**: Custom MetaMask/connected wallets dynamically receive a mock accrued balance of `0.2500 ETH` on the Profile page to fully demonstrate the Solidity Pull-Payment claiming flow.
+- **EVM Revert Prevention**: The claim pipeline checks on-chain balances beforehand; if the balance is zero, it gracefully falls back to the simulated secure claim process, preventing MetaMask transaction reverts.
+- **Clean Profile Names**: Bypassed/admin users now resolve to clean display names like `Demo Admin` and `Jeevesh Admin` instead of raw usernames like `admin`.
+- **E2E Test Suites**: Integrated Playwright browser automation tests to verify the distribution flows and profile claim pipelines locally.
+
+---
+
 ## Architecture
 
 ```
@@ -243,6 +255,8 @@ web3-freedom-upgrade/
 | `npm run seed` | Seed database with demo data |
 | `npm run demo:full` | compile + deploy:demo + seed (all-in-one) |
 | `npm run test:api` | API smoke tests |
+| `npm run test:dist` | Run Playwright E2E test for distribution flow |
+| `npm run test:claim` | Run Playwright E2E test for accrued earnings claiming flow |
 | `npx hardhat test` | Smart contract unit tests (44 tests) |
 | `npm run build` | Production build (lint + typecheck + static gen) |
 | `npm run lint` | ESLint (zero warnings) |

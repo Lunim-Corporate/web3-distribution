@@ -80,29 +80,31 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
   const [claimedDemoTotal, setClaimedDemoTotal] = useState(0);
 
   const determineWallet = useCallback(() => {
-    if (isDemoMode) {
-      // Prioritize matching the logged in user with a rights holder email/name in the project roster
-      const matchingHolder = holders.find(
-        h =>
-          (h.email && user?.email && h.email.toLowerCase() === user.email.toLowerCase()) ||
-          (h.full_name && user?.name && h.full_name.toLowerCase() === user.name.toLowerCase())
-      );
-      if (matchingHolder) {
-        return matchingHolder.wallet_address;
-      }
-      return localStorage.getItem('active_demo_wallet') || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
-    } else {
-      // Prefer the user's own wallet from their profile first
-      if (user?.wallet_address) return user.wallet_address;
-      const externalWallet = wallets.find(w => w.walletClientType !== 'privy');
-      if (externalWallet) return externalWallet.address;
-      const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
-      if (embeddedWallet) return embeddedWallet.address;
-      // Fallback to ADMIN_LIVE_ADDRESS only if no personal wallet found
-      const isAdmin = user?.role === 'admin';
-      if (isAdmin && ADMIN_LIVE_ADDRESS) return ADMIN_LIVE_ADDRESS;
-      return wallets[0]?.address || null;
+    // In any mode: first try to match the logged-in user with a rights holder by email/name
+    // This ensures the correct wallet is used for both display and claiming
+    const matchingHolder = holders.find(
+      h =>
+        (h.email && user?.email && h.email.toLowerCase() === user.email.toLowerCase()) ||
+        (h.full_name && user?.name && h.full_name.toLowerCase() === user.name.toLowerCase())
+    );
+    if (matchingHolder?.wallet_address) {
+      return matchingHolder.wallet_address;
     }
+
+    if (isDemoMode) {
+      return localStorage.getItem('active_demo_wallet') || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+    }
+
+    // Prefer the user's own wallet from their profile first
+    if (user?.wallet_address) return user.wallet_address;
+    const externalWallet = wallets.find(w => w.walletClientType !== 'privy');
+    if (externalWallet) return externalWallet.address;
+    const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
+    if (embeddedWallet) return embeddedWallet.address;
+    // Fallback to ADMIN_LIVE_ADDRESS only if no personal wallet found
+    const isAdmin = user?.role === 'admin';
+    if (isAdmin && ADMIN_LIVE_ADDRESS) return ADMIN_LIVE_ADDRESS;
+    return wallets[0]?.address || null;
   }, [isDemoMode, user, wallets, holders]);
 
   useEffect(() => {

@@ -1,31 +1,11 @@
 import { supabase } from './supabaseClient';
 
-// Projects
-export async function getProjects() {
-  const { data, error } = await supabase
-    .from('projects')
-    .select('*')
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  
-  return data.map(d => ({
-    ...d,
-    total_revenue: d.total_distributed || 0,
-    cover_image: d.poster_url || 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=250&fit=crop'
-  }));
-}
-
 export async function getProjectById(id: string) {
   const { data, error } = await supabase
     .from('projects')
-    .select(`
-      *,
-      rights_holders(*),
-      transactions(*)
-    `)
+    .select('*, rights_holders(*), transactions(*)')
     .eq('id', id)
     .single();
-  
   if (error) throw error;
 
   return {
@@ -58,28 +38,6 @@ export async function getProjectById(id: string) {
   };
 }
 
-export async function createProject(project: any) {
-  const { data, error } = await supabase
-    .from('projects')
-    .insert([project])
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-export async function updateProject(id: string, updates: any) {
-  const { data, error } = await supabase
-    .from('projects')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-// Contributors
 export async function addContributor(data: any) {
   const { data: inserted, error } = await supabase
     .from('rights_holders')
@@ -105,7 +63,7 @@ export async function getProjectContributors(projectId: string) {
     .select('*')
     .eq('project_id', projectId);
   if (error) throw error;
-  
+
   return data.map((h: any) => ({
     id: h.id,
     project_id: h.project_id,
@@ -121,33 +79,38 @@ export async function getProjectContributors(projectId: string) {
   }));
 }
 
-export async function updateContributor(id: string, updates: any) {
-  const mappedUpdates: any = {};
-  if (updates.name !== undefined) mappedUpdates.full_name = updates.name;
-  if (updates.role !== undefined) mappedUpdates.role = updates.role;
-  if (updates.revenue_share !== undefined) mappedUpdates.percentage = Number(updates.revenue_share);
-  if (updates.wallet_address !== undefined) mappedUpdates.wallet_address = updates.wallet_address;
-  if (updates.email !== undefined) mappedUpdates.email = updates.email;
-  if (updates.status !== undefined) mappedUpdates.status = updates.status;
-  if (updates.user_id !== undefined) mappedUpdates.user_id = updates.user_id;
-
+export async function getPayments(projectId: string) {
   const { data, error } = await supabase
-    .from('rights_holders')
-    .update(mappedUpdates)
-    .eq('id', id)
-    .select()
-    .single();
+    .from('transactions')
+    .select('*')
+    .eq('project_id', projectId)
+    .order('created_at', { ascending: false });
   if (error) throw error;
-  return data;
+
+  return data.map((t: any) => ({
+    id: t.id,
+    project_id: t.project_id,
+    amount: t.total_amount_eth || t.total_amount || 0,
+    source: 'Client Payment',
+    tx_hash: t.tx_hash,
+    payment_date: t.created_at,
+  }));
 }
 
-// Payments
+export async function getCreativeRights(projectId: string) {
+  const { data, error } = await supabase
+    .from('creative_rights')
+    .select('*, users:owner_id(id, name, email)')
+    .eq('project_id', projectId);
+  if (error) throw error;
+  return data || [];
+}
+
 export async function recordPayment(data: {
   project_id: string;
   amount_cents: number;
   source: string;
 }): Promise<any> {
-  // Convert cents to ETH equivalent (rough manual entry — no on-chain tx)
   const amountEth = data.amount_cents / 100;
 
   const { data: inserted, error } = await supabase
@@ -167,93 +130,6 @@ export async function recordPayment(data: {
   return inserted;
 }
 
-export async function getPayments(projectId: string) {
-  const { data, error } = await supabase
-    .from('transactions')
-    .select('*')
-    .eq('project_id', projectId)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  
-  return data.map((t: any) => ({
-    id: t.id,
-    project_id: t.project_id,
-    amount: t.total_amount_eth || t.total_amount || 0,
-    source: 'Client Payment',
-    tx_hash: t.tx_hash,
-    payment_date: t.created_at,
-  }));
-}
-
-// Creative Rights
-export async function addCreativeRight(data: any) {
-  const { data: inserted, error } = await supabase
-    .from('creative_rights')
-    .insert([{
-      project_id: data.project_id || data.projectId,
-      rights_type: data.rights_type || data.rightsType,
-      owner_id: data.owner_id || data.ownerId,
-      revenue_share: Number(data.revenue_share || data.revenueShare || 0),
-      status: data.status || 'active',
-      expiration_date: data.expiration_date || data.expirationDate || null
-    }])
-    .select()
-    .single();
-  if (error) throw error;
-  return inserted;
-}
-
-export async function getCreativeRights(projectId: string) {
-  const { data, error } = await supabase
-    .from('creative_rights')
-    .select(`
-      *,
-      users:owner_id(id, name, email)
-    `)
-    .eq('project_id', projectId);
-  if (error) throw error;
-  return data || [];
-}
-
-export async function updateCreativeRight(id: string, updates: any) {
-  const mappedUpdates: any = {};
-  if (updates.rights_type !== undefined) mappedUpdates.rights_type = updates.rights_type;
-  if (updates.rightsType !== undefined) mappedUpdates.rights_type = updates.rightsType;
-  if (updates.owner_id !== undefined) mappedUpdates.owner_id = updates.owner_id;
-  if (updates.ownerId !== undefined) mappedUpdates.owner_id = updates.ownerId;
-  if (updates.revenue_share !== undefined) mappedUpdates.revenue_share = Number(updates.revenue_share);
-  if (updates.revenueShare !== undefined) mappedUpdates.revenue_share = Number(updates.revenueShare);
-  if (updates.status !== undefined) mappedUpdates.status = updates.status;
-  if (updates.expiration_date !== undefined) mappedUpdates.expiration_date = updates.expiration_date;
-  if (updates.expirationDate !== undefined) mappedUpdates.expiration_date = updates.expirationDate;
-
-  const { data, error } = await supabase
-    .from('creative_rights')
-    .update(mappedUpdates)
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-// Milestones
-export async function addMilestone(data: any) {
-  const { data: inserted, error } = await supabase
-    .from('milestones')
-    .insert([{
-      project_id: data.project_id || data.projectId,
-      title: data.title,
-      description: data.description || '',
-      date: data.date,
-      status: data.status || 'pending'
-    }])
-    .select()
-    .single();
-  if (error) throw error;
-  return inserted;
-}
-
 export async function getMilestones(projectId: string) {
   const { data, error } = await supabase
     .from('milestones')
@@ -264,60 +140,6 @@ export async function getMilestones(projectId: string) {
   return data || [];
 }
 
-export async function updateMilestone(id: string, updates: any) {
-  const { data, error } = await supabase
-    .from('milestones')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
-// Search
-export async function searchProjects(query: string) {
-  const { data, error } = await supabase
-    .from('projects')
-    .select('*')
-    .ilike('name', `%${query}%`)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return data.map(d => ({
-    ...d,
-    total_revenue: d.total_distributed || 0,
-    cover_image: d.poster_url || 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=250&fit=crop'
-  }));
-}
-
-// Activities
-export async function logActivity(data: any) {
-  const { data: inserted, error } = await supabase
-    .from('activities')
-    .insert([{
-      project_id: data.project_id || data.projectId || null,
-      user_id: data.user_id || data.userId || null,
-      action: data.action,
-      description: data.description,
-      timestamp: new Date().toISOString()
-    }])
-    .select()
-    .single();
-  if (error) throw error;
-  return inserted;
-}
-
-export async function getActivities(userId: string) {
-  const { data, error } = await supabase
-    .from('activities')
-    .select('*')
-    .eq('user_id', userId)
-    .order('timestamp', { ascending: false });
-  if (error) throw error;
-  return data || [];
-}
-
-// Reports
 export async function generateRevenueReport(startDate: string, endDate: string, projectId?: string, walletAddress?: string, client: any = supabase, isDemo?: boolean) {
   try {
     const endOfDay = endDate.includes('T') ? endDate : `${endDate}T23:59:59.999Z`;
@@ -329,23 +151,21 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
       .lte('created_at', endOfDay);
 
     if (projectId && projectId !== 'all') paymentQuery = paymentQuery.eq('project_id', projectId);
-    
+
     if (isDemo !== undefined) {
-      if (isDemo) {
-        paymentQuery = paymentQuery.eq('is_demo', true);
-      } else {
-        paymentQuery = paymentQuery.or('is_demo.eq.false,is_demo.is.null');
-      }
+      paymentQuery = isDemo
+        ? paymentQuery.eq('is_demo', true)
+        : paymentQuery.or('is_demo.eq.false,is_demo.is.null');
     }
 
     const { data: payments, error: paymentError } = await paymentQuery;
     if (paymentError) throw paymentError;
 
     const sourceMap = new Map<string, { amount: number; count: number }>();
-    const projectMap = new Map<string, { 
-      revenue: number; 
-      paid: number; 
-      contributors: Set<string>; 
+    const projectMap = new Map<string, {
+      revenue: number;
+      paid: number;
+      contributors: Set<string>;
       name: string;
       splitSummary: Map<string, { name: string; amount: number; percentage: number }>
     }>();
@@ -365,31 +185,30 @@ export async function generateRevenueReport(startDate: string, endDate: string, 
 
       if (payment.projects) {
         const projId = payment.projects.id;
-        const current = projectMap.get(projId) || { 
-          revenue: 0, 
-          paid: 0, 
+        const current = projectMap.get(projId) || {
+          revenue: 0,
+          paid: 0,
           contributors: new Set<string>(),
           name: payment.projects.name || 'Unknown',
           splitSummary: new Map<string, { name: string; amount: number; percentage: number }>()
         };
         current.revenue += amount;
         current.paid += amount;
-        
-        // Process splits
+
         if (payment.transaction_splits) {
           payment.transaction_splits.forEach((s: any) => {
             current.contributors.add(s.rights_holder_id);
             const holderId = s.rights_holder_id;
-            const existing = current.splitSummary.get(holderId) || { 
-              name: s.full_name || 'Unknown', 
-              amount: 0, 
-              percentage: s.percentage || 0 
+            const existing = current.splitSummary.get(holderId) || {
+              name: s.full_name || 'Unknown',
+              amount: 0,
+              percentage: s.percentage || 0
             };
             existing.amount += Number(s.amount_eth || 0);
             current.splitSummary.set(holderId, existing);
           });
         }
-        
+
         projectMap.set(projId, current);
       }
     });

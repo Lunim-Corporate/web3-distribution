@@ -46,6 +46,7 @@ export async function POST(req: Request) {
         : null;
 
     let data: any;
+    let newContractAddress: string | null = null;
     if (configured) {
       // 1. Add to rights_holders table
       const { data: dbData, error } = await supabaseAdmin
@@ -65,8 +66,8 @@ export async function POST(req: Request) {
       if (error) throw error;
       data = dbData;
 
-      // Auto-sync contract with database
-      await syncContractWithDatabase(project_id, isDemo);
+      // Auto-sync contract with database — deploys a new contract with updated roster
+      newContractAddress = await syncContractWithDatabase(project_id, isDemo);
     } else {
       data = {
         id: `demo-holder-${Date.now()}`,
@@ -89,6 +90,7 @@ export async function POST(req: Request) {
       response.warning = warning;
       response.totalAllocation = newTotal;
     }
+    if (newContractAddress) response.newContractAddress = newContractAddress;
     return NextResponse.json(response);
   } catch (err: any) {
     const msg = typeof err === 'string' ? err : err?.message || err?.error || (err instanceof Error ? err.message : String(err));

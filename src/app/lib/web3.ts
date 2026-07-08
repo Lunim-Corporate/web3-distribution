@@ -73,10 +73,6 @@ export function useRevenueSplitter(overrideContractAddress?: string) {
         setSmartAccountAddress(null);
         return;
       }
-      if (!LIVE_CONTRACT_ADDRESS) {
-        setSmartAccountAddress(null);
-        return;
-      }
 
       const walletChainId = typeof activeWallet.chainId === 'string' 
         ? parseInt(activeWallet.chainId.replace('eip155:', '')) 
@@ -203,6 +199,32 @@ export function useRevenueSplitter(overrideContractAddress?: string) {
       const isChainHardhat = parseInt(activeChainIdHex, 16) === 31337;
 
       if (hasMetaMask && isMetaMaskMatching && isChainHardhat) {
+        const publicClient = createPublicClient({
+          chain: hardhat,
+          transport: http(LOCAL_RPC),
+        });
+
+        let onChainBalance = 0n;
+        try {
+          onChainBalance = await publicClient.readContract({
+            address: contractAddress,
+            abi: ABI,
+            functionName: 'accruedBalances',
+            args: [activeDemoWallet as Address],
+          }) as bigint;
+        } catch (e) {
+          console.warn('Failed to query on-chain balance for claim check', e);
+        }
+
+        // If the connected MetaMask address has no accrued earnings in the contract,
+        // we fallback to the mock/simulated claim process instead of triggering a revert transaction
+        if (onChainBalance === 0n) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          const ts = Date.now().toString(16).padStart(12, '0');
+          const mockHash = '0xdemo' + ts + '0'.repeat(64 - 4 - ts.length - 4) + 'cafe';
+          return mockHash;
+        }
+
         const callData = encodeFunctionData({
           abi: ABI,
           functionName: 'claim',
@@ -216,11 +238,6 @@ export function useRevenueSplitter(overrideContractAddress?: string) {
             gasPrice: '0x0'
           }]
         }) as string;
-
-        const publicClient = createPublicClient({
-          chain: hardhat,
-          transport: http(LOCAL_RPC),
-        });
         await publicClient.waitForTransactionReceipt({ hash: txHash as Address });
         return txHash;
       } else {

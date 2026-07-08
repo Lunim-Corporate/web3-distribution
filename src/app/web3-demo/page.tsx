@@ -10,28 +10,32 @@ import { TransactionFlowVisualizer } from '@/app/components/dashboard/Transactio
 import { HolderEarningsCard } from '@/app/components/dashboard/HolderEarningsCard';
 import { TransactionHistory } from '@/app/components/dashboard/TransactionHistory';
 
-/* ─────────────────────────────────────────────────────────────
-   Types
-───────────────────────────────────────────────────────────── */
+import { HARDHAT_CHAIN_ID, HARDHAT_CHAIN_ID_HEX } from '@/app/lib/constants';
+
+const fmt = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+const fmtEth = (n: number) => `${n.toFixed(4)} ETH`;
+const trunc = (addr: string) => addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : '';
+
 interface Project { id: string; name: string; genre?: string; status: string; total_distributed: number; }
 interface RightsHolder {
   id: string; full_name: string; role: string; wallet_address: string;
   percentage: number; avatar_initials?: string; total_received: number;
 }
 
-const fmt = (n: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
-const fmtEth = (n: number) => `${n.toFixed(4)} ETH`;
-const trunc = (addr: string) => addr ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : '';
-
-// Hardhat local network — Chain ID 31337. Local development sandbox.
-const HARDHAT_CHAIN_ID = 31337;
-const HARDHAT_CHAIN_ID_HEX = '0x7a69';
+function triggerCrossTabUpdate() {
+  window.dispatchEvent(new Event('payment-recorded'));
+  try {
+    const bc = new BroadcastChannel('lunim-realtime');
+    bc.postMessage({ type: 'payment-recorded' });
+    bc.close();
+  } catch { console.warn('BroadcastChannel not supported'); }
+}
 
 /* ─────────────────────────────────────────────────────────────
    Page
 ───────────────────────────────────────────────────────────── */
 export default function Web3DemoPage() {
-  const { ethPrice, formatEthAsUsd } = useEthPrice();
+  const { ethPrice } = useEthPrice();
 
   // Demo Mode state
   const [isDemoMode, setIsDemoMode] = useState(false);
@@ -50,7 +54,7 @@ export default function Web3DemoPage() {
   const [holders, setHolders] = useState<RightsHolder[]>([]);
 
   // TX state
-  const [amount, setAmount] = useState('0.01');
+  const [amount, setAmount] = useState('100');
   const [txStatus, setTxStatus] = useState<'idle' | 'pending' | 'confirmed' | 'error'>('idle');
   const [txHash, setTxHash] = useState('');
   const [txError, setTxError] = useState('');
@@ -94,13 +98,14 @@ export default function Web3DemoPage() {
 
   /* ── Recalculate split preview ──────────────────────────── */
   useEffect(() => {
-    const eth = parseFloat(amount) || 0;
+    const usd = parseFloat(amount) || 0;
+    const eth = ethPrice > 0 ? usd / ethPrice : 0;
     setSplitPreview(
       holders.map(h => ({
         name: h.full_name,
         pct: h.percentage,
         eth: (h.percentage / 100) * eth,
-        usd: (h.percentage / 100) * eth * ethPrice,
+        usd: (h.percentage / 100) * usd,
       }))
     );
   }, [amount, holders, ethPrice]);
@@ -255,7 +260,8 @@ export default function Web3DemoPage() {
   const distributeRevenue = async () => {
     if (!account || !selectedProject) return;
 
-    const ethAmt = parseFloat(amount);
+    const usdAmt = parseFloat(amount) || 0;
+    const ethAmt = ethPrice > 0 ? usdAmt / ethPrice : 0;
     const weiHex = `0x${Math.floor(ethAmt * 1e18).toString(16)}`;
 
     // If we are in Demo Mode, verify if we can use the injected wallet, otherwise gracefully run a sandbox simulation.
@@ -318,24 +324,12 @@ export default function Web3DemoPage() {
           console.warn('Simulated tx database sync skipped:', dbErr);
         }
 
-        // Trigger cross-tab update
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new Event('payment-recorded'));
-          try {
-            const bc = new BroadcastChannel('lunim-realtime');
-            bc.postMessage({ type: 'payment-recorded' });
-            bc.close();
-          } catch (bcErr) {
-            console.warn('BroadcastChannel sync skipped');
-          }
-        }
+        triggerCrossTabUpdate();
 
         setTxStatus('confirmed');
-        // Deduct from local sandbox balance
         const matchingDemo = DEMO_ACCOUNTS.find(acc => acc.address.toLowerCase() === account.toLowerCase());
         if (matchingDemo) {
-          const newBal = (parseFloat(balance || '100') - ethAmt).toFixed(4);
-          setBalance(newBal);
+          setBalance((parseFloat(balance || '100') - ethAmt).toFixed(4));
         }
 
         window.dispatchEvent(new CustomEvent('payment-recorded', { detail: { txHash: mockHash, projectId: selectedProject } }));
@@ -428,17 +422,7 @@ export default function Web3DemoPage() {
         console.warn('DB record warning:', err.error);
       }
       
-      // Trigger cross-tab update
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new Event('payment-recorded'));
-        try {
-          const bc = new BroadcastChannel('lunim-realtime');
-          bc.postMessage({ type: 'payment-recorded' });
-          bc.close();
-        } catch (e) {
-          console.warn('BroadcastChannel not supported');
-        }
-      }
+      triggerCrossTabUpdate();
 
       setTxStatus('confirmed');
       await getBalance(account);
@@ -694,23 +678,25 @@ export default function Web3DemoPage() {
 
           {/* Amount Input */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl">
-            <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-4">Distribution Amount</h2>
+            <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-4">Distribution Amount (USD)</h2>
             <div className="space-y-3">
-              <div className="relative">
+              <div className="relative flex items-center bg-white/5 border border-white/10 rounded-xl px-4">
+                <span className="text-xl font-black text-indigo-400 mr-2">$</span>
                 <input
                   type="number"
-                  step="0.001"
+                  step="1"
                   min="0"
                   value={amount}
                   onChange={e => setAmount(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-xl font-black focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full bg-transparent border-none py-3 text-white text-xl font-black focus:outline-none"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">ETH</span>
               </div>
-              <p className="text-gray-400 text-xs text-center">≈ {formatEthAsUsd(parseFloat(amount) || 0)} USD at current rates</p>
+              <p className="text-gray-400 text-xs text-center">
+                ≈ {ethPrice > 0 ? ((parseFloat(amount) || 0) / ethPrice).toFixed(6) : '0.000000'} ETH at current rates
+              </p>
               <div className="flex gap-2">
-                {['0.001','0.01','0.1','1'].map(v => (
-                  <button key={v} onClick={() => setAmount(v)} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${amount === v ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-white/5 text-gray-400 border border-white/5 hover:border-white/15'}`}>{v}</button>
+                {['10','50','100','500'].map(v => (
+                  <button key={v} onClick={() => setAmount(v)} className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${amount === v ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' : 'bg-white/5 text-gray-400 border border-white/5 hover:border-white/15'}`}>${v}</button>
                 ))}
               </div>
             </div>
@@ -729,8 +715,8 @@ export default function Web3DemoPage() {
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-black text-white">{fmtEth(parseFloat(amount) || 0)}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{formatEthAsUsd(parseFloat(amount) || 0)}</p>
+                <p className="text-2xl font-black text-white">${(parseFloat(amount) || 0).toFixed(2)} USD</p>
+                <p className="text-xs text-gray-400 mt-0.5">≈ {ethPrice > 0 ? ((parseFloat(amount) || 0) / ethPrice).toFixed(6) : '0.000000'} ETH</p>
               </div>
             </div>
 
@@ -770,7 +756,7 @@ export default function Web3DemoPage() {
             <div className="bg-white/5 border border-white/10 rounded-2xl p-6 backdrop-blur-xl space-y-4">
               <h2 className="text-sm font-black text-gray-400 uppercase tracking-widest">Transaction Flow</h2>
               <TransactionFlowVisualizer
-                amount={parseFloat(amount) || 0}
+                amount={ethPrice > 0 ? (parseFloat(amount) || 0) / ethPrice : 0}
                 holders={holders.map(h => ({
                   full_name: h.full_name,
                   role: h.role,
@@ -821,7 +807,7 @@ export default function Web3DemoPage() {
                         disabled={!selectedProject || holders.length === 0 || !parseFloat(amount) || !isCorrectNetwork}
                         className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-lg rounded-xl hover:opacity-90 transition-all disabled:opacity-40 shadow-xl shadow-indigo-500/25 hover:shadow-indigo-500/40"
                       >
-                        ⚡ Distribute {amount} Sandbox ETH
+                        ⚡ Distribute ${amount} ({ethPrice > 0 ? ((parseFloat(amount) || 0) / ethPrice).toFixed(4) : '0.0000'} Sandbox ETH)
                       </button>
                     </div>
                   )}

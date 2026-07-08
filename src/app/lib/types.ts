@@ -83,7 +83,6 @@ export interface SmartContract {
   isActive: boolean;
   totalTransactions: number;
   totalValue: number;
-  functions: ContractFunction[];
 }
 
 export interface ContractFunction {
@@ -103,54 +102,10 @@ export interface Milestone {
   projectId?: string;
 }
 
-export interface EmailTracking {
-  id: string;
-  email: string;
-  revenue: number;
-  source: string;
-  date: string;
-  isVerified: boolean;
-}
-
-// Update Types for Database Operations
-export interface ProjectUpdate {
-  name?: string;
-  description?: string;
-  type?: string;
-  cover_image?: string;
-  status?: 'Active' | 'Completed' | 'In Progress' | 'Paused';
-  total_revenue?: number;
-}
-
-export interface ContributorUpdate {
-  role?: string;
-  revenue_share?: number;
-  total_earned?: number;
-}
-
-export interface CreativeRightUpdate {
-  rights_type?: string;
-  owner_id?: string;
-  revenue_share?: number;
-  expiration_date?: string;
-  status?: 'Active' | 'Expiring Soon' | 'Expired' | 'Transferred';
-}
-
-export interface MilestoneUpdate {
-  title?: string;
-  target_amount?: number;
-  deadline?: string;
-  status?: 'Upcoming' | 'In Progress' | 'Completed' | 'Overdue';
-}
-
-// Report Types
 export interface RevenueReport {
   id: string;
   generatedAt: string;
-  reportPeriod: {
-    startDate: string;
-    endDate: string;
-  };
+  reportPeriod: { startDate: string; endDate: string };
   totalRevenue: number;
   totalPaid: number;
   totalPending: number;

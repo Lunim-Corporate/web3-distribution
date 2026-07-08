@@ -462,7 +462,7 @@ function DashboardContent() {
                               <span className="px-2.5 py-1 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-black rounded-lg font-mono">
                                 {h.percentage}%
                               </span>
-                              {isAdmin && (
+                              {(isAdmin || isDemoMode) && (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setEditingHolder(h); setIsEditHolderModalOpen(true); }}
                                   className="p-1.5 bg-white/5 border border-white/10 text-gray-400 hover:text-indigo-400 hover:border-indigo-500/30 rounded-lg transition-all"
@@ -562,8 +562,8 @@ function DashboardContent() {
             onClose={() => setSelectedHolder(null)}
             projectsList={projectsList}
             transactions={transactions}
-            isAdmin={isAdmin}
-            onEdit={(h) => { setEditingHolder(h); setIsEditHolderModalOpen(true); }}
+            isAdmin={isAdmin || isDemoMode}
+            onEdit={(h) => { setSelectedHolder(null); setEditingHolder(h); setIsEditHolderModalOpen(true); }}
           />
         )}
       </AnimatePresence>

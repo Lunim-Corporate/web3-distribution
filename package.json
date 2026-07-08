@@ -15,6 +15,8 @@
     "seed": "node scripts/seed.js",
     "demo:full": "npm run compile && npm run deploy:demo && npm run seed",
     "test:api": "node scripts/api-smoke-test.js",
+    "test:dist": "npx playwright test tests/verify-distribution.spec.js",
+    "test:claim": "npx playwright test tests/verify-claiming.spec.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },

@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth';
 import { useRevenueSplitter } from '@/lib/web3';
 import { ADMIN_LIVE_ADDRESS } from '@/lib/web3/config';
 import { DEMO_ACCOUNTS } from '@/app/components/Navbar';
+import { readDemoMode } from '@/lib/demoAccess';
 import { useSafeWallets } from '@/lib/web3/useSafeWallets';
 import { toast } from 'react-hot-toast';
 import { useEthPrice } from '@/app/lib/useEthPrice';
@@ -53,14 +54,24 @@ export default function ProfilePage() {
     if (!activeWalletAddress) return;
     setIsLoadingBalance(true);
     try {
-      const bal = await getAccruedBalanceEth(activeWalletAddress);
+      let bal = await getAccruedBalanceEth(activeWalletAddress);
+      if (isDemoMode && parseFloat(bal) === 0) {
+        const isPreseeded = [
+          '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
+          '0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
+          '0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc'
+        ].includes(activeWalletAddress.toLowerCase());
+        if (!isPreseeded) {
+          bal = '0.2500';
+        }
+      }
       setClaimableBalance(bal);
     } catch (e) {
       console.error('Failed to fetch accrued balance', e);
     } finally {
       setIsLoadingBalance(false);
     }
-  }, [activeWalletAddress, getAccruedBalanceEth]);
+  }, [activeWalletAddress, getAccruedBalanceEth, isDemoMode]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -105,7 +116,7 @@ export default function ProfilePage() {
   }, [settings?.notifyResurfacingHours]);
 
   useEffect(() => {
-    setIsDemoMode(localStorage.getItem('demo_mode') === 'true');
+    setIsDemoMode(readDemoMode());
     const onDemoChanged = (e: any) => setIsDemoMode(e.detail);
     window.addEventListener('demo-mode-changed', onDemoChanged);
     return () => window.removeEventListener('demo-mode-changed', onDemoChanged);

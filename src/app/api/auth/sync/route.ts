@@ -282,8 +282,12 @@ export async function POST(req: Request) {
       .map(e => e.trim().toLowerCase())
       .filter(Boolean);
 
+    // Also check against the ALL_ADMINS list (used for demo seeding + known admin emails)
+    const knownAdminEmails = ALL_ADMINS.map(a => a.email.toLowerCase());
+
     const isDesignatedAdmin = !isWalletOnly && originalEmail !== null && (
       adminEmails.includes(originalEmail) ||
+      knownAdminEmails.includes(originalEmail) ||
       originalEmail.endsWith('@lunim.io') ||
       originalEmail.endsWith('@lunium.io') ||
       originalEmail.startsWith('demo@')
@@ -301,6 +305,18 @@ export async function POST(req: Request) {
         updates.role = 'ADMIN';
       }
 
+      // Fix display_name for existing profiles that have stale values
+      let correctedDisplayName = profile.display_name || '';
+      if (correctedDisplayName === 'admin') {
+        correctedDisplayName = 'Demo Admin';
+      }
+      if (email === 'jeevesh039@gmail.com' && correctedDisplayName !== 'Jeevesh Admin') {
+        correctedDisplayName = 'Jeevesh Admin';
+      }
+      if (correctedDisplayName !== profile.display_name) {
+        updates.display_name = correctedDisplayName;
+      }
+
       if (Object.keys(updates).length > 0) {
         const { data: updatedProfile, error: updateError } = await supabaseAdmin
           .from('users_profile')
@@ -315,11 +331,18 @@ export async function POST(req: Request) {
       }
     } else {
       const role = isDesignatedAdmin ? 'ADMIN' : 'RIGHTS_HOLDER';
+      let displayName = email.split('@')[0];
+      if (displayName === 'admin') {
+        displayName = 'Demo Admin';
+      } else if (email === 'jeevesh039@gmail.com') {
+        displayName = 'Jeevesh Admin';
+      }
+
       const { data: newProfile, error: insertError } = await supabaseAdmin
         .from('users_profile')
         .insert({
           id: supabaseUser.id,
-          display_name: email.split('@')[0],
+          display_name: displayName,
           role,
           wallet_address: walletAddress ? walletAddress.toLowerCase() : null,
           wallet_type: walletAddress ? walletType : null
@@ -339,13 +362,33 @@ export async function POST(req: Request) {
       }
     }
 
-    // 4. Return the profile data
+    // 4. Sync wallet address to rights_holders entries for this admin via email
+    if (walletAddress && originalEmail && isDesignatedAdmin) {
+      try {
+        await supabaseAdmin
+          .from('rights_holders')
+          .update({ wallet_address: walletAddress.toLowerCase() })
+          .eq('email', originalEmail)
+          .is('wallet_address', null);
+      } catch (walletSyncErr) {
+        console.warn('[SYNC] Failed to sync wallet to rights_holders:', walletSyncErr);
+      }
+    }
+
+    // 5. Return the profile data
     // If handle_new_user trigger worked, profile should exist. 
     // If not, we still have the user ID.
+    let fallbackDisplayName = email.split('@')[0];
+    if (fallbackDisplayName === 'admin') {
+      fallbackDisplayName = 'Demo Admin';
+    } else if (email === 'jeevesh039@gmail.com') {
+      fallbackDisplayName = 'Jeevesh Admin';
+    }
+
     return NextResponse.json({
       user: profile || {
         id: supabaseUser.id,
-        display_name: email.split('@')[0],
+        display_name: fallbackDisplayName,
         role: 'RIGHTS_HOLDER'
       }
     });

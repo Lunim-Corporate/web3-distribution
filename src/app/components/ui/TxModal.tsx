@@ -10,22 +10,54 @@ export interface TxStep {
   status: 'idle' | 'running' | 'success' | 'error';
 }
 
+export interface RightsHolder {
+  id: string;
+  full_name: string;
+  role: string;
+  wallet_address: string;
+  percentage: number;
+}
+
 interface TxModalProps {
   isOpen: boolean;
   onClose?: () => void;
   steps: TxStep[];
   txHash?: string;
   error?: string;
+  holders?: RightsHolder[];
+  amountUsd?: number;
+  amountEth?: number;
 }
 
-export function TxModal({ isOpen, onClose, steps, txHash, error }: TxModalProps) {
+export function TxModal({ isOpen, onClose, steps, txHash, error, holders, amountUsd, amountEth }: TxModalProps) {
   const [showDetails, setShowDetails] = React.useState(false);
+  const [activeSubStage, setActiveSubStage] = React.useState(0);
 
   React.useEffect(() => {
     if (isOpen) {
       setShowDetails(false);
     }
   }, [isOpen, error]);
+
+  React.useEffect(() => {
+    const mineStep = steps.find(s => s.id === 'mine');
+    const totalHolders = holders ? holders.length : 4;
+    if (mineStep?.status === 'running') {
+      setActiveSubStage(0);
+      const interval = setInterval(() => {
+        setActiveSubStage(prev => {
+          if (prev < totalHolders - 1) return prev + 1;
+          clearInterval(interval);
+          return prev;
+        });
+      }, 700);
+      return () => clearInterval(interval);
+    } else if (mineStep?.status === 'success') {
+      setActiveSubStage(totalHolders);
+    } else {
+      setActiveSubStage(0);
+    }
+  }, [steps, holders]);
 
   if (!isOpen) return null;
 
@@ -74,13 +106,13 @@ export function TxModal({ isOpen, onClose, steps, txHash, error }: TxModalProps)
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-          className="relative z-10 w-full max-w-lg bg-gradient-to-b from-white/10 to-white/5 border border-white/15 rounded-[36px] p-8 md:p-10 shadow-2xl backdrop-blur-2xl overflow-hidden"
+          className="relative z-10 w-full max-w-xl bg-gradient-to-b from-white/10 to-white/5 border border-white/15 rounded-[36px] p-8 md:p-10 shadow-2xl backdrop-blur-2xl overflow-hidden flex flex-col max-h-[90vh]"
         >
           {/* Subtle Glows */}
           <div className="absolute -top-24 -left-24 w-48 h-48 bg-indigo-500/20 rounded-full blur-[80px]" />
           <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-purple-500/20 rounded-full blur-[80px]" />
 
-          <div className="relative z-10 space-y-8">
+          <div className="relative z-10 space-y-8 overflow-y-auto flex-1 pr-2 custom-scrollbar">
             {/* Header */}
             <div className="text-center space-y-2">
               <span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.25em]">Transaction Protocol</span>
@@ -129,7 +161,7 @@ export function TxModal({ isOpen, onClose, steps, txHash, error }: TxModalProps)
                     </div>
 
                     {/* Step text */}
-                    <div className="space-y-1">
+                    <div className="space-y-1 flex-1 text-left">
                       <h4
                         className={`text-sm font-black transition-colors duration-300 ${
                           isRunning ? 'text-indigo-400' : isSuccess ? 'text-emerald-400' : isError ? 'text-rose-400' : 'text-gray-400'
@@ -138,8 +170,66 @@ export function TxModal({ isOpen, onClose, steps, txHash, error }: TxModalProps)
                         {step.title}
                       </h4>
                       <p className="text-xs text-gray-500 font-medium leading-relaxed">
-                        {step.description}
+                        {step.id === 'index' && holders && holders.length > 0
+                          ? `Syncing database splits & updating creator balances for ${holders.map(h => h.full_name).join(', ')}.`
+                          : step.description}
                       </p>
+
+                      {/* User Transfer Stages - Render inside Mining transaction (Step 3) */}
+                      {step.id === 'mine' && (step.status === 'running' || step.status === 'success' || step.status === 'error') && holders && holders.length > 0 && (
+                        <div className="mt-3 space-y-2 bg-black/20 rounded-2xl p-4 border border-white/5">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">On-Chain Transfer Stages</span>
+                            <span className="text-[9px] text-gray-500 font-mono">Gasless Relayer Active</span>
+                          </div>
+                          {holders.map((h, idx) => {
+                            let stageStatus: 'idle' | 'running' | 'success' | 'error' = 'idle';
+                            if (step.status === 'success') {
+                              stageStatus = 'success';
+                            } else if (step.status === 'error') {
+                              stageStatus = idx < activeSubStage ? 'success' : idx === activeSubStage ? 'error' : 'idle';
+                            } else if (step.status === 'running') {
+                              stageStatus = idx < activeSubStage ? 'success' : idx === activeSubStage ? 'running' : 'idle';
+                            }
+
+                            const shareUsd = (h.percentage / 100) * (amountUsd || 0);
+                            const shareEth = (h.percentage / 100) * (amountEth || 0);
+
+                            return (
+                              <div key={h.id} className="flex items-center justify-between text-xs py-0.5">
+                                <div className="flex items-center gap-2">
+                                  {/* Spinning ring or status check */}
+                                  <div className="flex-shrink-0">
+                                    {stageStatus === 'running' ? (
+                                      <div className="w-3.5 h-3.5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                                    ) : stageStatus === 'success' ? (
+                                      <svg className="w-3.5 h-3.5 text-emerald-400 animate-scaleUp" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                      </svg>
+                                    ) : stageStatus === 'error' ? (
+                                      <svg className="w-3.5 h-3.5 text-rose-400 animate-shake" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    ) : (
+                                      <div className="w-3.5 h-3.5 rounded-full border border-white/10" />
+                                    )}
+                                  </div>
+                                  <div>
+                                    <span className={`font-black ${stageStatus === 'running' ? 'text-indigo-400' : stageStatus === 'success' ? 'text-emerald-400' : 'text-gray-400'}`}>
+                                      {h.full_name}
+                                    </span>
+                                    <span className="text-[9px] text-gray-500 ml-1.5 uppercase font-medium">{h.role}</span>
+                                  </div>
+                                </div>
+                                <div className="text-right font-mono font-bold">
+                                  <span className="text-white">${shareUsd.toFixed(2)}</span>
+                                  <span className="text-gray-500 text-[10px] ml-2">({shareEth.toFixed(4)} Ξ)</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

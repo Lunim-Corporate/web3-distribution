@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 
 interface RightsHolder {
   id: string;
@@ -40,8 +41,6 @@ export const AddRightsHolderModal = ({
   const isUnder100 = pctDiff < -0.01;
   const showWarning = percentage !== '' && (isOver100 || isUnder100);
 
-  if (!isOpen) return null;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !walletAddress || !percentage) {
@@ -70,6 +69,15 @@ export const AddRightsHolderModal = ({
         throw new Error(err.error || 'Failed to add rights holder');
       }
 
+      const data = await res.json();
+      let msg = 'Rights holder added successfully';
+      if (data.newContractAddress) {
+        msg += ` — Contract redeployed: ${data.newContractAddress.slice(0, 10)}...${data.newContractAddress.slice(-4)}`;
+      }
+      if (data.warning) {
+        msg += `. ${data.warning}`;
+      }
+      toast.success(msg, { duration: 6000 });
       onSuccess();
       onClose();
       setFullName('');
@@ -85,7 +93,13 @@ export const AddRightsHolderModal = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      {isOpen && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      >
         <motion.div 
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -187,7 +201,8 @@ export const AddRightsHolderModal = ({
             </div>
           </form>
         </motion.div>
-      </div>
+      </motion.div>
+      )}
     </AnimatePresence>
   );
 };

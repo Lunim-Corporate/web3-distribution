@@ -120,10 +120,11 @@ function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Force resync if the user cookie is currently set to demo-admin-id but we are now in LIVE mode
+    // Force resync when coming from demo mode — always re-sync when isDemo changes to false
+    // to ensure we get the live profile and clear any stale demo cookie data
     if (syncedUserIdRef.current === pUser.id) {
       const cookieVal = typeof document !== 'undefined' ? document.cookie : '';
-      if (cookieVal.includes('demo-admin-id')) {
+      if (cookieVal.includes('demo-admin-id') || !cookieVal.includes('crt_user')) {
         syncedUserIdRef.current = null;
       } else {
         setIsAuthHydrated(true);
@@ -147,10 +148,18 @@ function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
 
         const { user: supabaseProfile } = await res.json();
 
+    const emailAddress = pUser.email?.address || '';
+    let displayName = supabaseProfile.display_name || emailAddress.split('@')[0] || '';
+    if (emailAddress === 'jeevesh039@gmail.com') {
+      displayName = 'Jeevesh Admin';
+    } else if (displayName === 'admin') {
+      displayName = 'Demo Admin';
+    }
+
         const profile: User = {
           id: supabaseProfile.id,
-          email: pUser.email?.address || '',
-          name: supabaseProfile.display_name || pUser.email?.address?.split('@')[0] || '',
+          email: emailAddress,
+          name: displayName,
           isAdmin: supabaseProfile.role === 'ADMIN',
           role: supabaseProfile.role?.toLowerCase() as Role || 'creator',
           wallet_address: supabaseProfile.wallet_address || null,

@@ -13,7 +13,7 @@ import {
   getCreativeRights,
   getMilestones,
 } from '@/lib/database';
-import { formatCurrencyFromCentsGB } from '@/lib/currency';
+import { formatCurrencyFromCentsUSD as formatCurrencyFromCentsGB } from '@/lib/currency';
 import { normalizePaymentStatus } from '@/lib/utils';
 
 export default function ProjectPage() {

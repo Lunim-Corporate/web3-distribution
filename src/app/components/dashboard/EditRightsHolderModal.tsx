@@ -95,7 +95,15 @@ export function EditRightsHolderModal({
         throw new Error(err.error || 'Failed to update rights holder');
       }
 
-      toast.success('Rights holder updated successfully');
+      const data = await res.json();
+      let msg = 'Rights holder updated successfully';
+      if (data.newContractAddress) {
+        msg += ` — Contract redeployed: ${data.newContractAddress.slice(0, 10)}...${data.newContractAddress.slice(-4)}`;
+      }
+      if (data.warning) {
+        msg += `. ${data.warning}`;
+      }
+      toast.success(msg, { duration: 6000 });
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -130,7 +138,13 @@ export function EditRightsHolderModal({
         throw new Error(err.error || 'Failed to delete rights holder');
       }
 
-      toast.success('Rights holder removed');
+      const data = await res.json();
+      let msg = 'Rights holder removed';
+      if (data.newContractAddress) {
+        msg += ` — Contract redeployed: ${data.newContractAddress.slice(0, 10)}...${data.newContractAddress.slice(-4)}`;
+      }
+      if (data.warning) msg += `. ${data.warning}`;
+      toast.success(msg, { duration: 6000 });
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -144,7 +158,12 @@ export function EditRightsHolderModal({
   return (
     <AnimatePresence>
       {isOpen && holder && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      >
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -281,7 +300,7 @@ export function EditRightsHolderModal({
             </div>
           </form>
         </motion.div>
-      </div>
+      </motion.div>
       )}
     </AnimatePresence>
   );

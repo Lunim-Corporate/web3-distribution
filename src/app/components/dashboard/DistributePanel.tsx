@@ -21,9 +21,9 @@ export function DistributePanel({ project, holders }: { project: Project | null;
   const targetCA = isDemoMode ? demoCA : liveCA;
   
   const { distributeRevenue, smartAccountAddress } = useRevenueSplitter(targetCA);
-  const [amount, setAmount] = useState<string>('0.1');
+  const [amount, setAmount] = useState<string>('100');
   const [isProcessing, setIsProcessing] = useState(false);
-  const { formatEthAsUsd } = useEthPrice();
+  const { ethPrice } = useEthPrice();
   
   useEffect(() => {
     setIsDemoMode(readDemoMode());
@@ -71,8 +71,10 @@ export function DistributePanel({ project, holders }: { project: Project | null;
       return toast.error('Please login to distribute revenue');
     }
 
-    const ethAmount = parseFloat(amount);
-    if (isNaN(ethAmount) || ethAmount <= 0) return toast.error('Enter a valid amount');
+    const usdAmount = parseFloat(amount);
+    if (isNaN(usdAmount) || usdAmount <= 0) return toast.error('Enter a valid amount');
+    const ethAmount = ethPrice > 0 ? usdAmount / ethPrice : 0;
+    if (ethAmount <= 0) return toast.error('Converted ETH amount must be greater than zero');
 
     setIsProcessing(true);
     setTxHash('');
@@ -117,7 +119,7 @@ export function DistributePanel({ project, holders }: { project: Project | null;
           }
         }
 
-        const activeDemoWallet = localStorage.getItem('active_demo_wallet') || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+        const activeDemoWallet = localStorage.getItem('active_demo_wallet') || '0xf39Fd6e51aad88F6F4ce5aB8827279cffFb92266';
         const isMetaMaskMatching = activeMetaMaskAcc && activeMetaMaskAcc.toLowerCase() === activeDemoWallet.toLowerCase();
         const isChainHardhat = parseInt(activeChainIdHex, 16) === 31337;
 
@@ -147,7 +149,7 @@ export function DistributePanel({ project, holders }: { project: Project | null;
       } else {
         // --- LIVE MODE TRANSACTION EXECUTION ---
         if (CONTRACT_ADDRESS) {
-          manualTxHash = await distributeRevenue(amount);
+          manualTxHash = await distributeRevenue(ethAmount.toString());
         }
       }
 
@@ -220,18 +222,18 @@ export function DistributePanel({ project, holders }: { project: Project | null;
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
             <div className="space-y-6">
               <div className="p-8 bg-white/5 rounded-[32px] border border-white/10 space-y-6">
-                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest">Amount to Distribute (ETH)</label>
-                <div className="relative">
+                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest">Amount to Distribute (USD)</label>
+                <div className="relative flex items-center">
+                  <span className="text-5xl font-black text-indigo-400 mr-3">$</span>
                   <input 
-                    type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)}
+                    type="number" step="1" value={amount} onChange={e => setAmount(e.target.value)}
                     className="w-full bg-transparent border-none text-6xl font-black text-white outline-none font-mono"
                     placeholder="0.00"
                   />
-                  <div className="absolute right-0 bottom-2 text-indigo-400 font-black text-2xl">Ξ</div>
                 </div>
                 <div className="flex justify-between items-center pt-6 border-t border-white/5">
-                  <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Est. USD Value</span>
-                  <span className="text-xl font-black text-emerald-400">{formatEthAsUsd(parseFloat(amount) || 0)}</span>
+                  <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Real-time ETH Value</span>
+                  <span className="text-xl font-black text-emerald-400">{ethPrice > 0 ? (parseFloat(amount) / ethPrice || 0).toFixed(6) : '0.000000'} Ξ</span>
                 </div>
               </div>
 
@@ -286,7 +288,11 @@ export function DistributePanel({ project, holders }: { project: Project | null;
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-black text-white font-mono">{h.percentage}%</p>
-                      <p className="text-[10px] text-indigo-400 font-mono font-black">{( (h.percentage/100) * parseFloat(amount || '0') ).toFixed(4)} Ξ</p>
+                      <p className="text-[10px] text-indigo-400 font-mono font-black">
+                        ${((h.percentage / 100) * parseFloat(amount || '0')).toFixed(2)}
+                        <span className="text-gray-500 font-normal mx-1">/</span>
+                        {ethPrice ? (((h.percentage / 100) * parseFloat(amount || '0')) / ethPrice).toFixed(6) : '0.000000'} Ξ
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -369,6 +375,9 @@ export function DistributePanel({ project, holders }: { project: Project | null;
         steps={steps} 
         txHash={modalTxHash} 
         error={modalError} 
+        holders={holders}
+        amountUsd={parseFloat(amount) || 0}
+        amountEth={ethPrice > 0 ? (parseFloat(amount) || 0) / ethPrice : 0}
       />
     </div>
   );
