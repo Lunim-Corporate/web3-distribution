@@ -17,7 +17,7 @@ const updateProjectSchema = z.object({
 async function getProject(id: string) {
   const { data, error } = await supabaseAdmin
     .from('projects')
-    .select('*, project_contributors(*, users(*))')
+    .select('*')
     .eq('id', id)
     .single();
 
