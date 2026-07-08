@@ -40,9 +40,9 @@ export function TxModal({ isOpen, onClose, steps, txHash, error, holders, amount
   }, [isOpen, error]);
 
   React.useEffect(() => {
-    const mineStep = steps.find(s => s.id === 'mine');
+    const indexStep = steps.find(s => s.id === 'index');
     const totalHolders = holders ? holders.length : 4;
-    if (mineStep?.status === 'running') {
+    if (indexStep?.status === 'running') {
       setActiveSubStage(0);
       const interval = setInterval(() => {
         setActiveSubStage(prev => {
@@ -52,7 +52,7 @@ export function TxModal({ isOpen, onClose, steps, txHash, error, holders, amount
         });
       }, 700);
       return () => clearInterval(interval);
-    } else if (mineStep?.status === 'success') {
+    } else if (indexStep?.status === 'success') {
       setActiveSubStage(totalHolders);
     } else {
       setActiveSubStage(0);
@@ -175,8 +175,8 @@ export function TxModal({ isOpen, onClose, steps, txHash, error, holders, amount
                           : step.description}
                       </p>
 
-                      {/* User Transfer Stages - Render inside Mining transaction (Step 3) */}
-                      {step.id === 'mine' && (step.status === 'running' || step.status === 'success' || step.status === 'error') && holders && holders.length > 0 && (
+                      {/* User Transfer Stages - Render inside Reconciling ledger (Step 4) for better UX during longer wait */}
+                      {step.id === 'index' && (step.status === 'running' || step.status === 'success' || step.status === 'error') && holders && holders.length > 0 && (
                         <div className="mt-3 space-y-2 bg-black/20 rounded-2xl p-4 border border-white/5">
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">On-Chain Transfer Stages</span>
