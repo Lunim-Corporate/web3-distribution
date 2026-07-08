@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabaseClient';
-import { isSandboxLoginEnabled, readDemoMode } from '@/lib/demoAccess';
+import { isSandboxLoginEnabled } from '@/lib/demoAccess';
 import { usePrivy } from '@privy-io/react-auth';
 
 export type Role = 'admin' | 'creator' | 'contributor' | 'viewer';
@@ -62,13 +62,11 @@ function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [isAuthHydrated, setIsAuthHydrated] = useState(false);
-  const [isDemo, setIsDemo] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return readDemoMode();
-  });
 
   const privy = usePrivy();
   const syncedUserIdRef = React.useRef<string | null>(null);
+  // Track how the user originally authenticated — once set, never changes on mode toggle
+  const loginMethodRef = React.useRef<'sandbox' | 'privy' | null>(null);
 
   const effectiveSettings = useMemo<Settings>(() => {
     return settings ?? DEFAULT_SETTINGS;
@@ -81,34 +79,52 @@ function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // ── User Identity Effect ──────────────────────────────────────────────
+  // Determines user identity ONCE based on how they logged in.
+  // This effect does NOT depend on isDemo — mode switching never changes
+  // the logged-in user's name, email, or role.
   useEffect(() => {
-    const handler = () => setIsDemo(readDemoMode());
-    const storageHandler = () => setIsDemo(readDemoMode());
-    window.addEventListener('demo-mode-changed', handler as EventListener);
-    window.addEventListener('storage', storageHandler);
-    return () => {
-      window.removeEventListener('demo-mode-changed', handler as EventListener);
-      window.removeEventListener('storage', storageHandler);
-    };
-  }, []);
+    const { ready, user: pUser, getAccessToken } = privy;
 
-  useEffect(() => {
-    if (isSandboxLoginEnabled && isDemo) {
-      const demoUser = {
-        id: 'demo-admin-id',
-        email: 'demo@lunim.io',
-        name: 'Demo Admin',
-        isAdmin: true,
-        role: 'admin' as const,
-        isDemo: true,
-      };
-      setUser(demoUser);
-      setCookie(demoUser);
+    // If user already authenticated via sandbox bypass, keep that identity stable
+    if (loginMethodRef.current === 'sandbox') {
       setIsAuthHydrated(true);
       return;
     }
 
-    const { ready, user: pUser, getAccessToken } = privy;
+    // On first load: if sandbox is enabled and no Privy user is present, create sandbox user
+    if (isSandboxLoginEnabled && !pUser && !ready) {
+      return; // Wait for Privy to be ready
+    }
+
+    if (isSandboxLoginEnabled && ready && !pUser) {
+      // No Privy user — check if we should use sandbox bypass
+      const storedDemoLogin = typeof window !== 'undefined' && localStorage.getItem('demo_user_logged_in') === 'true';
+      const hasSandboxCookie = typeof document !== 'undefined' && document.cookie.includes('demo-admin-id');
+      
+      if (storedDemoLogin || hasSandboxCookie) {
+        loginMethodRef.current = 'sandbox';
+        const demoUser = {
+          id: 'demo-admin-id',
+          email: 'demo@lunim.io',
+          name: 'Demo Admin',
+          isAdmin: true,
+          role: 'admin' as const,
+          isDemo: true,
+        };
+        setUser(demoUser);
+        setCookie(demoUser);
+        setIsAuthHydrated(true);
+        return;
+      }
+      
+      // No session at all
+      clearCookie();
+      setUser(null);
+      syncedUserIdRef.current = null;
+      setIsAuthHydrated(true);
+      return;
+    }
 
     if (!ready) return;
 
@@ -120,16 +136,12 @@ function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Force resync when coming from demo mode — always re-sync when isDemo changes to false
-    // to ensure we get the live profile and clear any stale demo cookie data
+    // Privy user exists — always use their real identity regardless of mode
+    loginMethodRef.current = 'privy';
+
     if (syncedUserIdRef.current === pUser.id) {
-      const cookieVal = typeof document !== 'undefined' ? document.cookie : '';
-      if (cookieVal.includes('demo-admin-id') || !cookieVal.includes('crt_user')) {
-        syncedUserIdRef.current = null;
-      } else {
-        setIsAuthHydrated(true);
-        return;
-      }
+      setIsAuthHydrated(true);
+      return;
     }
 
     syncedUserIdRef.current = pUser.id;
@@ -148,13 +160,8 @@ function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
 
         const { user: supabaseProfile } = await res.json();
 
-    const emailAddress = pUser.email?.address || '';
-    let displayName = supabaseProfile.display_name || emailAddress.split('@')[0] || '';
-    if (emailAddress === 'jeevesh039@gmail.com') {
-      displayName = 'Jeevesh Admin';
-    } else if (displayName === 'admin') {
-      displayName = 'Demo Admin';
-    }
+        const emailAddress = pUser.email?.address || '';
+        const displayName = supabaseProfile.display_name || emailAddress.split('@')[0] || '';
 
         const profile: User = {
           id: supabaseProfile.id,
@@ -182,7 +189,7 @@ function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
 
     doSync();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [privy.ready, privy.user, isDemo]);
+  }, [privy.ready, privy.user]);
 
   const login = useCallback(async () => {
     try {
@@ -199,6 +206,7 @@ function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     localStorage.setItem('demo_mode', 'false');
     localStorage.removeItem('active_demo_wallet');
+    localStorage.removeItem('demo_user_logged_in');
     window.dispatchEvent(new CustomEvent('demo-mode-changed', { detail: false }));
     window.dispatchEvent(new CustomEvent('demo-wallet-changed', { detail: null }));
 
@@ -207,6 +215,7 @@ function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
     clearCookie();
     setUser(null);
     syncedUserIdRef.current = null;
+    loginMethodRef.current = null;
     setIsAuthHydrated(false);
     window.location.href = '/login';
     // eslint-disable-next-line react-hooks/exhaustive-deps
