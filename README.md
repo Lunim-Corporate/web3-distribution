@@ -24,55 +24,33 @@ Cinematic-grade royalty splitting backed by smart contracts on Base Sepolia. Rea
 ## Architecture
 
 ```mermaid
-graph TB
-    subgraph Frontend["Next.js 14 App Router"]
-        LP["Landing Page /"]
-        LG["Login / Signup"]
-        DASH["Dashboard"]
-        ADMIN["Admin Panel"]
-        PROFILE["Profile"]
-        W3D["Web3 Demo"]
+graph LR
+    subgraph Frontend["Next.js"]
+        direction TB
+        Pg["Pages"]
+        Cm["Components"]
     end
 
-    subgraph API["API Layer — 27 Route Handlers"]
-        A1["dashboard"]
-        A2["revenue · activities"]
-        A3["projects · rights"]
-        A4["reports · payments"]
-        A5["web3/auto-distribute"]
-        A6["web3/record-transaction"]
-        A7["auth · admin"]
-        A8["etl/ingest · aggregate · reconcile"]
-        A9["milestones · diagnostics"]
+    subgraph API["API (27 routes)"]
+        direction TB
+        Ar["dashboard · revenue<br/>projects · rights<br/>reports · payments<br/>web3 · auth · etl"]
     end
 
-    subgraph Web3["Web3 Layer"]
-        W1["Privy Auth + Embedded Wallets"]
-        W2["Safe Smart Account (ERC-4337)"]
-        W3["Alchemy Paymaster (Gas Sponsorship)"]
-        W4["RevenueRights.sol"]
-        W5["RevenueSplitter.sol"]
+    subgraph Web3["Web3"]
+        direction TB
+        Wa["Privy · Safe Account<br/>Alchemy Paymaster"]
+        Sc["RevenueRights.sol<br/>RevenueSplitter.sol"]
     end
 
-    subgraph DB["Supabase PostgreSQL"]
-        D1["projects"]
-        D2["rights_holders"]
-        D3["transactions"]
-        D4["transaction_splits"]
-        D5["activities"]
-        D6["users_profile"]
-    end
-
-    subgraph Chain["Base Sepolia / Hardhat Local"]
-        C1["RevenueRights — Basis-point distribution"]
-        C2["RevenueSplitter — Dynamic shares"]
-        C3["RevenueRightsUpgradeable — UUPS proxy"]
+    subgraph DB["Supabase"]
+        direction TB
+        Db["projects · rights_holders<br/>transactions · activities<br/>users_profile"]
     end
 
     Frontend --> API
     API --> Web3
     API --> DB
-    Web3 --> Chain
+    Web3 --> Sc
 ```
 
 ## Quick Start
