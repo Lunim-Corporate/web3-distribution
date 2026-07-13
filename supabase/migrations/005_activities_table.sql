@@ -11,6 +11,6 @@ CREATE TABLE IF NOT EXISTS activities (
 -- RLS
 ALTER TABLE activities ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "public read" ON activities FOR SELECT USING (true);
+CREATE POLICY "authenticated read" ON activities FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "service write" ON activities FOR ALL
   USING (auth.role() = 'service_role');

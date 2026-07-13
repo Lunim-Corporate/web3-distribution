@@ -59,7 +59,7 @@ export async function GET() {
       return NextResponse.json({ error: msg }, { status: 401 });
     }
     console.error('Error fetching rights:', error);
-    return NextResponse.json([], { status: 200 });
+    return NextResponse.json({ error: 'Failed to fetch rights holders' }, { status: 500 });
   }
 }
 

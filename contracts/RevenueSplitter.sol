@@ -107,13 +107,25 @@ contract RevenueSplitter is ReentrancyGuard, Ownable, Pausable {
 
     /**
      * @notice Updates shares for a payee. Only the owner can configure payees.
+     * @dev Settles outstanding balance BEFORE changing shares to prevent retroactive accounting issues.
      * @param account Wallet address of the payee
      * @param newShares New number of shares to allocate
      */
-    function updateShares(address account, uint256 newShares) external onlyOwner whenNotPaused {
+    function updateShares(address payable account, uint256 newShares) external onlyOwner nonReentrant whenNotPaused {
         require(account != address(0), "Account is zero address");
         require(shares[account] > 0, "Account has no shares allocated");
         require(newShares > 0, "Shares must be > 0");
+
+        // Settle outstanding balance first to prevent retroactive accounting mismatch
+        uint256 totalReceived = address(this).balance + totalReleased;
+        uint256 payment = (totalReceived * shares[account]) / totalShares - released[account];
+        if (payment > 0) {
+            released[account] = released[account] + payment;
+            totalReleased = totalReleased + payment;
+            (bool success, ) = account.call{value: payment}("");
+            require(success, "Settlement transfer failed");
+            emit PaymentReleased(account, payment);
+        }
 
         uint256 oldShares = shares[account];
         shares[account] = newShares;
@@ -124,6 +136,7 @@ contract RevenueSplitter is ReentrancyGuard, Ownable, Pausable {
     /**
      * @notice Removes a payee from the splitter, settling any outstanding due payments.
      * @dev Settles any pending balance for the payee before setting shares to zero.
+     *      The contract retains any rounding dust which is not redistributable.
      * @param account Wallet address of the payee to remove
      */
     function removePayee(address payable account) external onlyOwner nonReentrant whenNotPaused {

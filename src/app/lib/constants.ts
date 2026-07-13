@@ -10,6 +10,18 @@ export const APP_CONFIG = {
   hardhatRpcUrl: 'http://127.0.0.1:8545',
 };
 
+const EXPLORERS: Record<number, string> = {
+  84532: 'https://sepolia.basescan.org',
+  8453: 'https://basescan.org',
+  31337: 'http://127.0.0.1:8545',
+};
+
+export function getExplorerUrl(type: 'tx' | 'address', hash: string): string {
+  const chainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID || '84532');
+  const base = EXPLORERS[chainId] || EXPLORERS[84532];
+  return `${base}/${type}/${hash}`;
+}
+
 export const formatUSD = (amount: number) => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',

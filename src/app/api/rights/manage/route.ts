@@ -110,20 +110,35 @@ export async function POST(req: Request) {
       let newContractAddress: string | null = null;
 
       if (configured) {
-        // Set referencing columns to null to satisfy foreign key constraints
-        await supabaseAdmin
+        const { data: affectedSplits } = await supabaseAdmin
+          .from('transaction_splits')
+          .select('id')
+          .eq('rights_holder_id', id);
+
+        const { error: splitsErr } = await supabaseAdmin
           .from('transaction_splits')
           .update({ rights_holder_id: null })
           .eq('rights_holder_id', id);
+        if (splitsErr) throw splitsErr;
 
         const { error } = await supabaseAdmin
           .from('rights_holders')
           .delete()
           .eq('id', id);
-        if (error) throw error;
+        if (error) {
+          if (affectedSplits && affectedSplits.length > 0) {
+            await supabaseAdmin
+              .from('transaction_splits')
+              .update({ rights_holder_id: id })
+              .in('id', affectedSplits.map(s => s.id));
+          }
+          throw error;
+        }
 
-        // Auto-sync contract with database — deploys a new contract with updated roster
         newContractAddress = await syncContractWithDatabase(thisHolder.project_id, isDemo);
+        if (newContractAddress === null) {
+          console.warn('Contract sync failed after holder deletion');
+        }
       }
 
       clearCache();

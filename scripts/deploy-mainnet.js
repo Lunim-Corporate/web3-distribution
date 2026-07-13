@@ -31,11 +31,11 @@ async function main() {
   }
 
   // ── Live holder configuration (10 holders, sums to 100%) ──────
-  const adminLiveAddress = process.env.ADMIN_LIVE_ADDRESS || deployer.address;
+  // ponytail: all wallets default to deployer — replace with real addresses before running
 
   const wallets = [
     deployer.address,
-    deployer.address, // These get replaced below
+    deployer.address,
     deployer.address,
     deployer.address,
     deployer.address,

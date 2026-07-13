@@ -3,6 +3,23 @@ import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { getEthPriceUSD } from '@/app/lib/ethPrice';
 import { requireAuth } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
+import { z } from 'zod';
+
+const recordTxSchema = z.object({
+  project_id: z.string().uuid('Invalid project_id'),
+  tx_hash: z.string().regex(/^0x[0-9a-fA-F]{64}$/, 'Invalid transaction hash'),
+  sender_address: z.string().regex(/^0x[0-9a-fA-F]{40}$/, 'Invalid sender address'),
+  total_amount_eth: z.number().positive('Amount must be positive'),
+  holders: z.array(z.object({
+    rights_holder_id: z.string().optional(),
+    wallet_address: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional(),
+    full_name: z.string().optional(),
+    role: z.string().optional(),
+    percentage: z.number().min(0).max(100),
+    amount_eth: z.number().min(0),
+  })).optional().default([]),
+  is_demo: z.boolean().optional().default(false),
+});
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,11 +31,12 @@ export async function POST(req: NextRequest) {
     const user = await requireAuth();
 
     const body = await req.json();
-    const { project_id, tx_hash, sender_address, total_amount_eth, holders, is_demo } = body;
-
-    if (!project_id || !tx_hash || !sender_address || !total_amount_eth) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    const parsed = recordTxSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Validation failed', details: parsed.error.errors }, { status: 400 });
     }
+
+    const { project_id, tx_hash, sender_address, total_amount_eth, holders, is_demo } = parsed.data;
 
     const ethPrice = await getEthPriceUSD();
 

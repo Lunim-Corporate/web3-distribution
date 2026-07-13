@@ -85,16 +85,22 @@ export async function POST(request: Request) {
   }
 }
 
+function escapeCSV(value: string | number): string {
+  const str = String(value);
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.startsWith('=') || str.startsWith('+') || str.startsWith('-') || str.startsWith('@') || str.startsWith('\t')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
 function generateReportCSV(report: RevenueReport, ethPrice: number): string {
   const lines: string[] = [];
 
-  // Header
   lines.push('Creative Rights Tracker - Revenue Report');
-  lines.push(`Generated: ${report.generatedAt}`);
-  lines.push(`Period: ${report.reportPeriod.startDate} to ${report.reportPeriod.endDate}`);
+  lines.push(`Generated: ${escapeCSV(report.generatedAt)}`);
+  lines.push(`Period: ${escapeCSV(report.reportPeriod.startDate)} to ${escapeCSV(report.reportPeriod.endDate)}`);
   lines.push('');
 
-  // Summary
   lines.push('SUMMARY');
   lines.push(`Total Revenue,$${(report.totalRevenue * ethPrice).toFixed(2)}`);
   lines.push(`Total Paid,$${(report.totalPaid * ethPrice).toFixed(2)}`);
@@ -102,30 +108,27 @@ function generateReportCSV(report: RevenueReport, ethPrice: number): string {
   lines.push(`Average Payment,$${(report.averagePaymentAmount * ethPrice).toFixed(2)}`);
   lines.push('');
 
-  // By Source
   lines.push('REVENUE BY SOURCE');
   lines.push('Source,Amount,Percentage,Count');
   report.sources?.forEach((source: RevenueBySource) => {
-    lines.push(`${source.source},$${(source.amount * ethPrice).toFixed(2)},${source.percentage.toFixed(2)}%,${source.paymentCount}`);
+    lines.push(`${escapeCSV(source.source)},$${(source.amount * ethPrice).toFixed(2)},${source.percentage.toFixed(2)}%,${source.paymentCount}`);
   });
   lines.push('');
 
-  // By Project
   lines.push('REVENUE BY PROJECT');
   lines.push('Project,Total Revenue,Paid,Share (%)');
   report.projects?.forEach((project: RevenueByProject) => {
     lines.push(
-      `${project.projectName},$${(project.totalRevenue * ethPrice).toFixed(2)},$${(project.paidRevenue * ethPrice).toFixed(2)},${project.sharePercentage.toFixed(2)}%`
+      `${escapeCSV(project.projectName)},$${(project.totalRevenue * ethPrice).toFixed(2)},$${(project.paidRevenue * ethPrice).toFixed(2)},${project.sharePercentage.toFixed(2)}%`
     );
   });
   lines.push('');
 
-  // Trends
   lines.push('PAYMENT TRENDS');
   lines.push('Date,Amount (ETH),Value (USD),Source,Project');
   report.trends?.slice(0, 100).forEach((trend: any) => {
     const txPrice = trend.ethPriceAtTx || ethPrice;
-    lines.push(`${trend.date},${trend.amount.toFixed(4)} ETH,$${(trend.amount * txPrice).toFixed(2)},${trend.source},${trend.projectName}`);
+    lines.push(`${escapeCSV(trend.date)},${trend.amount.toFixed(4)} ETH,$${(trend.amount * txPrice).toFixed(2)},${escapeCSV(trend.source)},${escapeCSV(trend.projectName)}`);
   });
 
   return lines.join('\n');

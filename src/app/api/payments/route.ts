@@ -4,6 +4,20 @@ import { requireAdmin, requireAuth, auditLog } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { getEthPriceUSD } from '@/app/lib/ethPrice';
 import { isDemoAccessEnabled } from '@/app/lib/demoAccess';
+import { z } from 'zod';
+
+const recordPaymentSchema = z.object({
+  project_id: z.string().uuid('Invalid project_id'),
+  amount_eth: z.number().positive('Amount must be positive').optional(),
+  amount_cents: z.number().positive().optional(),
+  amount: z.number().positive().optional(),
+  tx_hash: z.string().optional(),
+  sender_address: z.string().regex(/^0x[0-9a-fA-F]{40}$/, 'Invalid address').optional(),
+  source: z.string().max(100).optional(),
+  is_demo: z.boolean().optional(),
+}).refine(d => d.amount_eth || d.amount_cents || d.amount, {
+  message: 'One of amount_eth, amount_cents, or amount is required',
+});
 
 /**
  * POST /api/payments — Record a payment and distribute to rights holders.
@@ -20,34 +34,31 @@ export async function POST(request: Request) {
     const user = await requireAdmin();
 
     const body = await request.json();
+    const parsed = recordPaymentSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Validation failed', details: parsed.error.errors }, { status: 400 });
+    }
 
     const ethPrice = await getEthPriceUSD();
 
-    // Normalize amount: accept amount_cents, amount, or amount_eth
     let amountEth: number;
-    if (typeof body.amount_eth === 'number') {
-      amountEth = body.amount_eth;
+    if (typeof parsed.data.amount_eth === 'number') {
+      amountEth = parsed.data.amount_eth;
     } else {
-      const amountCents = typeof body.amount_cents === 'number'
-        ? body.amount_cents
-        : typeof body.amount === 'number'
-          ? body.amount
-          : Number(body.amount_cents ?? body.amount ?? 0);
-      amountEth = amountCents / (ethPrice * 100); // Convert cents to ETH
-    }
-
-    if (!body.project_id) {
-      return NextResponse.json({ error: 'project_id is required' }, { status: 400 });
+      const amountCents = typeof parsed.data.amount_cents === 'number'
+        ? parsed.data.amount_cents
+        : Number(parsed.data.amount ?? 0);
+      amountEth = amountCents / (ethPrice * 100);
     }
 
     // 1. Record the transaction
     const insertPayloadWithPrice = {
-      project_id: body.project_id,
-      tx_hash: body.tx_hash || `manual-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      sender_address: body.sender_address || '0x0000000000000000000000000000000000000000',
+      project_id: parsed.data.project_id,
+      tx_hash: parsed.data.tx_hash || `manual-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      sender_address: parsed.data.sender_address || '0x0000000000000000000000000000000000000000',
       total_amount_eth: amountEth,
-      method: body.source || 'manual',
-      is_demo: isDemoAccessEnabled && (body.is_demo || false),
+      method: parsed.data.source || 'manual',
+      is_demo: isDemoAccessEnabled && (parsed.data.is_demo || false),
       status: 'confirmed',
       eth_price_at_tx: ethPrice,
     };
@@ -142,8 +153,8 @@ export async function POST(request: Request) {
     if (msg === 'Unauthorized' || msg === 'Forbidden: Admins only') {
       return NextResponse.json({ error: msg }, { status: msg === 'Unauthorized' ? 401 : 403 });
     }
-    console.error('Payment recording error:', msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error('Payment POST error:', msg);
+    return NextResponse.json({ error: 'Failed to record payment' }, { status: 500 });
   }
 }
 
@@ -183,7 +194,8 @@ export async function GET(request: Request) {
   } catch (error: any) {
     const msg = error instanceof Error ? error.message : 'Error';
     if (msg === 'Unauthorized') return NextResponse.json({ error: msg }, { status: 401 });
-    return NextResponse.json([], { status: 200 });
+    console.error('Error fetching payments:', error);
+    return NextResponse.json({ error: 'Failed to fetch payments' }, { status: 500 });
   }
 }
 

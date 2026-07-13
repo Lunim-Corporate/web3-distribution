@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { isSandboxLoginEnabled, setDemoMode } from '@/lib/demoAccess';
 import { motion } from 'framer-motion';
@@ -10,6 +11,7 @@ export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login
   const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
   const [showSandbox, setShowSandbox] = useState(false);
 
   useEffect(() => {
@@ -21,9 +23,9 @@ export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login
 
   useEffect(() => {
     if (isAuthHydrated && user) {
-      window.location.href = '/dashboard';
+      router.push('/dashboard');
     }
-  }, [isAuthHydrated, user]);
+  }, [isAuthHydrated, user, router]);
 
   const handleLogin = async () => {
     setError('');
@@ -52,7 +54,7 @@ export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login
     };
     setDemoMode(true);
     document.cookie = `crt_user=${encodeURIComponent(JSON.stringify(demoUser))}; path=/; SameSite=Lax; max-age=86400`;
-    window.location.href = '/dashboard';
+    router.push('/dashboard');
   };
 
   return (

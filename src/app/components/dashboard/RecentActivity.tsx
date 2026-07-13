@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { formatDate } from '@/lib/utils';
+import { readDemoMode } from '@/app/lib/demoAccess';
 
 interface ActivityItem {
   id: string;
@@ -21,8 +22,8 @@ export const RecentActivity: React.FC<RecentActivityProps> = ({ isDemoMode }) =>
   const fetchActivity = React.useCallback(async () => {
     try {
       const ts = Date.now();
-      const isDemoMode = localStorage.getItem('demo_mode') === 'true';
-      const res = await fetch(`/api/activities?ts=${ts}&demo=${isDemoMode}`, { cache: 'no-store' });
+      const demo = isDemoMode ?? readDemoMode();
+      const res = await fetch(`/api/activities?ts=${ts}&demo=${demo}`, { cache: 'no-store' });
       const activities = await res.json();
       
       const mapped: ActivityItem[] = (activities || []).map((a: any) => {
@@ -64,7 +65,7 @@ export const RecentActivity: React.FC<RecentActivityProps> = ({ isDemoMode }) =>
       window.removeEventListener('payment-recorded', fetchActivity);
       if (bc) bc.close();
     };
-  }, [fetchActivity, isDemoMode]);
+  }, [fetchActivity]);
   return (
     <div className="bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl overflow-hidden flex flex-col h-full relative">
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-emerald-500/5 pointer-events-none" />

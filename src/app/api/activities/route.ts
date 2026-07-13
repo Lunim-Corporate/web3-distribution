@@ -92,7 +92,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: msg }, { status: 401 });
     }
     console.error('Error fetching activities:', error);
-    return NextResponse.json([], { status: 200 });
+    return NextResponse.json({ error: 'Failed to fetch activities' }, { status: 500 });
   }
 }
 

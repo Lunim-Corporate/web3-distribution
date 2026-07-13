@@ -37,9 +37,9 @@ export async function GET() {
     let unmatched = 0;
     let discrepancyTotal = 0;
     const details: any[] = [];
+    const matchedInflows: { id: string; txId: string }[] = [];
 
     for (const inflow of (inflows || [])) {
-      // Find a matching transaction by project_id and approximate amount
       const matchingTx = (transactions || []).find(tx =>
         tx.project_id === inflow.project_id &&
         Math.abs(Number(tx.total_amount_eth) - Number(inflow.amount_eth)) < 0.0001
@@ -47,12 +47,7 @@ export async function GET() {
 
       if (matchingTx) {
         matched++;
-        // Mark as reconciled
-        await supabaseAdmin
-          .from('royalty_inflows')
-          .update({ reconciled: true, reconciled_tx_id: matchingTx.id })
-          .eq('id', inflow.id);
-
+        matchedInflows.push({ id: inflow.id, txId: matchingTx.id });
         details.push({
           inflow_id: inflow.id,
           tx_id: matchingTx.id,
@@ -72,8 +67,17 @@ export async function GET() {
       }
     }
 
+    // Batch update matched inflows
+    for (const m of matchedInflows) {
+      const { error: updateErr } = await supabaseAdmin
+        .from('royalty_inflows')
+        .update({ reconciled: true, reconciled_tx_id: m.txId })
+        .eq('id', m.id);
+      if (updateErr) throw updateErr;
+    }
+
     // Log reconciliation run
-    const { data: logEntry } = await supabaseAdmin
+    const { data: logEntry, error: logErr } = await supabaseAdmin
       .from('etl_reconciliation_log')
       .insert({
         total_inflows: (inflows || []).length,
@@ -85,6 +89,7 @@ export async function GET() {
       })
       .select()
       .single();
+    if (logErr) throw logErr;
 
     await auditLog('etl:reconcile', null, true, `matched=${matched} unmatched=${unmatched} discrepancy=${discrepancyTotal} ETH`);
 

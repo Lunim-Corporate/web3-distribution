@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getExplorerUrl } from '@/app/lib/constants';
 
 export interface TxStep {
   id: string;
@@ -284,7 +285,7 @@ export function TxModal({ isOpen, onClose, steps, txHash, error, holders, amount
                 </div>
                 {txHash.startsWith('0x') && !txHash.includes('mock') && (
                   <a
-                    href={`https://sepolia.basescan.org/tx/${txHash}`}
+                    href={getExplorerUrl('tx', txHash)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 text-[10px] font-black text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-widest"

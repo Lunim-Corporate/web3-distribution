@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'react-hot-toast';
 import { useEthPrice } from '@/app/lib/useEthPrice';
 import { dedupeJsonFetch } from '@/app/lib/requestCache';
+import { getExplorerUrl } from '@/app/lib/constants';
 
 const formatUSD = (amount: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
@@ -312,7 +313,7 @@ export const RevenueSnapshot: React.FC<RevenueSnapshotProps> = ({ activeProjectI
                                 </div>
                                 {r.txHash?.startsWith('0x') ? (
                                   <a
-                                    href={`https://sepolia.basescan.org/tx/${r.txHash}`}
+                                    href={getExplorerUrl('tx', r.txHash)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="flex items-center gap-1 px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-[9px] font-mono text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/20 transition-colors"

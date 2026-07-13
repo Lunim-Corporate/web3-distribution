@@ -70,7 +70,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: msg }, { status: msg === 'Unauthorized' ? 401 : 403 });
     }
     console.error('ETL ingest error:', msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: 'Ingestion failed' }, { status: 500 });
   }
 }
 
@@ -98,7 +98,7 @@ export async function GET() {
     if (msg === 'Unauthorized' || msg === 'Forbidden: Admins only') {
       return NextResponse.json({ error: msg }, { status: msg === 'Unauthorized' ? 401 : 403 });
     }
-    return NextResponse.json([], { status: 200 });
+    return NextResponse.json({ error: 'Failed to fetch inflows' }, { status: 500 });
   }
 }
 

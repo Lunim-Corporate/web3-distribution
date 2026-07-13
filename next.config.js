@@ -64,6 +64,7 @@ const nextConfig = {
               "img-src 'self' data: blob: https://images.unsplash.com https://via.placeholder.com",
               "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://auth.privy.io https://*.alchemy.com https://sepolia.base.org http://127.0.0.1:8545 https://js.stripe.com https://*.vercel-insights.com https://*.vercel-analytics.com",
               "frame-src https://auth.privy.io https://js.stripe.com",
+              "frame-ancestors 'none'",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",

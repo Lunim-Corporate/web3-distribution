@@ -1,8 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/apiSecurity';
-import { checkRateLimit } from '@/lib/rateLimit';
+import { requireAdmin } from '@/app/lib/apiSecurity';
+import { checkRateLimit } from '@/app/lib/rateLimit';
+import { z } from 'zod';
 import crypto from 'crypto';
+
+const inviteSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  name: z.string().trim().min(1, 'Name is required').max(200),
+  role: z.enum(['RIGHTS_HOLDER', 'ADMIN']),
+});
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM || 'noreply@updates.lunim.io';
@@ -14,11 +21,13 @@ export async function POST(request: Request) {
     if (blocked) return blocked;
 
     await requireAdmin();
-    const { email, name, role } = await request.json();
-
-    if (!email || !name || !role) {
-      return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 });
+    const body = await request.json();
+    const parsed = inviteSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Validation failed', details: parsed.error.errors }, { status: 400 });
     }
+
+    const { email, name, role } = parsed.data;
 
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL || '',
@@ -56,7 +65,8 @@ export async function POST(request: Request) {
 
     if (userError) {
       console.warn('Warning: could not insert into public.users', userError);
-      // Suppress hard crash since auth user is effectively created
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      return NextResponse.json({ error: 'Failed to create user profile. Please try again.' }, { status: 500 });
     }
 
     // Attempt to invoke Resend

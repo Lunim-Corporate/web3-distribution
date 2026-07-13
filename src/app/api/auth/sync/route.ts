@@ -3,7 +3,7 @@ import { supabaseAdmin } from '@/app/lib/supabaseServer';
 import { PrivyClient } from '@privy-io/server-auth';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 
-const DEMO_WALLETS = [
+const DEMO_WALLETS: string[] = [
   '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
   '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
   '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
@@ -67,11 +67,17 @@ const ADMIN_PROJECT_TEMPLATES: Record<string, {
 };
 
 // All admin email ↔ label mappings (used to cross-list admins in every project)
-const ALL_ADMINS: { label: string; email: string }[] = [
-  { label: 'Pete (Admin)', email: 'pete@tabb.cc' },
-  { label: 'freewhynane62 (Admin)', email: 'freewhynane62@gmail.com' },
-  { label: 'jeevesh039 (Admin)', email: 'jeevesh039@gmail.com' },
-];
+const ALL_ADMINS: { label: string; email: string }[] = (() => {
+  try {
+    return JSON.parse(process.env.ADMIN_EMAILS_JSON || '[]');
+  } catch {
+    return [];
+  }
+})();
+
+function getKnownAdminEmails(): string[] {
+  return ALL_ADMINS.map(a => a.email.toLowerCase());
+}
 
 // Holder templates: 5 creative roles (90%) + 3 admins (5% + 3% + 2% = 10%)
 const HOLDER_TEMPLATES = [
@@ -282,15 +288,11 @@ export async function POST(req: Request) {
       .map(e => e.trim().toLowerCase())
       .filter(Boolean);
 
-    // Also check against the ALL_ADMINS list (used for demo seeding + known admin emails)
-    const knownAdminEmails = ALL_ADMINS.map(a => a.email.toLowerCase());
+    const knownAdminEmails = getKnownAdminEmails();
 
     const isDesignatedAdmin = !isWalletOnly && originalEmail !== null && (
       adminEmails.includes(originalEmail) ||
-      knownAdminEmails.includes(originalEmail) ||
-      originalEmail.endsWith('@lunim.io') ||
-      originalEmail.endsWith('@lunium.io') ||
-      originalEmail.startsWith('demo@')
+      knownAdminEmails.includes(originalEmail)
     );
 
     if (profile) {
@@ -305,13 +307,9 @@ export async function POST(req: Request) {
         updates.role = 'ADMIN';
       }
 
-      // Fix display_name for existing profiles that have stale values
       let correctedDisplayName = profile.display_name || '';
       if (correctedDisplayName === 'admin') {
         correctedDisplayName = 'Demo Admin';
-      }
-      if (email === 'jeevesh039@gmail.com' && correctedDisplayName !== 'Jeevesh Admin') {
-        correctedDisplayName = 'Jeevesh Admin';
       }
       if (correctedDisplayName !== profile.display_name) {
         updates.display_name = correctedDisplayName;
@@ -334,8 +332,6 @@ export async function POST(req: Request) {
       let displayName = email.split('@')[0];
       if (displayName === 'admin') {
         displayName = 'Demo Admin';
-      } else if (email === 'jeevesh039@gmail.com') {
-        displayName = 'Jeevesh Admin';
       }
 
       const { data: newProfile, error: insertError } = await supabaseAdmin
@@ -381,8 +377,6 @@ export async function POST(req: Request) {
     let fallbackDisplayName = email.split('@')[0];
     if (fallbackDisplayName === 'admin') {
       fallbackDisplayName = 'Demo Admin';
-    } else if (email === 'jeevesh039@gmail.com') {
-      fallbackDisplayName = 'Jeevesh Admin';
     }
 
     return NextResponse.json({

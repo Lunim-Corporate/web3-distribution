@@ -59,7 +59,7 @@ export async function GET(req: Request) {
     const msg = err instanceof Error ? err.message : 'Aggregation failed';
     if (msg === 'Unauthorized') return NextResponse.json({ error: msg }, { status: 401 });
     console.error('ETL aggregate error:', msg);
-    return NextResponse.json([], { status: 200 });
+    return NextResponse.json({ error: 'Failed to compute aggregates' }, { status: 500 });
   }
 }
 

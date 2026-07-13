@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDate } from '@/lib/utils';
 import { useEthPrice } from '@/app/lib/useEthPrice';
+import { getExplorerUrl } from '@/app/lib/constants';
 
 interface Split {
   id: string;
@@ -183,7 +184,7 @@ export function TransactionHistory({ projectId, isDemoMode }: TransactionHistory
                           <p className="text-gray-500 uppercase tracking-wider font-bold text-[10px]">Transaction Hash</p>
                           {tx.tx_hash.startsWith('0x') ? (
                             <a 
-                              href={`https://sepolia.basescan.org/tx/${tx.tx_hash}`}
+                              href={getExplorerUrl('tx', tx.tx_hash)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-indigo-400 font-mono break-all hover:underline"

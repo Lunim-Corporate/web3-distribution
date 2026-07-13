@@ -49,6 +49,15 @@ contract RevenueRightsUpgradeable is
     event EmergencyUnpaused(address indexed by, uint256 timestamp);
 
     // ──────────────────────────────────────────────
+    // Constructor: prevent implementation contract initialization
+    // ──────────────────────────────────────────────
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    // ──────────────────────────────────────────────
     // Initializer (replaces constructor)
     // ──────────────────────────────────────────────
 

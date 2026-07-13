@@ -7,6 +7,7 @@ import { useRevenueSplitter } from '@/lib/web3';
 import { NetworkBadge } from '@/components/ui/NetworkBadge';
 import { readDemoMode, isDemoAccessEnabled } from '@/app/lib/demoAccess';
 import { dedupeJsonFetch } from '@/app/lib/requestCache';
+import { getExplorerUrl } from '@/app/lib/constants';
 
 /* ─── Types ───────────────────────────────────────────────── */
 interface RightsHolder {
@@ -349,7 +350,7 @@ export function LiveDashboard({
                   </div>
                   {!isDemoMode && tx.tx_hash && tx.tx_hash.startsWith('0x') && !tx.tx_hash.includes('demo') && (
                     <a
-                      href={`https://sepolia.basescan.org/tx/${tx.tx_hash}`}
+                      href={getExplorerUrl('tx', tx.tx_hash)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-indigo-400 hover:text-indigo-300 transition-colors"

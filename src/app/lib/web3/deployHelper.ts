@@ -39,8 +39,7 @@ export async function syncContractWithDatabase(projectId: string, isDemo: boolea
 
     if (isDemo) {
       providerUrl = 'http://127.0.0.1:8545';
-      // Hardhat default first account private key
-      privateKey = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+      privateKey = process.env.DEMO_DEPLOYER_PRIVATE_KEY || '';
     } else {
       providerUrl = process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC || 'https://sepolia.base.org';
       privateKey = process.env.DEPLOYER_PRIVATE_KEY || '';

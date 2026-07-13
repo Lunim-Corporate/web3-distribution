@@ -7,6 +7,7 @@ import { useRevenueSplitter } from '@/lib/web3';
 import { NetworkBadge } from '@/components/ui/NetworkBadge';
 import { TxModal, TxStep } from '@/components/ui/TxModal';
 import { readDemoMode, isDemoAccessEnabled } from '@/app/lib/demoAccess';
+import { getExplorerUrl } from '@/app/lib/constants';
 
 /* ─── Types ───────────────────────────────────────────────── */
 interface Project {
@@ -655,9 +656,9 @@ export function LiveDistributionWizard({
                   </div>
                 )}
 
-                {!isDemoMode && (
+                {!isDemoMode && process.env.NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS?.startsWith('0x') && (
                   <a
-                    href={`https://sepolia.basescan.org/address/${process.env.NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS || ''}`}
+                    href={getExplorerUrl('address', process.env.NEXT_PUBLIC_LIVE_CONTRACT_ADDRESS)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 text-[10px] font-black text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-widest"
@@ -697,7 +698,7 @@ export function LiveDistributionWizard({
                     </div>
                     {!isDemoMode && txHash.startsWith('0x') && (
                       <a
-                        href={`https://sepolia.basescan.org/tx/${txHash}`}
+                        href={getExplorerUrl('tx', txHash)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 text-[10px] font-black text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-widest"

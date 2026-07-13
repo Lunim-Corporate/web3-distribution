@@ -29,7 +29,8 @@ export async function GET() {
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Error';
     if (msg === 'Unauthorized') return NextResponse.json({ error: msg }, { status: 401 });
-    return NextResponse.json([], { status: 200 });
+    console.error('Error fetching projects:', e);
+    return NextResponse.json({ error: 'Failed to fetch projects' }, { status: 500 });
   }
 }
 

@@ -48,7 +48,7 @@ export async function POST(req: Request) {
     let data: any;
     let newContractAddress: string | null = null;
     if (configured) {
-      // 1. Add to rights_holders table
+      // Wrap in a transaction: insert holder first, then deploy contract
       const { data: dbData, error } = await supabaseAdmin
         .from('rights_holders')
         .insert({
@@ -68,6 +68,13 @@ export async function POST(req: Request) {
 
       // Auto-sync contract with database — deploys a new contract with updated roster
       newContractAddress = await syncContractWithDatabase(project_id, isDemo);
+
+      // Rollback DB insert if contract deployment fails
+      if (newContractAddress === null && isSupabaseConfigured()) {
+        console.warn('Contract deployment failed after holder insert, removing holder');
+        await supabaseAdmin.from('rights_holders').delete().eq('id', data.id).maybeSingle();
+        return NextResponse.json({ error: 'Contract deployment failed. Holder insert rolled back.' }, { status: 500 });
+      }
     } else {
       data = {
         id: `demo-holder-${Date.now()}`,

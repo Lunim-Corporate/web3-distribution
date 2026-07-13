@@ -1,28 +1,26 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import { checkRateLimit } from '@/app/lib/rateLimit';
+import { z } from 'zod';
+
+const signupSchema = z.object({
+  name: z.string().trim().min(1, 'Name is required').max(200),
+  email: z.string().email('Invalid email format'),
+  password: z.string().min(8, 'Password must be at least 8 characters').max(128),
+});
 
 export async function POST(request: Request) {
   try {
     const blocked = await checkRateLimit('auth');
     if (blocked) return blocked;
 
-    const { name, email, password } = await request.json();
-
-    // Validate input
-    if (!email || !password || !name) {
-      return NextResponse.json(
-        { error: 'Missing required fields: email, password, name' },
-        { status: 400 }
-      );
+    const body = await request.json();
+    const parsed = signupSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'Validation failed', details: parsed.error.errors }, { status: 400 });
     }
 
-    if (password.length < 6) {
-      return NextResponse.json(
-        { error: 'Password must be at least 6 characters' },
-        { status: 400 }
-      );
-    }
+    const { name, email, password } = parsed.data;
 
     // Create Supabase admin client with service role key
     const supabaseAdmin = createClient(
@@ -67,8 +65,11 @@ export async function POST(request: Request) {
 
     if (userError) {
       console.error('User creation error:', userError);
-      // Don't fail completely - auth user exists, just log the error
-      console.warn('Warning: Auth user created but profile record failed. Attempting recovery...');
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      return NextResponse.json(
+        { error: 'Failed to create user profile. Please try again.' },
+        { status: 500 }
+      );
     }
 
     // Return success

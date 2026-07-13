@@ -8,6 +8,7 @@ import { useAuth } from '@/app/lib/auth';
 import { useRevenueSplitter } from '@/lib/web3';
 import { isDemoAccessEnabled, readDemoMode } from '@/app/lib/demoAccess';
 import { TxModal, TxStep } from '../ui/TxModal';
+import { getExplorerUrl } from '@/app/lib/constants';
 
 interface Project { id: string; name: string; total_distributed: number; contract_address?: string; demo_contract_address?: string; }
 interface RightsHolder { id: string; full_name: string; role: string; wallet_address: string; percentage: number; }
@@ -253,7 +254,7 @@ export function DistributePanel({ project, holders }: { project: Project | null;
                   </div>
                   {!isDemoMode && txHash.startsWith('0x') && (
                     <a
-                      href={`https://sepolia.basescan.org/tx/${txHash}`}
+                      href={getExplorerUrl('tx', txHash)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 text-[10px] font-black text-indigo-400 hover:text-indigo-300 transition-colors uppercase tracking-widest"

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin, isSupabaseConfigured } from '@/lib/supabaseServer';
+import { supabaseAdmin, isSupabaseConfigured } from '@/app/lib/supabaseServer';
 import { requireAdmin, requireAuth } from '@/app/lib/apiSecurity';
 import { checkRateLimit } from '@/app/lib/rateLimit';
 import { z } from 'zod';
