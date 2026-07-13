@@ -146,6 +146,7 @@ CREATE POLICY "admin_write_settings" ON settings
   );
 
 CREATE POLICY "service_all_settings" ON settings
+  FOR ALL USING (auth.role() = 'service_role');
 
 -- ============================================================
 -- 9. Automatic Profile Creation — PRD §11.1

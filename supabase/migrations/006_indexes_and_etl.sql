@@ -85,15 +85,15 @@ ALTER TABLE royalty_inflows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE etl_reconciliation_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE financial_aggregates ENABLE ROW LEVEL SECURITY;
 
--- Service role bypasses RLS; these tables are server-only
-CREATE POLICY "Service role full access" ON royalty_inflows
-  FOR ALL USING (true) WITH CHECK (true);
+-- Service role only — these tables are server-side only
+CREATE POLICY "service_all_royalty_inflows" ON royalty_inflows
+  FOR ALL USING (auth.role() = 'service_role');
   
-CREATE POLICY "Service role full access" ON etl_reconciliation_log
-  FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "service_all_etl_reconciliation_log" ON etl_reconciliation_log
+  FOR ALL USING (auth.role() = 'service_role');
   
-CREATE POLICY "Service role full access" ON financial_aggregates
-  FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "service_all_financial_aggregates" ON financial_aggregates
+  FOR ALL USING (auth.role() = 'service_role');
 
 -- ─── Indexes for ETL tables ─────────────────────────────────
 

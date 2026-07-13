@@ -10,7 +10,6 @@ import {
   getPayments,
   recordPayment,
   addContributor,
-  getCreativeRights,
   getMilestones,
 } from '@/lib/database';
 import { formatCurrencyFromCentsUSD as formatCurrencyFromCentsGB } from '@/lib/currency';
@@ -82,13 +81,13 @@ export default function ProjectPage() {
 
   const loadProject = useCallback(async () => {
     try {
-      const [proj, contribs, pays, rts, mls] = await Promise.all([
+      const [proj, contribs, pays, mls] = await Promise.all([
         getProjectById(projectId),
         getProjectContributors(projectId),
         getPayments(projectId),
-        getCreativeRights(projectId),
         getMilestones(projectId),
       ]);
+      const rts: any[] = [];
       setProject(proj);
       setContributors(contribs || []);
       const normalizedPayments = (pays || []).map((p) => {

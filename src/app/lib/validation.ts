@@ -41,7 +41,7 @@ export const addProjectSchema = z.object({
   name: safeString(200),
   genre: safeString(100).optional().default(''),
   description: safeString(2000).optional().default(''),
-  status: z.enum(['active', 'archived', 'draft']).optional().default('active'),
+  status: z.enum(['active', 'completed', 'upcoming']).optional().default('active'),
 });
 
 export const addRightsHolderSchema = z.object({

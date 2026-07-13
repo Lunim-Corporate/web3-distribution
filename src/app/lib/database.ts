@@ -97,15 +97,6 @@ export async function getPayments(projectId: string) {
   }));
 }
 
-export async function getCreativeRights(projectId: string) {
-  const { data, error } = await supabase
-    .from('creative_rights')
-    .select('*, users:owner_id(id, name, email)')
-    .eq('project_id', projectId);
-  if (error) throw error;
-  return data || [];
-}
-
 export async function recordPayment(data: {
   project_id: string;
   amount_cents: number;
@@ -132,10 +123,10 @@ export async function recordPayment(data: {
 
 export async function getMilestones(projectId: string) {
   const { data, error } = await supabase
-    .from('milestones')
+    .from('activities')
     .select('*')
     .eq('project_id', projectId)
-    .order('date', { ascending: true });
+    .order('timestamp', { ascending: true });
   if (error) throw error;
   return data || [];
 }
