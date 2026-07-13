@@ -7,11 +7,15 @@ import { demoHolders } from '@/app/lib/demoData';
 /**
  * GET /api/rights — Fetch rights holders.
  * 
+ * Supports optional `project_id` query param to filter by project.
  * Uses the `rights_holders` table (the actual schema).
  * Previous implementation referenced a non-existent `creative_rights` table.
  */
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const projectId = searchParams.get('project_id');
+
     // Rate limit: read tier
     const blocked = await checkRateLimit('read');
     if (blocked) return blocked;
@@ -21,11 +25,13 @@ export async function GET() {
 
     let data: any[] = [];
     if (isSupabaseConfigured()) {
-      // Fetch rights holders with project name
-      const { data: dbData, error } = await supabaseAdmin
+      let query = supabaseAdmin
         .from('rights_holders')
-        .select('*, projects(name)')
-        .order('created_at', { ascending: false });
+        .select('*, projects(name)');
+      if (projectId) {
+        query = query.eq('project_id', projectId);
+      }
+      const { data: dbData, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
       data = dbData || [];

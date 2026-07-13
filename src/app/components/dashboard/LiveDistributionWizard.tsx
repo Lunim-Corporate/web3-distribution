@@ -121,10 +121,10 @@ export function LiveDistributionWizard({
     if (!selectedProjectId) { setHolders([]); return; }
     const fetchHolders = async () => {
       try {
-        const res = await fetch(`/api/holders?project_id=${selectedProjectId}&demo=${isDemoMode}`);
+        const res = await fetch(`/api/rights?project_id=${selectedProjectId}`);
         if (res.ok) {
           const data = await res.json();
-          setHolders(data.holders || []);
+          setHolders(Array.isArray(data) ? data : []);
         }
       } catch (err) {
         console.error('Failed to fetch holders:', err);
