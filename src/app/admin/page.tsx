@@ -20,7 +20,15 @@ export default function AdminPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [profileUsers, setProfileUsers] = useState<ProfileUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
-  const [activeTab, setActiveTab] = useState<'roster' | 'users'>('roster');
+  const [activeTab, setActiveTab] = useState<'roster' | 'users' | 'invite'>('roster');
+
+  // Invite User State
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteName, setInviteName] = useState('');
+  const [inviteRole, setInviteRole] = useState<'RIGHTS_HOLDER' | 'ADMIN'>('RIGHTS_HOLDER');
+  const [inviteProjectId, setInviteProjectId] = useState('');
+  const [inviteProjectName, setInviteProjectName] = useState('');
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
 
   // New Holder State
   const [newName, setNewName] = useState('');
@@ -280,6 +288,43 @@ export default function AdminPage() {
     }
   };
 
+  const handleSendInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail || !inviteName) {
+      return toast.error('Email and Name are required');
+    }
+    setIsSendingInvite(true);
+    try {
+      const res = await fetch('/api/auth/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: inviteEmail,
+          name: inviteName,
+          role: inviteRole,
+          projectId: inviteProjectId === 'new' ? '' : inviteProjectId,
+          projectName: inviteProjectId === 'new' ? inviteProjectName : '',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send invitation');
+      toast.success(`Invitation sent successfully to ${inviteEmail}`);
+      // Clear fields
+      setInviteEmail('');
+      setInviteName('');
+      setInviteRole('RIGHTS_HOLDER');
+      setInviteProjectId('');
+      setInviteProjectName('');
+      // Redirect to User Management and refresh list
+      setActiveTab('users');
+      void fetchUsers();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to send invitation');
+    } finally {
+      setIsSendingInvite(false);
+    }
+  };
+
   if (isLoading || !user) return <div className="p-8 text-center text-white">Loading Admin Panel...</div>;
 
   return (
@@ -309,6 +354,12 @@ export default function AdminPage() {
           className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'users' ? 'bg-white text-black shadow-lg' : 'text-gray-400 hover:text-white'}`}
         >
           User Management
+        </button>
+        <button
+          onClick={() => setActiveTab('invite')}
+          className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'invite' ? 'bg-white text-black shadow-lg' : 'text-gray-400 hover:text-white'}`}
+        >
+          Send Invitation
         </button>
       </div>
 
@@ -569,7 +620,7 @@ export default function AdminPage() {
         </div>
 
       </div>
-      ) : (
+      ) : activeTab === 'users' ? (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-black text-white">User Management</h2>
@@ -684,6 +735,101 @@ export default function AdminPage() {
                 </tbody>
               </table>
             )}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6 max-w-2xl mx-auto">
+          <div className="flex items-center justify-between px-2">
+            <h2 className="text-xl font-black text-white">Send Platform Invitation</h2>
+            <div className="px-4 py-1.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full text-[10px] font-black uppercase tracking-widest">
+              Secure Pre-Registration
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-2xl shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-indigo-500/10 rounded-full blur-[80px] pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-purple-500/10 rounded-full blur-[80px] pointer-events-none" />
+
+            <form onSubmit={handleSendInvite} className="space-y-6 relative z-10">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={inviteName}
+                    onChange={(e) => setInviteName(e.target.value)}
+                    className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-semibold"
+                    placeholder="e.g. John Doe"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono"
+                    placeholder="e.g. john@lunim.io"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Platform Role</label>
+                  <select
+                    value={inviteRole}
+                    onChange={(e) => setInviteRole(e.target.value as any)}
+                    className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-bold"
+                  >
+                    <option value="RIGHTS_HOLDER">Rights Holder (Default)</option>
+                    <option value="ADMIN">Administrator</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Assign to Project</label>
+                  <select
+                    value={inviteProjectId}
+                    onChange={(e) => setInviteProjectId(e.target.value)}
+                    className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-bold"
+                  >
+                    <option value="">None / Assign Later</option>
+                    {projects.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                    <option value="new">+ Create New Project...</option>
+                  </select>
+                </div>
+              </div>
+
+              {inviteProjectId === 'new' && (
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">New Project Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={inviteProjectName}
+                    onChange={(e) => setInviteProjectName(e.target.value)}
+                    className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-semibold"
+                    placeholder="e.g. Project Orion"
+                  />
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isSendingInvite}
+                className="w-full py-4 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white font-black rounded-xl hover:shadow-[0_0_30px_rgba(99,102,241,0.4)] transition-all disabled:opacity-50 uppercase tracking-widest text-xs mt-2 duration-300"
+              >
+                {isSendingInvite ? 'Sending Secure Invitation...' : 'Send Platform Invitation'}
+              </button>
+            </form>
           </div>
         </div>
       )}

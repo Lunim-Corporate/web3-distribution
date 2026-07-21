@@ -45,7 +45,7 @@ export const RecentActivity: React.FC<RecentActivityProps> = ({ isDemoMode }) =>
       console.error("Activity fetch failed:", e);
       setItems([]);
     }
-  }, []);
+  }, [isDemoMode]);
 
   React.useEffect(() => {
     fetchActivity();

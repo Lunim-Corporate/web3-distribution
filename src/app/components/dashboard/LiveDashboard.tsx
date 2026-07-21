@@ -73,6 +73,8 @@ export function LiveDashboard({
   } = useRevenueSplitter(targetCA);
   const { formatEthAsUsd } = useEthPrice();
 
+  const holdersAddresses = holders.map(h => h.wallet_address).join(',');
+
   // State
   const [contractBalance, setContractBalance] = useState('0.0');
   const [claimStatuses, setClaimStatuses] = useState<{ address: string; accruedEth: string; hasPending: boolean }[]>([]);
@@ -103,7 +105,8 @@ export function LiveDashboard({
     } catch (err) {
       console.error('Failed to fetch claim statuses:', err);
     }
-  }, [holders, getHolderClaimStatuses]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [holdersAddresses, getHolderClaimStatuses]);
 
   /* ── Fetch distribution history ─────────────────────────── */
   const fetchHistory = useCallback(async () => {

@@ -71,6 +71,9 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
   const { getAccruedBalanceEth, claimRevenue } = useRevenueSplitter(targetCA);
   const { ethPrice } = useEthPrice();
 
+  const serializedWallets = wallets.map(w => `${w.address}:${w.walletClientType}`).join(',');
+  const serializedHolders = holders.map(h => `${h.wallet_address}:${h.full_name}`).join(',');
+
   const [activeWallet, setActiveWallet] = useState<string | null>(null);
   const [claimableBalance, setClaimableBalance] = useState<string>('0.0');
   const [isLoadingBalance, setIsLoadingBalance] = useState(false);
@@ -80,13 +83,10 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
   const [claimedDemoTotal, setClaimedDemoTotal] = useState(0);
 
   const determineWallet = useCallback(() => {
-    // In any mode: first try to match the logged-in user with a rights holder by email/name
-    // This ensures the correct wallet is used for both display and claiming
     const matchingHolder = holders.find(
-      h =>
-        (h.email && user?.email && h.email.toLowerCase() === user.email.toLowerCase()) ||
-        (h.full_name && user?.name && h.full_name.toLowerCase() === user.name.toLowerCase())
+      h => h.email?.toLowerCase() === user?.email?.toLowerCase()
     );
+
     if (matchingHolder?.wallet_address) {
       return matchingHolder.wallet_address;
     }
@@ -105,7 +105,8 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
     const isAdmin = user?.role === 'admin';
     if (isAdmin && ADMIN_LIVE_ADDRESS) return ADMIN_LIVE_ADDRESS;
     return wallets[0]?.address || null;
-  }, [isDemoMode, user, wallets, holders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isDemoMode, user?.id, user?.wallet_address, user?.role, serializedWallets, serializedHolders]);
 
   useEffect(() => {
     const updateWallet = () => setActiveWallet(determineWallet());
