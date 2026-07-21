@@ -421,7 +421,7 @@ export default function AdminPage() {
                 <select
                   value={selectedProjectId}
                   onChange={e => setSelectedProjectId(e.target.value)}
-                  className="flex-1 bg-gray-900 border border-white/10 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="flex-1 min-w-0 w-full bg-gray-900 border border-white/10 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 truncate"
                 >
                   <option value="">-- Choose Project --</option>
                   {projects.map(p => (
