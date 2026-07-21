@@ -24,6 +24,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@farcaster/mini-app-solana": "^2.0.0",
+    "@farcaster/miniapp-sdk": "^0.3.0",
     "@metamask/connect-evm": "^1.2.0",
     "@openzeppelin/contracts": "^5.6.1",
     "@privy-io/react-auth": "^3.24.0",
@@ -31,6 +33,7 @@
     "@privy-io/wagmi": "^4.0.7",
     "@safe-global/api-kit": "^4.1.0",
     "@safe-global/protocol-kit": "^7.1.0",
+    "@solana/wallet-adapter-react": "^0.15.39",
     "@stripe/stripe-js": "^9.3.1",
     "@supabase/server": "^1.3.0",
     "@supabase/ssr": "^0.10.2",
