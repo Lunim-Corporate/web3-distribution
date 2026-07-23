@@ -58,14 +58,15 @@ export default function AdminPage() {
   const [editProjectGenre, setEditProjectGenre] = useState('');
   const [isSavingProject, setIsSavingProject] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (targetPid?: string) => {
     try {
+      const pidToFetch = targetPid !== undefined ? targetPid : selectedProjectId;
       const demoParam = readDemoMode();
-      const res = await fetch(`/api/dashboard?pid=${selectedProjectId || 'all'}&demo=${demoParam}`);
+      const res = await fetch(`/api/dashboard?pid=${pidToFetch || 'all'}&demo=${demoParam}`);
       if (!res.ok) throw new Error('Failed to fetch admin data');
       const data = await res.json();
       setProjects(data.projectsList || []);
-      if (selectedProjectId && selectedProjectId !== 'all') {
+      if (pidToFetch && pidToFetch !== 'all') {
         setHolders(data.holders || []);
       } else {
         setHolders([]);
@@ -107,7 +108,7 @@ export default function AdminPage() {
       if (!res.ok) throw new Error((await res.json()).error || 'Error deleting project');
       toast.success('Project deleted successfully');
       setSelectedProjectId('');
-      await loadData();
+      await loadData('');
     } catch (e: any) {
       toast.error(e.message || 'Error deleting project');
     } finally {
@@ -166,7 +167,7 @@ export default function AdminPage() {
       setNewProjectName('');
       setNewProjectGenre('');
       setSelectedProjectId(newProj.id);
-      await loadData();
+      await loadData(newProj.id);
     } catch (e: any) {
       toast.error(e.message || 'Error creating project');
     } finally {
