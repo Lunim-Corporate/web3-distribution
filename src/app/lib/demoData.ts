@@ -35,7 +35,7 @@ export const demoHolders = [
     full_name: 'Aria Vance',
     role: 'Director',
     percentage: 25,
-    wallet_address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+    wallet_address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
     email: 'aria@lunim.io',
     user_id: 'user-aria',
     avatar_initials: 'AV',

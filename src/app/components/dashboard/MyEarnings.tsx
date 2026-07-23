@@ -83,6 +83,11 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
   const [claimedDemoTotal, setClaimedDemoTotal] = useState(0);
 
   const determineWallet = useCallback(() => {
+    if (isDemoMode) {
+      const storedDemo = localStorage.getItem('active_demo_wallet');
+      if (storedDemo) return storedDemo;
+    }
+
     const matchingHolder = holders.find(
       h => h.email?.toLowerCase() === user?.email?.toLowerCase()
     );
@@ -92,7 +97,7 @@ export const MyEarnings: React.FC<MyEarningsProps> = ({ user, projectId: _projec
     }
 
     if (isDemoMode) {
-      return localStorage.getItem('active_demo_wallet') || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+      return '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
     }
 
     // Prefer the user's own wallet from their profile first

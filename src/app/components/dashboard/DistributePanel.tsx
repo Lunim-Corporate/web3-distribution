@@ -160,6 +160,44 @@ export function DistributePanel({ project, holders }: { project: Project | null;
       currentStepId = 'index';
       updateStep('index', 'running');
 
+      const activeDemoWallet = isDemoMode
+        ? (localStorage.getItem('active_demo_wallet') || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266')
+        : null;
+
+      let payloadHolders = [...holders];
+      if (isDemoMode && activeDemoWallet) {
+        const hasActive = payloadHolders.some(
+          h => h.wallet_address?.toLowerCase() === activeDemoWallet.toLowerCase()
+        );
+        if (!hasActive) {
+          if (payloadHolders.length > 0) {
+            payloadHolders = [
+              {
+                id: 'demo-active-wallet-holder',
+                full_name: 'Demo Creator (You)',
+                role: 'Admin / Creator',
+                wallet_address: activeDemoWallet,
+                percentage: 20,
+              },
+              ...payloadHolders.map(h => ({
+                ...h,
+                percentage: Math.round(h.percentage * 0.8),
+              })),
+            ];
+          } else {
+            payloadHolders = [
+              {
+                id: 'demo-active-wallet-holder',
+                full_name: 'Demo Creator (You)',
+                role: 'Admin / Creator',
+                wallet_address: activeDemoWallet,
+                percentage: 100,
+              },
+            ];
+          }
+        }
+      }
+
       const res = await fetch('/api/web3/auto-distribute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -167,9 +205,9 @@ export function DistributePanel({ project, holders }: { project: Project | null;
           project_id: project.id,
           amount_eth: ethAmount,
           manual_tx_hash: manualTxHash,
-          sender_address: isDemoMode ? (localStorage.getItem('active_demo_wallet') || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266') : smartAccountAddress,
+          sender_address: isDemoMode ? activeDemoWallet : smartAccountAddress,
           is_demo: isDemoMode,
-          holders: holders.map(h => ({
+          holders: payloadHolders.map(h => ({
             rights_holder_id: h.id,
             wallet_address: h.wallet_address,
             full_name: h.full_name,
