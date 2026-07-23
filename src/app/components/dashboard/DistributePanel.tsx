@@ -68,8 +68,8 @@ export function DistributePanel({ project, holders }: { project: Project | null;
   const handleDistribute = async () => {
     if (!project || holders.length === 0) return toast.error('No project or holders found');
     
-    if (!isDemoMode && !user) {
-      return toast.error('Please login to distribute revenue');
+    if (!isDemoMode && (!user || user.role !== 'admin')) {
+      return toast.error('Live distributions require Administrator permissions. Switch to Demo Mode to test revenue distributions.');
     }
 
     const usdAmount = parseFloat(amount);

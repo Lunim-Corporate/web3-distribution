@@ -7,6 +7,8 @@ import { useRevenueSplitter } from '@/lib/web3';
 import { NetworkBadge } from '@/components/ui/NetworkBadge';
 import { TxModal, TxStep } from '@/components/ui/TxModal';
 import { readDemoMode, isDemoAccessEnabled } from '@/app/lib/demoAccess';
+import { useAuth } from '@/lib/auth';
+import { toast } from 'react-hot-toast';
 import { getExplorerUrl } from '@/app/lib/constants';
 
 /* ─── Types ───────────────────────────────────────────────── */
@@ -48,6 +50,7 @@ export function LiveDistributionWizard({
   projects: Project[];
   onDistributionComplete?: () => void;
 }) {
+  const { user } = useAuth();
   // Mode
   const [isDemoMode, setIsDemoMode] = useState(false);
   useEffect(() => {
@@ -218,6 +221,9 @@ export function LiveDistributionWizard({
 
   /* ── Execute Distribution ───────────────────────────────── */
   const executeDistribution = async () => {
+    if (!isDemoMode && (!user || user.role !== 'admin')) {
+      return toast.error('Live distributions require Administrator permissions. Switch to Demo Mode to test revenue distributions.');
+    }
     setShowConfirmModal(false);
     setIsProcessing(true);
     setIsModalOpen(true);

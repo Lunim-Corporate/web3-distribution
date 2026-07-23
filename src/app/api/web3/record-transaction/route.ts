@@ -38,6 +38,11 @@ export async function POST(req: NextRequest) {
 
     const { project_id, tx_hash, sender_address, total_amount_eth, holders, is_demo } = parsed.data;
 
+    // Live transactions require Administrator permissions
+    if (!is_demo && user.role?.toLowerCase() !== 'admin') {
+      return NextResponse.json({ error: 'Live contract transactions require Administrator permissions.' }, { status: 403 });
+    }
+
     const ethPrice = await getEthPriceUSD();
 
     // 1. Insert the transaction record
