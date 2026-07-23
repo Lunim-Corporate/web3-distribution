@@ -5,12 +5,16 @@ import { checkRateLimit } from '@/app/lib/rateLimit';
 import { z } from 'zod';
 import crypto from 'crypto';
 
+import { clearCache } from '@/app/lib/requestCache';
+import { isSupabaseConfigured } from '@/app/lib/supabaseServer';
+
 const inviteSchema = z.object({
   email: z.string().email('Invalid email format'),
   name: z.string().trim().min(1, 'Name is required').max(200),
   role: z.enum(['RIGHTS_HOLDER', 'ADMIN']),
   projectId: z.string().trim().optional().or(z.literal('')),
   projectName: z.string().trim().max(100).optional().or(z.literal('')),
+  percentage: z.number().min(0).max(100).optional(),
 });
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
@@ -29,7 +33,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Validation failed', details: parsed.error.errors }, { status: 400 });
     }
 
-    const { email, name, role, projectId, projectName } = parsed.data;
+    const { email, name, role, projectId, projectName, percentage } = parsed.data;
 
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-project.supabase.co',
@@ -119,6 +123,44 @@ export async function POST(request: Request) {
 
     // Link user to project as rights holder if project is selected/created
     if (finalProjectId) {
+      const requestedPct = Number(percentage || 0);
+      let finalPct = requestedPct;
+
+      if (requestedPct > 0 && isSupabaseConfigured()) {
+        // Fetch existing holders for THIS project only
+        const { data: existingHolders } = await supabaseAdmin
+          .from('rights_holders')
+          .select('id, percentage')
+          .eq('project_id', finalProjectId);
+
+        if (existingHolders && existingHolders.length > 0) {
+          const totalOldPct = existingHolders.reduce((acc: number, h: any) => acc + Number(h.percentage || 0), 0);
+          const remainingPct = 100 - requestedPct;
+
+          if (totalOldPct > 0 && remainingPct > 0) {
+            let runningSum = 0;
+            for (let i = 0; i < existingHolders.length; i++) {
+              const h = existingHolders[i];
+              let newPct = 0;
+              if (i === existingHolders.length - 1) {
+                newPct = Number((remainingPct - runningSum).toFixed(2));
+              } else {
+                newPct = Number(((Number(h.percentage) * remainingPct) / totalOldPct).toFixed(2));
+                runningSum += newPct;
+              }
+
+              await supabaseAdmin
+                .from('rights_holders')
+                .update({ percentage: Math.max(0, newPct) })
+                .eq('id', h.id);
+            }
+          }
+        } else {
+          // If no existing holders in project, user gets 100% or requestedPct
+          finalPct = requestedPct > 0 ? requestedPct : 100;
+        }
+      }
+
       const { error: holderError } = await supabaseAdmin
         .from('rights_holders')
         .insert({
@@ -126,7 +168,7 @@ export async function POST(request: Request) {
           full_name: name,
           role: role === 'ADMIN' ? 'Administrator' : 'Contributor',
           wallet_address: '0x0000000000000000000000000000000000000000', // placeholder until user connects wallet
-          percentage: 0, // starts at 0% allowing admin to customize distribution in roster later
+          percentage: finalPct,
           total_received: 0,
           email: email.toLowerCase(),
           user_id: userId,
@@ -135,8 +177,9 @@ export async function POST(request: Request) {
 
       if (holderError) {
         console.warn('Warning: could not insert into rights_holders', holderError);
-        // Do not fail the whole invite process, profile is still created.
       }
+
+      clearCache();
     }
 
     // Generate verification token and insert record into invites table

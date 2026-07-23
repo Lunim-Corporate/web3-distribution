@@ -29,6 +29,7 @@ export default function AdminPage() {
   const [inviteRole, setInviteRole] = useState<'RIGHTS_HOLDER' | 'ADMIN'>('RIGHTS_HOLDER');
   const [inviteProjectId, setInviteProjectId] = useState('');
   const [inviteProjectName, setInviteProjectName] = useState('');
+  const [invitePercentage, setInvitePercentage] = useState('');
   const [isSendingInvite, setIsSendingInvite] = useState(false);
 
   // New Holder State
@@ -318,8 +319,12 @@ export default function AdminPage() {
     if (!inviteEmail || !inviteName) {
       return toast.error('Email and Name are required');
     }
+    if (inviteProjectId && (!invitePercentage || Number(invitePercentage) <= 0 || Number(invitePercentage) > 100)) {
+      return toast.error('Please enter a valid percentage allocation (0.01% - 100%)');
+    }
     setIsSendingInvite(true);
     try {
+      const pctValue = inviteProjectId ? Number(invitePercentage) : 0;
       const res = await fetch('/api/auth/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -329,20 +334,33 @@ export default function AdminPage() {
           role: inviteRole,
           projectId: inviteProjectId === 'new' ? '' : inviteProjectId,
           projectName: inviteProjectId === 'new' ? inviteProjectName : '',
+          percentage: pctValue,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to send invitation');
-      toast.success(`Invitation sent successfully to ${inviteEmail}`);
+      
+      const targetProjName = inviteProjectId === 'new' 
+        ? inviteProjectName 
+        : (projects.find(p => p.id === inviteProjectId)?.name || 'selected project');
+        
+      if (pctValue > 0) {
+        toast.success(`Invitation sent & ${pctValue}% allocated for "${targetProjName}". Project holders rebalanced to 100%.`);
+      } else {
+        toast.success(`Invitation sent successfully to ${inviteEmail}`);
+      }
+      
       // Clear fields
       setInviteEmail('');
       setInviteName('');
       setInviteRole('RIGHTS_HOLDER');
       setInviteProjectId('');
       setInviteProjectName('');
+      setInvitePercentage('');
       // Redirect to User Management and refresh list
       setActiveTab('users');
       void fetchUsers();
+      void loadData('');
     } catch (err: any) {
       toast.error(err.message || 'Failed to send invitation');
     } finally {
@@ -854,6 +872,31 @@ export default function AdminPage() {
                     className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-semibold"
                     placeholder="e.g. Project Orion"
                   />
+                </div>
+              )}
+
+              {Boolean(inviteProjectId) && (
+                <div className="space-y-2 bg-indigo-500/5 border border-indigo-500/20 p-4 rounded-2xl">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[10px] font-bold text-indigo-400 uppercase tracking-widest">
+                      Percentage Allocation (%) for Invited User
+                    </label>
+                    <span className="text-[10px] text-gray-400 font-medium">Existing holders in this project auto-rebalance to 100%</span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      max="100"
+                      required
+                      value={invitePercentage}
+                      onChange={(e) => setInvitePercentage(e.target.value)}
+                      className="w-full bg-slate-900/80 border border-indigo-500/30 rounded-xl px-4 py-3 text-white text-sm font-mono font-bold outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                      placeholder="e.g. 20.00"
+                    />
+                    <span className="absolute right-4 top-3 text-indigo-400 font-bold text-sm pointer-events-none">%</span>
+                  </div>
                 </div>
               )}
 

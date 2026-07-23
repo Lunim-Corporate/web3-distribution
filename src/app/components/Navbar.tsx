@@ -79,21 +79,23 @@ export const Navbar: React.FC = () => {
     }
     const externalWallet = wallets.find(w => w.walletClientType !== 'privy');
     const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
-    const isAdmin = user?.role === 'admin';
-    const adminWallet = user?.wallet_address || (isAdmin ? ADMIN_LIVE_ADDRESS : null);
+    const activeConnectedAddress = externalWallet?.address || embeddedWallet?.address || user?.wallet_address || smartAccountAddress;
 
-    if (isAdmin && adminWallet) {
-      return { address: adminWallet, name: user?.name || 'Admin', role: 'Admin', iconType: getWalletIconType(externalWallet || null), walletObj: externalWallet || null };
-    }
     if (externalWallet) {
       return {
         address: externalWallet.address,
         name: externalWallet.walletClientType ? externalWallet.walletClientType.charAt(0).toUpperCase() + externalWallet.walletClientType.slice(1) : 'Live Wallet',
-        role: user?.role || 'Creator', iconType: getWalletIconType(externalWallet), walletObj: externalWallet
+        role: user?.role === 'admin' ? 'Admin' : (user?.role || 'Creator'), iconType: getWalletIconType(externalWallet), walletObj: externalWallet
       };
     }
     if (embeddedWallet) {
-      return { address: embeddedWallet.address, name: 'Privy Wallet', role: user?.role || 'Creator', iconType: 'generic' as const, walletObj: embeddedWallet };
+      return { address: embeddedWallet.address, name: 'Privy Wallet', role: user?.role === 'admin' ? 'Admin' : (user?.role || 'Creator'), iconType: 'generic' as const, walletObj: embeddedWallet };
+    }
+    if (activeConnectedAddress) {
+      return { address: activeConnectedAddress, name: user?.name || 'Smart Account', role: user?.role === 'admin' ? 'Admin' : (user?.role || 'Creator'), iconType: 'generic' as const, walletObj: null };
+    }
+    if (user?.role === 'admin' && ADMIN_LIVE_ADDRESS) {
+      return { address: ADMIN_LIVE_ADDRESS, name: user?.name || 'Admin', role: 'Admin', iconType: 'generic' as const, walletObj: null };
     }
     return null;
   };

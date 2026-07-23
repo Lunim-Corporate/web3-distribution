@@ -37,12 +37,8 @@ export default function ProfilePage() {
   const getLiveWalletAddress = () => {
     const externalWallet = wallets.find(w => w.walletClientType !== 'privy');
     const embeddedWallet = wallets.find(w => w.walletClientType === 'privy');
-    const isAdmin = user?.role === 'admin';
     
-    if (isAdmin && ADMIN_LIVE_ADDRESS) {
-      return ADMIN_LIVE_ADDRESS;
-    }
-    return externalWallet?.address || embeddedWallet?.address || wallets[0]?.address;
+    return externalWallet?.address || embeddedWallet?.address || user?.wallet_address || smartAccountAddress || (user?.role === 'admin' ? ADMIN_LIVE_ADDRESS : '');
   };
   
   const liveWalletAddress = getLiveWalletAddress();

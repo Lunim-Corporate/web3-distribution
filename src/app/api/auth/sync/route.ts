@@ -366,14 +366,14 @@ export async function POST(req: Request) {
       }
     }
 
-    // 4. Sync wallet address to rights_holders entries for this admin via email
-    if (walletAddress && originalEmail && isDesignatedAdmin) {
+    // 4. Sync wallet address to rights_holders entries for all users via email
+    if (walletAddress && originalEmail) {
       try {
         await supabaseAdmin
           .from('rights_holders')
           .update({ wallet_address: walletAddress.toLowerCase() })
           .eq('email', originalEmail)
-          .is('wallet_address', null);
+          .or('wallet_address.is.null,wallet_address.eq.0x0000000000000000000000000000000000000000');
       } catch (walletSyncErr) {
         console.warn('[SYNC] Failed to sync wallet to rights_holders:', walletSyncErr);
       }
