@@ -11,7 +11,7 @@ interface RightsHolder { id: string; full_name: string; role: string; wallet_add
 interface ProfileUser { id: string; display_name: string; role: string; wallet_address: string | null; created_at: string; }
 
 export default function AdminPage() {
-  const { user } = useAuth();
+  const { user, isAuthHydrated } = useAuth();
   const router = useRouter();
   
   const [projects, setProjects] = useState<Project[]>([]);
@@ -21,6 +21,7 @@ export default function AdminPage() {
   const [profileUsers, setProfileUsers] = useState<ProfileUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [activeTab, setActiveTab] = useState<'roster' | 'users' | 'invite'>('roster');
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
 
   // Invite User State
   const [inviteEmail, setInviteEmail] = useState('');
@@ -77,6 +78,7 @@ export default function AdminPage() {
   }, [selectedProjectId]);
 
   useEffect(() => {
+    if (!isAuthHydrated) return;
     if (!user) {
       router.replace('/login');
       return;
@@ -86,10 +88,32 @@ export default function AdminPage() {
       return;
     }
     void loadData();
-  }, [user, router, loadData]);
+  }, [isAuthHydrated, user, router, loadData]);
 
   // Find selected project details
   const selectedProject = projects.find(p => p.id === selectedProjectId);
+
+  const handleDeleteProject = async () => {
+    if (!selectedProjectId || selectedProjectId === 'all') return;
+    const targetProj = projects.find(p => p.id === selectedProjectId);
+    if (!confirm(`Are you sure you want to delete "${targetProj?.name || 'this project'}"? This action is permanent and will remove all associated rights holders and allocation rosters.`)) {
+      return;
+    }
+    setIsDeletingProject(true);
+    try {
+      const res = await fetch(`/api/projects/${selectedProjectId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Error deleting project');
+      toast.success('Project deleted successfully');
+      setSelectedProjectId('');
+      await loadData();
+    } catch (e: any) {
+      toast.error(e.message || 'Error deleting project');
+    } finally {
+      setIsDeletingProject(false);
+    }
+  };
 
   const handleEditProject = () => {
     if (!selectedProject) return;
@@ -429,13 +453,23 @@ export default function AdminPage() {
                   ))}
                 </select>
                 {selectedProjectId && (
-                  <button
-                    onClick={handleEditProject}
-                    className="px-3 py-3 bg-indigo-500/10 text-indigo-400 rounded-xl hover:bg-indigo-500/20 text-xs font-black uppercase tracking-widest transition-all border border-indigo-500/20"
-                    title="Edit project"
-                  >
-                    Edit
-                  </button>
+                  <div className="flex gap-1.5 shrink-0">
+                    <button
+                      onClick={handleEditProject}
+                      className="px-3 py-3 bg-indigo-500/10 text-indigo-400 rounded-xl hover:bg-indigo-500/20 text-xs font-black uppercase tracking-widest transition-all border border-indigo-500/20"
+                      title="Edit project"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={handleDeleteProject}
+                      disabled={isDeletingProject}
+                      className="px-3 py-3 bg-rose-500/10 text-rose-400 rounded-xl hover:bg-rose-500/20 text-xs font-black uppercase tracking-widest transition-all border border-rose-500/20 disabled:opacity-50"
+                      title="Delete project"
+                    >
+                      {isDeletingProject ? '...' : 'Delete'}
+                    </button>
+                  </div>
                 )}
               </div>
             )}

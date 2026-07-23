@@ -142,5 +142,43 @@ export async function PATCH(
   }
 }
 
+export async function DELETE(
+  _req: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const blocked = await checkRateLimit('write');
+    if (blocked) return blocked;
+
+    await requireAdmin();
+
+    const id = params.id;
+    if (!id) {
+      return NextResponse.json({ error: 'missing id' }, { status: 400 });
+    }
+
+    if (isSupabaseConfigured()) {
+      // Cascading delete of associated project data
+      try { await supabaseAdmin.from('transaction_splits').delete().eq('project_id', id); } catch {}
+      try { await supabaseAdmin.from('transactions').delete().eq('project_id', id); } catch {}
+      try { await supabaseAdmin.from('rights_holders').delete().eq('project_id', id); } catch {}
+      try { await supabaseAdmin.from('activities').delete().eq('project_id', id); } catch {}
+      try { await supabaseAdmin.from('invites').delete().eq('project_id', id); } catch {}
+
+      const { error } = await supabaseAdmin.from('projects').delete().eq('id', id);
+      if (error) throw error;
+    }
+
+    clearCache();
+    return NextResponse.json({ success: true, message: 'Project deleted successfully' });
+  } catch (err: any) {
+    const msg = typeof err === 'string' ? err : err?.message || err?.error || (err instanceof Error ? err.message : String(err));
+    return NextResponse.json(
+      { error: msg },
+      { status: 500 }
+    );
+  }
+}
+
 export const dynamic = 'force-dynamic';
 

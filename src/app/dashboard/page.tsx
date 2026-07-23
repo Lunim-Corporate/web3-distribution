@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, Suspense, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabaseClient';
 import { ChartsPanel } from '@/components/dashboard/ChartsPanel';
@@ -75,6 +75,7 @@ export default function Dashboard() {
 
 function DashboardContent() {
   const { isAuthHydrated, user } = useAuth();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { ethPrice } = useEthPrice();
 
@@ -177,7 +178,7 @@ function DashboardContent() {
   /* ── Auth guard & Initial load ───────────────────────────── */
   useEffect(() => {
     if (!isAuthHydrated) { setStage('Checking authentication…'); return; }
-    if (!user) { setStage('Redirecting to login…'); window.location.href = '/login'; return; }
+    if (!user) { setStage('Redirecting to login…'); router.replace('/login'); return; }
 
     const load = async () => {
       setStage('Loading projects…');
@@ -187,25 +188,23 @@ function DashboardContent() {
         if (!res.ok) throw new Error('Failed to load');
         const data = await res.json();
         
-        if (!data.projectsList || data.projectsList.length === 0) {
-          setIsError(true);
-          setErrorMsg('No active projects found. Make sure the database is seeded.');
-          return;
-        }
-        setProjectsList(data.projectsList);
+        setProjectsList(data.projectsList || []);
         setAllHoldersList(data.holders || []);
         setAllTransactionsList(data.transactions || []);
         
-        // Use defaultProjectId if provided (admin's own project), otherwise first project
-        const initialId = data.defaultProjectId || data.projectsList[0].id;
-        setProjectId(initialId);
+        if (data.projectsList && data.projectsList.length > 0) {
+          const initialId = data.defaultProjectId || data.projectsList[0].id;
+          setProjectId(initialId);
+        } else {
+          setProjectId(null);
+        }
       } catch (err) {
         setIsError(true);
         setErrorMsg('Error loading projects.');
       }
     };
     void load();
-  }, [isAuthHydrated, user]);
+  }, [isAuthHydrated, user, router]);
 
   /* ── Realtime: refresh when a new transaction lands ─────────── */
   useEffect(() => {
@@ -239,7 +238,7 @@ function DashboardContent() {
   }, [loadProjectData]);
 
   /* ─── Render guards ──────────────────────────────────────── */
-  if (!isAuthHydrated || (!projectId && !isError && projectsList.length === 0)) return <Spinner text={stage} />;
+  if (!isAuthHydrated || stage.startsWith('Checking authentication')) return <Spinner text={stage} />;
   if (isError) return <ErrorView msg={errorMsg} onRetry={() => window.location.reload()} />;
 
   const isAdmin = user?.role === 'admin';
