@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     // Create Supabase admin client with service role key
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-project.supabase.co',
-      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MDA0ODgwMDAsImV4cCI6MTkxNjA2NDAwMH0.placeholder-key',
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key',
       {
         auth: {
           autoRefreshToken: false,
