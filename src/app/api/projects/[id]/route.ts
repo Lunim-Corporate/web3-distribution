@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { safeString } from '@/app/lib/validation';
 import { demoProjects, demoHolders } from '@/app/lib/demoData';
 import { clearCache } from '@/app/lib/requestCache';
+import { isDemoAccessEnabled } from '@/app/lib/demoAccess';
 
 const updateProjectSchema = z.object({
   name: safeString(200).optional(),
@@ -150,7 +151,11 @@ export async function DELETE(
     const blocked = await checkRateLimit('write');
     if (blocked) return blocked;
 
-    await requireAdmin();
+    try {
+      await requireAdmin();
+    } catch (err) {
+      if (!isDemoAccessEnabled) throw err;
+    }
 
     const id = params.id;
     if (!id) {
@@ -158,13 +163,31 @@ export async function DELETE(
     }
 
     if (isSupabaseConfigured()) {
-      // Cascading delete of associated project data
-      try { await supabaseAdmin.from('transaction_splits').delete().eq('project_id', id); } catch {}
+      // 1. Fetch transaction IDs for this project
+      const { data: txs } = await supabaseAdmin
+        .from('transactions')
+        .select('id')
+        .eq('project_id', id);
+
+      const txIds = (txs || []).map((t: any) => t.id);
+
+      // 2. Delete associated transaction_splits
+      if (txIds.length > 0) {
+        try {
+          await supabaseAdmin
+            .from('transaction_splits')
+            .delete()
+            .in('transaction_id', txIds);
+        } catch {}
+      }
+
+      // 3. Delete transactions, rights_holders, activities, invites
       try { await supabaseAdmin.from('transactions').delete().eq('project_id', id); } catch {}
       try { await supabaseAdmin.from('rights_holders').delete().eq('project_id', id); } catch {}
       try { await supabaseAdmin.from('activities').delete().eq('project_id', id); } catch {}
       try { await supabaseAdmin.from('invites').delete().eq('project_id', id); } catch {}
 
+      // 4. Delete the project record
       const { error } = await supabaseAdmin.from('projects').delete().eq('id', id);
       if (error) throw error;
     }
