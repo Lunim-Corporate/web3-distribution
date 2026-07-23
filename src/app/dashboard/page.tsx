@@ -289,16 +289,16 @@ function DashboardContent() {
             </div>
 
             {/* Stat pills only — Web3 Demo button is in the Navbar */}
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-3 w-full sm:w-auto">
               {statCards.map(s => (
-                <div key={s.label} className="px-4 py-2.5 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 shadow-lg">
-                  <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{s.label}</div>
-                  <div className={`text-base font-black text-transparent bg-clip-text bg-gradient-to-r ${
+                <div key={s.label} className="px-4 py-2.5 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 shadow-lg min-w-0">
+                  <div className="text-[9px] font-bold text-gray-400 uppercase tracking-widest truncate">{s.label}</div>
+                  <div className={`text-sm sm:text-base font-black text-transparent bg-clip-text bg-gradient-to-r ${
                     s.color === 'indigo' ? 'from-indigo-400 to-cyan-400' :
                     s.color === 'purple' ? 'from-purple-400 to-fuchsia-400' :
                     s.color === 'blue' ? 'from-blue-400 to-indigo-400' : 'from-emerald-400 to-teal-400'
-                  } font-mono`}>{s.value}</div>
-                  {s.sub && <div className="text-[9px] text-gray-500 mt-0.5 truncate max-w-[100px]">{s.sub}</div>}
+                  } font-mono truncate`}>{s.value}</div>
+                  {s.sub && <div className="text-[9px] text-gray-500 mt-0.5 truncate">{s.sub}</div>}
                 </div>
               ))}
             </div>

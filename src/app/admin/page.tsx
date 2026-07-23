@@ -460,11 +460,11 @@ export default function AdminPage() {
                 </div>
               </form>
             ) : (
-              <div className="flex gap-2">
+              <div className="space-y-3">
                 <select
                   value={selectedProjectId}
                   onChange={e => setSelectedProjectId(e.target.value)}
-                  className="flex-1 min-w-0 w-full bg-gray-900 border border-white/10 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 truncate"
+                  className="w-full bg-gray-900 border border-white/10 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
                 >
                   <option value="">-- Choose Project --</option>
                   {projects.map(p => (
@@ -472,21 +472,21 @@ export default function AdminPage() {
                   ))}
                 </select>
                 {selectedProjectId && (
-                  <div className="flex gap-1.5 shrink-0">
+                  <div className="flex gap-2.5 pt-1">
                     <button
                       onClick={handleEditProject}
-                      className="px-3 py-3 bg-indigo-500/10 text-indigo-400 rounded-xl hover:bg-indigo-500/20 text-xs font-black uppercase tracking-widest transition-all border border-indigo-500/20"
-                      title="Edit project"
+                      className="flex-1 py-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl hover:bg-indigo-500/20 text-xs font-black uppercase tracking-widest transition-all border border-indigo-500/20 flex items-center justify-center gap-1.5"
+                      title="Edit project name or genre"
                     >
-                      Edit
+                      <span>✏️</span> Edit Project
                     </button>
                     <button
                       onClick={handleDeleteProject}
                       disabled={isDeletingProject}
-                      className="px-3 py-3 bg-rose-500/10 text-rose-400 rounded-xl hover:bg-rose-500/20 text-xs font-black uppercase tracking-widest transition-all border border-rose-500/20 disabled:opacity-50"
+                      className="flex-1 py-2.5 bg-rose-500/10 text-rose-400 rounded-xl hover:bg-rose-500/20 text-xs font-black uppercase tracking-widest transition-all border border-rose-500/20 disabled:opacity-50 flex items-center justify-center gap-1.5"
                       title="Delete project"
                     >
-                      {isDeletingProject ? '...' : 'Delete'}
+                      <span>🗑️</span> {isDeletingProject ? 'Deleting...' : 'Delete Project'}
                     </button>
                   </div>
                 )}

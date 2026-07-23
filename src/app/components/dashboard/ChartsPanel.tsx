@@ -268,6 +268,9 @@ const ChartsPanel: React.FC<ChartsPanelProps> = ({ projectId, isDemoMode }) => {
                 },
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                  padding: { left: 12, right: 16, top: 10, bottom: 6 }
+                },
                 scales: {
                   x: { 
                     grid: { color: 'rgba(255, 255, 255, 0.05)' }, 

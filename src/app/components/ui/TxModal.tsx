@@ -107,7 +107,7 @@ export function TxModal({ isOpen, onClose, steps, txHash, error, holders, amount
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.9, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-          className="relative z-10 w-full max-w-xl bg-gradient-to-b from-white/10 to-white/5 border border-white/15 rounded-[36px] p-8 md:p-10 shadow-2xl backdrop-blur-2xl overflow-hidden flex flex-col max-h-[90vh]"
+          className="relative z-10 w-full max-w-xl bg-gradient-to-b from-slate-900/95 via-slate-900/90 to-black/95 border border-white/15 rounded-2xl md:rounded-[36px] p-4 sm:p-6 md:p-8 shadow-2xl backdrop-blur-2xl overflow-hidden flex flex-col max-h-[92vh]"
         >
           {/* Subtle Glows */}
           <div className="absolute -top-24 -left-24 w-48 h-48 bg-indigo-500/20 rounded-full blur-[80px]" />
@@ -281,7 +281,10 @@ export function TxModal({ isOpen, onClose, steps, txHash, error, holders, amount
               >
                 <div>
                   <p className="text-[10px] font-black text-emerald-500 uppercase tracking-wider">Distribution Finalized</p>
-                  <p className="text-xs font-mono text-emerald-400 break-all select-all mt-1">{txHash}</p>
+                  <p className="text-xs font-mono text-emerald-400 break-all select-all mt-1 hidden sm:block">{txHash}</p>
+                  <p className="text-xs font-mono text-emerald-400 font-bold mt-1 sm:hidden">
+                    {txHash.length > 20 ? `${txHash.slice(0, 10)}...${txHash.slice(-8)}` : txHash}
+                  </p>
                 </div>
                 {txHash.startsWith('0x') && !txHash.includes('mock') && (
                   <a

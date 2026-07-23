@@ -570,9 +570,28 @@ export const Navbar: React.FC = () => {
           </div>
         </div>
 
-        <div className={`md:hidden transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-hidden ${mobileOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
-          <div className="px-4 pb-5 pt-2 space-y-1 border-t border-gray-100 dark:border-gray-800">
-            <Link href="/dashboard" className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
+        <div className={`md:hidden transition-all duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] overflow-hidden ${mobileOpen ? 'max-h-[700px] opacity-100' : 'max-h-0 opacity-0'}`}>
+          <div className="px-4 pb-5 pt-2 space-y-2 border-t border-gray-100 dark:border-gray-800">
+            
+            {/* Mobile Mode Switcher */}
+            {isDemoAccessEnabled && (
+              <div className="p-3 bg-gray-50 dark:bg-gray-900/80 rounded-2xl border border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Environment Mode</span>
+                <button
+                  onClick={toggleDemoMode}
+                  className="flex items-center gap-1.5 p-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full shadow-inner text-xs font-bold transition-all"
+                >
+                  <span className={`px-2.5 py-1 rounded-full transition-all ${isDemoMode ? 'bg-amber-500 text-white shadow-sm' : 'text-gray-400'}`}>
+                    Demo
+                  </span>
+                  <span className={`px-2.5 py-1 rounded-full transition-all ${!isDemoMode ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-400'}`}>
+                    Live
+                  </span>
+                </button>
+              </div>
+            )}
+
+            <Link href="/dashboard" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
               <span>📊</span> Dashboard
             </Link>
             <div className="px-4 py-2 space-y-2.5">

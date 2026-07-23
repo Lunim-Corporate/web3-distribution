@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth';
-import { isSandboxLoginEnabled, setDemoMode } from '@/lib/demoAccess';
 import { motion } from 'framer-motion';
 
 export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login' | 'signup' }) {
@@ -12,14 +11,6 @@ export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const [showSandbox, setShowSandbox] = useState(false);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setShowSandbox(isSandboxLoginEnabled);
-    }
-  }, []);
-
 
   useEffect(() => {
     if (isAuthHydrated && user) {
@@ -37,24 +28,6 @@ export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login
       setError(msg);
       setIsLoading(false);
     }
-  };
-
-  const handleDemo = () => {
-    if (!isSandboxLoginEnabled) {
-      setError('Sandbox access is disabled on this deployment.');
-      return;
-    }
-    const demoUser = {
-      id: 'demo-admin-id',
-      email: 'demo@lunim.io',
-      name: 'Demo Admin',
-      isAdmin: true,
-      role: 'admin',
-      isDemo: true,
-    };
-    setDemoMode(true);
-    document.cookie = `crt_user=${encodeURIComponent(JSON.stringify(demoUser))}; path=/; SameSite=Lax; max-age=86400`;
-    router.push('/dashboard');
   };
 
   return (
@@ -189,29 +162,6 @@ export function LoginComponent({ initialMode = 'login' }: { initialMode?: 'login
                   </span>
                 )}
               </button>
-
-              {showSandbox && (
-                <>
-                  <div className="relative my-6">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-slate-700/50"></div>
-                    </div>
-                    <div className="relative flex justify-center text-xs">
-                      <span className="bg-slate-900/40 px-3 text-slate-500">or</span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={handleDemo}
-                    className="w-full bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 text-amber-400 border border-amber-500/20 hover:border-amber-500/40 font-bold py-4 rounded-xl transition-all"
-                  >
-                    <span className="flex items-center justify-center gap-2">
-                      Launch Sandbox Bypass
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                    </span>
-                  </button>
-                </>
-              )}
             </div>
           </div>
 
