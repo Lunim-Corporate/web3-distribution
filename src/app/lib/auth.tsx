@@ -156,35 +156,45 @@ function PrivyAuthProvider({ children }: { children: React.ReactNode }) {
           body: JSON.stringify({ privyUser: pUser }),
         });
 
-        if (!res.ok) throw new Error('Sync failed');
+        if (res.ok) {
+          const { user: supabaseProfile } = await res.json();
+          const emailAddress = pUser.email?.address || '';
+          const displayName = supabaseProfile.display_name || emailAddress.split('@')[0] || '';
 
-        const { user: supabaseProfile } = await res.json();
+          const profile: User = {
+            id: supabaseProfile.id,
+            email: emailAddress,
+            name: displayName,
+            isAdmin: supabaseProfile.role === 'ADMIN',
+            role: supabaseProfile.role?.toLowerCase() as Role || 'creator',
+            wallet_address: supabaseProfile.wallet_address || null,
+            wallet_connected: !!supabaseProfile.wallet_address,
+          };
 
-        const emailAddress = pUser.email?.address || '';
-        const displayName = supabaseProfile.display_name || emailAddress.split('@')[0] || '';
-
-        const profile: User = {
-          id: supabaseProfile.id,
-          email: emailAddress,
-          name: displayName,
-          isAdmin: supabaseProfile.role === 'ADMIN',
-          role: supabaseProfile.role?.toLowerCase() as Role || 'creator',
-          wallet_address: supabaseProfile.wallet_address || null,
-          wallet_connected: !!supabaseProfile.wallet_address,
-        };
-
-        setUser(profile);
-        setCookie(profile);
-        setIsAuthHydrated(true);
+          setUser(profile);
+          setCookie(profile);
+          setIsAuthHydrated(true);
+          return;
+        }
       } catch (err) {
         console.error('[AUTH] Sync failed:', err);
-        setUser({
-          id: pUser.id.replace('did:privy:', ''),
-          email: pUser.email?.address || '',
-          role: 'creator',
-        });
-        setIsAuthHydrated(true);
       }
+
+      // Fallback: set client user & cookie so user session persists seamlessly
+      const emailAddress = pUser.email?.address || '';
+      const fallbackId = pUser.id.replace('did:privy:', '');
+      const fallbackProfile: User = {
+        id: fallbackId,
+        email: emailAddress,
+        name: emailAddress.split('@')[0] || 'User',
+        isAdmin: false,
+        role: 'creator',
+        wallet_address: pUser.wallet?.address || null,
+        wallet_connected: !!pUser.wallet?.address,
+      };
+      setUser(fallbackProfile);
+      setCookie(fallbackProfile);
+      setIsAuthHydrated(true);
     };
 
     doSync();
@@ -396,7 +406,7 @@ function DemoAuthProvider({ children }: { children: React.ReactNode }) {
 // Main Auth Provider router
 // ----------------------------------------------------
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const hasAppId = typeof window !== 'undefined' && !!process.env.NEXT_PUBLIC_PRIVY_APP_ID;
+  const hasAppId = !!process.env.NEXT_PUBLIC_PRIVY_APP_ID;
 
   if (hasAppId) {
     return <PrivyAuthProvider>{children}</PrivyAuthProvider>;

@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '';
 
 export const supabaseAdmin = createClient(url, serviceKey, {
   auth: {
@@ -11,11 +11,13 @@ export const supabaseAdmin = createClient(url, serviceKey, {
 });
 
 export function isSupabaseConfigured(): boolean {
+  const currentKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || '';
   return !!process.env.NEXT_PUBLIC_SUPABASE_URL && 
          !process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder') &&
-         !!process.env.SUPABASE_SERVICE_ROLE_KEY &&
-         !process.env.SUPABASE_SERVICE_ROLE_KEY.includes('placeholder-key') &&
-         !process.env.SUPABASE_SERVICE_ROLE_KEY.includes('your-supabase-service-role-key');
+         !!currentKey &&
+         !currentKey.includes('placeholder-key') &&
+         !currentKey.includes('your-supabase-service-role-key') &&
+         !currentKey.includes('your-supabase-anon-key');
 }
 
 

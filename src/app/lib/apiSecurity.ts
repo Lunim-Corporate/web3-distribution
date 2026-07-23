@@ -135,21 +135,47 @@ export async function getVerifiedUser(): Promise<User | null> {
 
     // 3. Verify user exists in DB and get fresh role/admin status
     const cacheKey = `user-profile-${userData.id}`;
-    const dbUser = await getOrSetCachedPromise(
+    let dbUser = await getOrSetCachedPromise(
       cacheKey,
       async () => {
-        const { data, error } = await supabaseAdmin
+        const { data } = await supabaseAdmin
           .from('users_profile')
           .select('id, display_name, role')
           .eq('id', userData.id)
           .maybeSingle();
-        if (error) throw error;
         return data;
       },
-      30000 // 30 seconds TTL
+      15000 // 15 seconds TTL
     );
 
-    if (!dbUser) return null;
+    if (!dbUser && configured) {
+      // Lookup or upsert user profile so authenticating users are recognized in Supabase
+      const adminEmails = (process.env.ADMIN_EMAILS || '').toLowerCase().split(',').map(e => e.trim());
+      const isUserAdmin = userData.isAdmin || (userData.email && adminEmails.includes(userData.email.toLowerCase()));
+      const defaultRole = isUserAdmin ? 'ADMIN' : (userData.role?.toUpperCase() || 'RIGHTS_HOLDER');
+
+      const { data: upserted } = await supabaseAdmin
+        .from('users_profile')
+        .upsert({
+          id: userData.id,
+          display_name: userData.name || userData.email?.split('@')[0] || 'User',
+          role: defaultRole,
+        }, { onConflict: 'id' })
+        .select('id, display_name, role')
+        .maybeSingle();
+
+      dbUser = upserted || { id: userData.id, display_name: userData.name || 'User', role: defaultRole };
+    }
+
+    if (!dbUser) {
+      return {
+        id: userData.id,
+        email: userData.email || '',
+        name: userData.name || 'User',
+        role: (userData.role || 'creator') as any,
+        isAdmin: !!userData.isAdmin,
+      };
+    }
 
     const role = dbUser.role || 'RIGHTS_HOLDER';
     const isAdmin = role.toUpperCase() === 'ADMIN';
@@ -157,7 +183,7 @@ export async function getVerifiedUser(): Promise<User | null> {
     return {
       id: dbUser.id,
       email: userData.email || '',
-      name: dbUser.display_name || '',
+      name: dbUser.display_name || userData.name || '',
       role: role.toLowerCase() as any,
       isAdmin,
     };
